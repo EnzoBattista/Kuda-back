@@ -134,3 +134,30 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# =========================
+# macOS / Apple
+# =========================
+
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icono con retorno de carro
+Icon
+
+# Archivos ocultos de miniaturas
+._*
+
+# Archivos que pueden aparecer en la raíz de un volumen/disco
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directorios de Apple creados por iCloud
+.apdisk
