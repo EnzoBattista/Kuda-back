@@ -56,7 +56,15 @@ const deleteUsuario = async (req, res, next) => {
   try {
     const usuario = await Usuario.findByPk(req.params.id);
     if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
-    await usuario.destroy();
+
+    if (!usuario.activo) {
+      return res.status(410).json({ message: "Usuario ya dado de baja" });
+    }
+
+    usuario.activo = false;
+    usuario.fechaBaja = new Date();
+    await usuario.save();
+
     return res.status(204).send();
   } catch (error) {
     return next(error);
