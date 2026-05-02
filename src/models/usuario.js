@@ -20,10 +20,9 @@ module.exports = (sequelize) => {
       },
       nombreUsuario: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
         unique: true,
         validate: {
-          notEmpty: { msg: "El nombre de usuario no puede estar vacío" },
           len: {
             args: [4, 50],
             msg: "El nombre de usuario debe tener entre 4 y 50 caracteres",
@@ -40,6 +39,31 @@ module.exports = (sequelize) => {
         allowNull: false,
         validate: { notEmpty: { msg: "El apellido no puede estar vacío" } },
       },
+      email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        validate: {
+          isEmail: { msg: "El email no tiene un formato válido" },
+          notEmpty: { msg: "El email no puede estar vacío" },
+        },
+      },
+      genero: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      fechaNacimiento: {
+        type: DataTypes.DATEONLY,
+        allowNull: false,
+      },
+      telefono: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      fichaMedica: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
       password: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -49,16 +73,20 @@ module.exports = (sequelize) => {
       },
       direccion: {
         type: DataTypes.STRING,
-        allowNull: false,
-        validate: { notEmpty: { msg: "La dirección no puede estar vacía" } },
+        allowNull: true,
       },
-      edad: {
-        type: DataTypes.INTEGER,
+      tokenConfirmacion: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      tokenExpiracion: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      activo: {
+        type: DataTypes.BOOLEAN,
         allowNull: false,
-        validate: {
-          isInt: { msg: "La edad debe ser un número entero" },
-          min: { args: [18], msg: "Debe ser mayor de 18 años" },
-        },
+        defaultValue: false,
       },
     },
     {

@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { Usuario, Rol } = require("../../db");
+const authService = require("../services/auth.service");
 
 const generarToken = (usuario) => {
   return jwt.sign(
@@ -11,20 +12,24 @@ const generarToken = (usuario) => {
 
 const register = async (req, res, next) => {
   try {
-    const { dni, nombreUsuario, nombre, apellido, password, direccion, edad, rol_id } = req.body;
-    const usuario = await Usuario.create({
-      dni,
-      nombreUsuario,
-      nombre,
-      apellido,
-      password,
-      direccion,
-      edad,
-      rol_id,
-    });
-    const token = generarToken(usuario);
-    return res.status(201).json({ usuario, token });
+    const resultado = await authService.registrarCliente(req.body);
+    return res.status(201).json(resultado);
   } catch (error) {
+    if (error.status === 400) {
+      return res.status(400).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
+const confirmarCuenta = async (req, res, next) => {
+  try {
+    const resultado = await authService.confirmarCuenta(req.params.token);
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (error.status === 400) {
+      return res.status(400).json({ message: error.message });
+    }
     return next(error);
   }
 };
@@ -58,4 +63,4 @@ const login = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login };
+module.exports = { register, confirmarCuenta, login };
