@@ -24,12 +24,6 @@ module.exports = {
         createdAt: now,
         updatedAt: now,
       },
-      {
-        nombre: "Gym",
-        descripcion: "Entrenamiento libre con maquinas y peso",
-        createdAt: now,
-        updatedAt: now,
-      },
     ]);
 
     await queryInterface.bulkInsert("salas", [
@@ -66,7 +60,7 @@ module.exports = {
 
     await queryInterface.bulkDelete(
       "actividades",
-      { nombre: ["Yoga", "Pilates", "Funcional", "Gym"] },
+      { nombre: ["Yoga", "Pilates", "Funcional"] },
       {}
     );
   },
