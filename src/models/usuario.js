@@ -1,4 +1,5 @@
 const { DataTypes } = require("sequelize");
+const bcrypt = require("bcrypt");
 
 module.exports = (sequelize) => {
   const Usuario = sequelize.define(
@@ -14,19 +15,14 @@ module.exports = (sequelize) => {
         allowNull: false,
         unique: true,
         validate: {
-          notEmpty: {
-            msg: "El DNI no puede estar vacío",
-          },
+          notEmpty: { msg: "El DNI no puede estar vacío" },
         },
       },
       nombreUsuario: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
         unique: true,
         validate: {
-          notEmpty: {
-            msg: "El nombre de usuario no puede estar vacío",
-          },
           len: {
             args: [4, 50],
             msg: "El nombre de usuario debe tener entre 4 y 50 caracteres",
@@ -36,55 +32,61 @@ module.exports = (sequelize) => {
       nombre: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          notEmpty: {
-            msg: "El nombre no puede estar vacío",
-          },
-        },
+        validate: { notEmpty: { msg: "El nombre no puede estar vacío" } },
       },
       apellido: {
         type: DataTypes.STRING,
         allowNull: false,
+        validate: { notEmpty: { msg: "El apellido no puede estar vacío" } },
+      },
+      email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
         validate: {
-          notEmpty: {
-            msg: "El apellido no puede estar vacío",
-          },
+          isEmail: { msg: "El email no tiene un formato válido" },
+          notEmpty: { msg: "El email no puede estar vacío" },
         },
+      },
+      genero: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      fechaNacimiento: {
+        type: DataTypes.DATEONLY,
+        allowNull: false,
+      },
+      telefono: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      fichaMedica: {
+        type: DataTypes.TEXT,
+        allowNull: true,
       },
       password: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
-          notEmpty: {
-            msg: "La contraseña no puede estar vacía",
-          },
-          len: {
-            args: [6, 100],
-            msg: "La contraseña debe tener al menos 6 caracteres",
-          },
+          notEmpty: { msg: "La contraseña no puede estar vacía" },
         },
       },
       direccion: {
         type: DataTypes.STRING,
-        allowNull: false,
-        validate: {
-          notEmpty: {
-            msg: "La dirección no puede estar vacía",
-          },
-        },
+        allowNull: true,
       },
-      edad: {
-        type: DataTypes.INTEGER,
+      tokenConfirmacion: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      tokenExpiracion: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      activo: {
+        type: DataTypes.BOOLEAN,
         allowNull: false,
-        validate: {
-          isInt: {
-            msg: "La edad debe ser un número entero",
-          },
-          min: {
-            args: [18],
-            msg: "Debe ser mayor de 18 años",
-          },
-        },
+        defaultValue: false,
       },
     },
     {
@@ -93,6 +95,26 @@ module.exports = (sequelize) => {
       paranoid: true,
     }
   );
+
+  Usuario.addHook("beforeCreate", async (usuario) => {
+    usuario.password = await bcrypt.hash(usuario.password, 10);
+  });
+
+  Usuario.addHook("beforeUpdate", async (usuario) => {
+    if (usuario.changed("password")) {
+      usuario.password = await bcrypt.hash(usuario.password, 10);
+    }
+  });
+
+  Usuario.prototype.verificarPassword = function (passwordPlana) {
+    return bcrypt.compare(passwordPlana, this.password);
+  };
+
+  Usuario.prototype.toJSON = function () {
+    const values = { ...this.get() };
+    delete values.password;
+    return values;
+  };
 
   Usuario.associate = (models) => {
     Usuario.belongsTo(models.Rol, {
@@ -105,7 +127,6 @@ module.exports = (sequelize) => {
     if (!this.rol) {
       await this.reload({ include: ["rol"] });
     }
-
     return this.rol.tienePermiso(permisoRequerido);
   };
 
