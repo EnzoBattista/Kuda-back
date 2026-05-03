@@ -116,15 +116,19 @@ const confirmarCuenta = async (token) => {
   });
 
   if (!usuario) {
-    const error = new Error("El enlace de confirmación no es válido.");
+    const error = new Error("El enlace de confirmación es inválido");
+    error.status = 400;
+    throw error;
+  }
+
+  if (usuario.activo) {
+    const error = new Error("El enlace de confirmación es inválido");
     error.status = 400;
     throw error;
   }
 
   if (new Date() > usuario.tokenExpiracion) {
-    const error = new Error(
-      "El enlace de confirmación ha expirado. Solicite un nuevo registro."
-    );
+    const error = new Error("El enlace de confirmación ha expirado");
     error.status = 400;
     throw error;
   }
@@ -135,7 +139,7 @@ const confirmarCuenta = async (token) => {
     tokenExpiracion: null,
   });
 
-  return { message: "Cuenta confirmada exitosamente. Ya puede iniciar sesión." };
+  return { message: "Usted ha sido registrado correctamente" };
 };
 
 module.exports = { registrarCliente, confirmarCuenta };

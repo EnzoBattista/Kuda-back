@@ -36,24 +36,24 @@ const confirmarCuenta = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const { nombreUsuario, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!nombreUsuario || !password) {
-      return res.status(400).json({ message: "Nombre de usuario y contraseña son requeridos" });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Datos de inicio de sesión incorrectos" });
     }
 
     const usuario = await Usuario.findOne({
-      where: { nombreUsuario },
+      where: { email },
       include: [{ model: Rol, as: "rol" }],
     });
 
     if (!usuario) {
-      return res.status(401).json({ message: "Credenciales incorrectas" });
+      return res.status(401).json({ message: "Datos de inicio de sesión incorrectos" });
     }
 
     const passwordValida = await usuario.verificarPassword(password);
     if (!passwordValida) {
-      return res.status(401).json({ message: "Credenciales incorrectas" });
+      return res.status(401).json({ message: "Datos de inicio de sesión incorrectos" });
     }
 
     const token = generarToken(usuario);
