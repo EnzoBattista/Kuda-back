@@ -8,7 +8,8 @@ Esta skill instruye sobre el manejo de las entidades estructurales del centro (a
 ### 1. Gestión de Actividades y Salas
 - **Actividades base**: El sistema debe contemplar por defecto Yoga, Pilates y Funcional. Sin embargo, el administrador debe poder agregar, modificar y eliminar (mediante baja lógica) cualquier actividad a futuro.
 - **Baja lógica**: Si una actividad se deja de dictar, se oculta del sistema (no se elimina de la base de datos) permitiendo conservarla en el historial o recuperarla desde una papelera. No se puede eliminar una actividad que tenga clases con clientes inscriptos.
-- **Salas**: El recinto posee 3 salas aptas para cualquier tipo de actividad. Tienen un cupo máximo estándar de 50 personas, pero puede reducirse hasta un mínimo de 10 personas según la clase.
+- **Salas**: El recinto posee 3 salas aptas para cualquier tipo de actividad. Al crearlas, se les puede asignar un cupo máximo arbitrario según su capacidad física, y un cupo minimo o igual de 10.
+- **Cupo Dinámico**: El cupo dinámico de una clase puede reducirse hasta un mínimo de 10 personas, pero no puede superar bajo ninguna circunstancia el cupo máximo de la sala física donde fue agendada.
 - **Clases**: Al agendar una clase se debe especificar actividad, día de la semana, hora de inicio, hora de fin, sala, y el **profesor_id**. El sistema debe impedir que un mismo profesor dicte dos clases que se solapen en horario y fecha, y también evitar solapamientos en la sala.
 
 ### 2. Políticas de Cancelación (Clientes)
