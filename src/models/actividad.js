@@ -33,6 +33,12 @@ module.exports = (sequelize) => {
       foreignKey: "actividad_id",
       as: "clases",
     });
+    Actividad.belongsToMany(models.Profesor, {
+      through: "profesor_actividad",
+      as: "profesores",
+      foreignKey: "actividad_id",
+      otherKey: "profesor_id",
+    });
   };
 
   return Actividad;

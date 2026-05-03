@@ -7,6 +7,7 @@ const pagosRouter = require("./pagos.routes");
 const usuariosRouter = require("./usuarios.routes");
 const authRouter = require("./auth.routes");
 const clasesRouter = require("./clases.routes");
+const profesoresRouter = require("./profesores.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -18,6 +19,7 @@ router.get("/", (req, res) => {
       pagos: "/api/pagos",
       usuarios: "/api/usuarios",
       clases: "/api/clases",
+      profesores: "/api/profesores",
     },
   });
 });
@@ -28,5 +30,6 @@ router.use("/api/planes", planesRouter);
 router.use("/api/pagos", pagosRouter);
 router.use("/api/usuarios", usuariosRouter);
 router.use("/api/clases", clasesRouter);
+router.use("/api/profesores", profesoresRouter);
 
 module.exports = router;
