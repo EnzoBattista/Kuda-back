@@ -49,7 +49,6 @@ module.exports = (sequelize) => {
         allowNull: false,
         validate: {
           min: { args: [10], msg: "El cupo mínimo es de 10 personas" },
-          max: { args: [50], msg: "El cupo máximo es de 50 personas" },
         },
       },
       activa: {

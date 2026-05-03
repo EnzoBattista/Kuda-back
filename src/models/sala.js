@@ -21,7 +21,7 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: false,
         validate: {
-          min: { args: [1], msg: "El cupo debe ser mayor a 0" },
+          min: { args: [10], msg: "El cupo de la sala debe ser de al menos 10 personas" },
         },
       },
       estado_activo: {

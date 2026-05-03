@@ -1,5 +1,6 @@
 const { Op } = require("sequelize");
 const { Clase, Actividad, Sala, Profesor } = require("../../db");
+const clasesService = require("../services/clases.service");
 
 const getAllClases = async (_req, res, next) => {
   try {
@@ -23,83 +24,36 @@ const getAllClases = async (_req, res, next) => {
 
 const createClase = async (req, res, next) => {
   try {
-    const {
-      nombre,
-      dia_semana,
-      hora_inicio,
-      hora_fin,
-      cupo,
-      actividad_id,
-      sala_id,
-      profesor_id,
-    } = req.body;
-
-    const actividad = await Actividad.findByPk(actividad_id);
-    if (!actividad) {
-      return res.status(400).json({ message: "La actividad indicada no existe" });
-    }
-
-    const sala = await Sala.findByPk(sala_id);
-    if (!sala) {
-      return res.status(400).json({ message: "La sala indicada no existe" });
-    }
-    if (!sala.estado_activo) {
-      return res.status(400).json({ message: "La sala se encuentra deshabilitada" });
-    }
-
-    const profesor = await Profesor.findByPk(profesor_id);
-    if (!profesor) {
-      return res.status(400).json({ message: "El profesor indicado no existe" });
-    }
-
-    const solapada = await Clase.findOne({
-      where: {
-        sala_id,
-        dia_semana,
-        activa: true,
-        hora_inicio: { [Op.lt]: hora_fin },
-        hora_fin: { [Op.gt]: hora_inicio },
-      },
-    });
-    if (solapada) {
-      return res.status(409).json({
-        message:
-          "Ya hay una clase agendada en la sala, día y horario seleccionados",
-      });
-    }
-
-    const claseProfesor = await Clase.findOne({
-      where: {
-        profesor_id,
-        dia_semana,
-        activa: true,
-        hora_inicio: { [Op.lt]: hora_fin },
-        hora_fin: { [Op.gt]: hora_inicio },
-      },
-    });
-    if (claseProfesor) {
-      return res.status(409).json({
-        message:
-          "El profesor seleccionado ya tiene una clase asignada el dia y horario seleccionado.",
-      });
-    }
-
-    const clase = await Clase.create({
-      nombre,
-      dia_semana,
-      hora_inicio,
-      hora_fin,
-      cupo,
-      actividad_id,
-      sala_id,
-      profesor_id,
-    });
+    const data = req.body;
+    const clase = await clasesService.crearClase(data);
 
     return res.status(201).json({
       message: "La clase fue agendada exitosamente",
       clase,
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
+const updateClase = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const data = req.body;
+
+    const clase = await clasesService.modificarClase(id, data);
+
+    return res.status(200).json({
+      message: "Clase modificada exitosamente",
+      clase,
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     return next(error);
   }
 };
@@ -107,4 +61,5 @@ const createClase = async (req, res, next) => {
 module.exports = {
   getAllClases,
   createClase,
+  updateClase,
 };
