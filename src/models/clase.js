@@ -67,6 +67,11 @@ module.exports = (sequelize) => {
         allowNull: false,
         references: { model: "salas", key: "id" },
       },
+      profesor_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: "profesores", key: "id" },
+      },
     },
     {
       tableName: "clases",
@@ -92,6 +97,10 @@ module.exports = (sequelize) => {
     Clase.belongsTo(models.Sala, {
       foreignKey: "sala_id",
       as: "sala",
+    });
+    Clase.belongsTo(models.Profesor, {
+      foreignKey: "profesor_id",
+      as: "profesor",
     });
   };
 

@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { Clase, Actividad, Sala } = require("../../db");
+const { Clase, Actividad, Sala, Profesor } = require("../../db");
 
 const getAllClases = async (_req, res, next) => {
   try {
@@ -8,6 +8,7 @@ const getAllClases = async (_req, res, next) => {
       include: [
         { model: Actividad, as: "actividad" },
         { model: Sala, as: "sala" },
+        { model: Profesor, as: "profesor" },
       ],
       order: [
         ["dia_semana", "ASC"],
@@ -30,6 +31,7 @@ const createClase = async (req, res, next) => {
       cupo,
       actividad_id,
       sala_id,
+      profesor_id,
     } = req.body;
 
     const actividad = await Actividad.findByPk(actividad_id);
@@ -43,6 +45,11 @@ const createClase = async (req, res, next) => {
     }
     if (!sala.estado_activo) {
       return res.status(400).json({ message: "La sala se encuentra deshabilitada" });
+    }
+
+    const profesor = await Profesor.findByPk(profesor_id);
+    if (!profesor) {
+      return res.status(400).json({ message: "El profesor indicado no existe" });
     }
 
     const solapada = await Clase.findOne({
@@ -61,6 +68,22 @@ const createClase = async (req, res, next) => {
       });
     }
 
+    const claseProfesor = await Clase.findOne({
+      where: {
+        profesor_id,
+        dia_semana,
+        activa: true,
+        hora_inicio: { [Op.lt]: hora_fin },
+        hora_fin: { [Op.gt]: hora_inicio },
+      },
+    });
+    if (claseProfesor) {
+      return res.status(409).json({
+        message:
+          "El profesor seleccionado ya tiene una clase asignada el dia y horario seleccionado.",
+      });
+    }
+
     const clase = await Clase.create({
       nombre,
       dia_semana,
@@ -69,6 +92,7 @@ const createClase = async (req, res, next) => {
       cupo,
       actividad_id,
       sala_id,
+      profesor_id,
     });
 
     return res.status(201).json({
