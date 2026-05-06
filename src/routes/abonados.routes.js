@@ -2,7 +2,7 @@ const express = require("express");
 const {
   getAllSocios,
   createSocio,
-} = require("../controllers/socios.controller");
+} = require("../controllers/abonados.controller");
 
 const router = express.Router();
 
