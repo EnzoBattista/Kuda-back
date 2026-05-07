@@ -1,6 +1,6 @@
 const { Op } = require("sequelize");
 const { MercadoPagoConfig, Preference } = require("mercadopago");
-const { Pago, Usuario } = require("../../db");
+const { Pago, Usuario } = require("../../../db");
 
 const includes = [
   { model: Usuario, as: "usuario" },

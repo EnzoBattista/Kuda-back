@@ -1,4 +1,4 @@
-const { PagoClaseIndividual, Usuario, Clase, Plan } = require("../../db");
+const { PagoClaseIndividual, Usuario, Clase, Plan } = require("../../../db");
 
 const includes = [
   { model: Usuario, as: "usuario" },

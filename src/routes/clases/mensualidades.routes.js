@@ -1,13 +1,13 @@
 const express = require("express");
-const auth = require("../middleware/auth.middleware");
-const requirePermiso = require("../middleware/requirePermiso");
-const { PERMISOS } = require("../constants/permisos");
+const auth = require("../../middleware/auth.middleware");
+const requirePermiso = require("../../middleware/requirePermiso");
+const { PERMISOS } = require("../../constants/permisos");
 const {
   getAllMensualidades,
   getMensualidadById,
   createMensualidad,
   cancelarMensualidad,
-} = require("../controllers/mensualidades.controller");
+} = require("../../controllers/clases/mensualidades.controller");
 
 const router = express.Router();
 

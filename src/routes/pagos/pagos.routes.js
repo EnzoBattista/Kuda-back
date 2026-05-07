@@ -1,12 +1,12 @@
 const express = require("express");
-const auth = require("../middleware/auth.middleware");
-const requirePermiso = require("../middleware/requirePermiso");
-const { PERMISOS } = require("../constants/permisos");
+const auth = require("../../middleware/auth.middleware");
+const requirePermiso = require("../../middleware/requirePermiso");
+const { PERMISOS } = require("../../constants/permisos");
 const {
   getAllPagos,
   createPago,
   createPreference,
-} = require("../controllers/pagos.controller");
+} = require("../../controllers/pagos/pagos.controller");
 
 const router = express.Router();
 

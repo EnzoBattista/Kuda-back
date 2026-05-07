@@ -1,6 +1,6 @@
 const { Op } = require("sequelize");
-const { Clase, Actividad, Sala, Profesor } = require("../../db");
-const clasesService = require("../services/clases.service");
+const { Clase, Actividad, Sala, Profesor } = require("../../../db");
+const clasesService = require("../../services/clases/clases.service");
 
 const getAllClases = async (_req, res, next) => {
   try {

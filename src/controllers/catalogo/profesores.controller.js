@@ -1,4 +1,4 @@
-const { Profesor, Actividad } = require("../../db");
+const { Profesor, Actividad } = require("../../../db");
 
 const createProfesor = async (req, res, next) => {
   try {

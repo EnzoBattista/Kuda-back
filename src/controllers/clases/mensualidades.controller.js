@@ -1,10 +1,5 @@
-const { Mensualidad, Usuario, Actividad, Clase, Plan } = require("../../db");
-
-const sumarUnMes = (fechaIso) => {
-  const d = new Date(fechaIso);
-  d.setMonth(d.getMonth() + 1);
-  return d.toISOString().slice(0, 10);
-};
+const { Mensualidad, Usuario, Actividad, Clase, Plan } = require("../../../db");
+const { sumarUnMes } = require("../../utils/fechas");
 
 const includes = [
   { model: Usuario, as: "usuario" },

@@ -1,4 +1,4 @@
-const { Usuario, Rol } = require("../../db");
+const { Usuario, Rol } = require("../../../db");
 
 const getAllUsuarios = async (_req, res, next) => {
   try {

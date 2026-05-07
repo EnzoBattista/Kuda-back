@@ -1,4 +1,4 @@
-const { Plan, Actividad } = require("../../db");
+const { Plan, Actividad } = require("../../../db");
 
 const includes = [{ model: Actividad, as: "actividad" }];
 

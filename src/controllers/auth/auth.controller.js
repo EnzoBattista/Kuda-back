@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
-const { Usuario, Rol } = require("../../db");
-const authService = require("../services/auth.service");
+const { Usuario, Rol } = require("../../../db");
+const authService = require("../../services/auth/auth.service");
 
 const generarToken = (usuario) => {
   return jwt.sign(

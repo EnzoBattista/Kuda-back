@@ -1,17 +1,8 @@
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-const { Usuario, Rol } = require("../../db");
-
-const calcularEdad = (fechaNacimiento) => {
-  const hoy = new Date();
-  const nacimiento = new Date(fechaNacimiento);
-  let edad = hoy.getFullYear() - nacimiento.getFullYear();
-  const mes = hoy.getMonth() - nacimiento.getMonth();
-  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
-    edad--;
-  }
-  return edad;
-};
+const { Usuario, Rol } = require("../../../db");
+const { calcularEdad } = require("../../utils/fechas");
+const httpError = require("../../utils/httpError");
 
 const enviarEmailConfirmacion = async (email, token) => {
   const transporter = nodemailer.createTransport({
@@ -52,33 +43,18 @@ const registrarCliente = async ({
   confirmPassword,
 }) => {
   if (password !== confirmPassword) {
-    const error = new Error("Registro fallido - Las contraseñas no coinciden.");
-    error.status = 400;
-    throw error;
+    throw httpError(400, "Registro fallido - Las contraseñas no coinciden.");
   }
-
   if (password.length < 8) {
-    const error = new Error(
-      "Registro fallido - La contraseña debe tener al menos 8 caracteres."
-    );
-    error.status = 400;
-    throw error;
+    throw httpError(400, "Registro fallido - La contraseña debe tener al menos 8 caracteres.");
   }
-
-  const edad = calcularEdad(fechaNacimiento);
-  if (edad <= 14) {
-    const error = new Error("Registro fallido - Se debe ser mayor de 14 años.");
-    error.status = 400;
-    throw error;
+  if (calcularEdad(fechaNacimiento) <= 14) {
+    throw httpError(400, "Registro fallido - Se debe ser mayor de 14 años.");
   }
 
   const emailExistente = await Usuario.findOne({ where: { email } });
   if (emailExistente) {
-    const error = new Error(
-      "Registro fallido - El email ya se encuentra registrado."
-    );
-    error.status = 400;
-    throw error;
+    throw httpError(400, "Registro fallido - El email ya se encuentra registrado.");
   }
 
   const rolCliente = await Rol.findOne({ where: { nombre: "cliente" } });
@@ -111,26 +87,13 @@ const registrarCliente = async ({
 };
 
 const confirmarCuenta = async (token) => {
-  const usuario = await Usuario.findOne({
-    where: { tokenConfirmacion: token },
-  });
+  const usuario = await Usuario.findOne({ where: { tokenConfirmacion: token } });
 
-  if (!usuario) {
-    const error = new Error("El enlace de confirmación es inválido");
-    error.status = 400;
-    throw error;
+  if (!usuario || usuario.activo) {
+    throw httpError(400, "El enlace de confirmación es inválido");
   }
-
-  if (usuario.activo) {
-    const error = new Error("El enlace de confirmación es inválido");
-    error.status = 400;
-    throw error;
-  }
-
   if (new Date() > usuario.tokenExpiracion) {
-    const error = new Error("El enlace de confirmación ha expirado");
-    error.status = 400;
-    throw error;
+    throw httpError(400, "El enlace de confirmación ha expirado");
   }
 
   await usuario.update({
