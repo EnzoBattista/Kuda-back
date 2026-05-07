@@ -17,17 +17,6 @@ const getAllPlanes = async (req, res, next) => {
   }
 };
 
-const createPlan = async (req, res, next) => {
-  try {
-    const { nombre, actividad_id, tipo, precio } = req.body;
-    const plan = await Plan.create({ nombre, actividad_id, tipo, precio });
-    return res.status(201).json(plan);
-  } catch (error) {
-    return next(error);
-  }
-};
-
 module.exports = {
   getAllPlanes,
-  createPlan,
 };
