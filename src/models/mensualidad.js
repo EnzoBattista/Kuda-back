@@ -16,6 +16,11 @@ module.exports = (sequelize) => {
         allowNull: false,
         references: { model: "usuarios", key: "id" },
       },
+      plan_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: "planes", key: "id" },
+      },
       actividad_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -25,11 +30,6 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: { model: "clases", key: "id" },
-      },
-      plan_id: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: { model: "planes", key: "id" },
       },
       periodo_inicio: {
         type: DataTypes.DATEONLY,
@@ -67,6 +67,14 @@ module.exports = (sequelize) => {
   );
 
   Mensualidad.ESTADOS = ESTADOS;
+
+  Mensualidad.addHook("beforeValidate", async (mensualidad) => {
+    if (mensualidad.plan_id && !mensualidad.actividad_id) {
+      const Plan = sequelize.models.Plan;
+      const plan = await Plan.findByPk(mensualidad.plan_id);
+      if (plan) mensualidad.actividad_id = plan.actividad_id;
+    }
+  });
 
   Mensualidad.associate = (models) => {
     Mensualidad.belongsTo(models.Usuario, { foreignKey: "usuario_id", as: "usuario" });

@@ -13,7 +13,6 @@ module.exports = (sequelize) => {
       dni: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true,
         validate: {
           notEmpty: { msg: "El DNI no puede estar vacío" },
         },
@@ -93,6 +92,13 @@ module.exports = (sequelize) => {
       tableName: "usuarios",
       timestamps: true,
       paranoid: true,
+      indexes: [
+        {
+          name: "usuarios_dni_rol_unique",
+          unique: true,
+          fields: ["dni", "rol_id"],
+        },
+      ],
     }
   );
 

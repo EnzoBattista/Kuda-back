@@ -22,6 +22,11 @@ module.exports = (sequelize) => {
         allowNull: false,
         references: { model: "clases", key: "id" },
       },
+      plan_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: "planes", key: "id" },
+      },
       fecha: {
         type: DataTypes.DATEONLY,
         allowNull: false,
@@ -73,6 +78,7 @@ module.exports = (sequelize) => {
   PagoClaseIndividual.associate = (models) => {
     PagoClaseIndividual.belongsTo(models.Usuario, { foreignKey: "usuario_id", as: "usuario" });
     PagoClaseIndividual.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
+    PagoClaseIndividual.belongsTo(models.Plan, { foreignKey: "plan_id", as: "plan" });
   };
 
   return PagoClaseIndividual;

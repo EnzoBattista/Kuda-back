@@ -1,8 +1,16 @@
-const { Plan } = require("../../db");
+const { Plan, Actividad } = require("../../db");
 
-const getAllPlanes = async (_req, res, next) => {
+const includes = [{ model: Actividad, as: "actividad" }];
+
+const getAllPlanes = async (req, res, next) => {
   try {
-    const planes = await Plan.findAll();
+    const { actividad_id, tipo, activo } = req.query;
+    const where = {};
+    if (actividad_id) where.actividad_id = actividad_id;
+    if (tipo) where.tipo = tipo;
+    if (activo !== undefined) where.activo = activo === "true";
+
+    const planes = await Plan.findAll({ where, include: includes });
     return res.status(200).json(planes);
   } catch (error) {
     return next(error);
@@ -11,8 +19,8 @@ const getAllPlanes = async (_req, res, next) => {
 
 const createPlan = async (req, res, next) => {
   try {
-    const { nombre, precio, duracion_dias } = req.body;
-    const plan = await Plan.create({ nombre, precio, duracion_dias });
+    const { nombre, actividad_id, tipo, precio } = req.body;
+    const plan = await Plan.create({ nombre, actividad_id, tipo, precio });
     return res.status(201).json(plan);
   } catch (error) {
     return next(error);

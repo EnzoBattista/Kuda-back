@@ -1,8 +1,9 @@
-const { PagoClaseIndividual, Usuario, Clase } = require("../../db");
+const { PagoClaseIndividual, Usuario, Clase, Plan } = require("../../db");
 
 const includes = [
   { model: Usuario, as: "usuario" },
   { model: Clase, as: "clase" },
+  { model: Plan, as: "plan" },
 ];
 
 const getAllClasesIndividuales = async (req, res, next) => {
@@ -36,11 +37,30 @@ const getClaseIndividualById = async (req, res, next) => {
 
 const createClaseIndividual = async (req, res, next) => {
   try {
-    const { usuario_id, clase_id, fecha, modalidad, monto_total, vencimiento_seña } = req.body;
+    const { usuario_id, clase_id, plan_id, fecha, modalidad, vencimiento_seña } = req.body;
 
+    const plan = await Plan.findByPk(plan_id);
+    if (!plan) return res.status(404).json({ message: "Plan no encontrado" });
+    if (plan.tipo !== "INDIVIDUAL") {
+      return res.status(400).json({ message: "El plan debe ser de tipo INDIVIDUAL" });
+    }
+    if (!plan.activo) {
+      return res.status(400).json({ message: "El plan no está activo" });
+    }
+
+    const clase = await Clase.findByPk(clase_id);
+    if (!clase) return res.status(404).json({ message: "Clase no encontrada" });
+    if (clase.actividad_id !== plan.actividad_id) {
+      return res.status(400).json({
+        message: "La clase no pertenece a la actividad del plan",
+      });
+    }
+
+    const monto_total = plan.precio;
     const data = {
       usuario_id,
       clase_id,
+      plan_id,
       fecha,
       modalidad,
       monto_total,
