@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { Usuario, Rol } = require("../../../db");
+const { ROLES } = require("../../constants/roles");
 const { calcularEdad } = require("../../utils/fechas");
 const httpError = require("../../utils/httpError");
 
@@ -57,7 +58,10 @@ const registrarCliente = async ({
     throw httpError(400, "Registro fallido - El email ya se encuentra registrado.");
   }
 
-  const rolCliente = await Rol.findOne({ where: { nombre: "cliente" } });
+  const rolCliente = await Rol.findOne({ where: { nombre: ROLES.CLIENTE } });
+  if (!rolCliente) {
+    throw httpError(500, "Rol CLIENTE no existe. Ejecutar seeders.");
+  }
 
   const tokenConfirmacion = crypto.randomBytes(32).toString("hex");
   const tokenExpiracion = new Date(Date.now() + 48 * 60 * 60 * 1000);
@@ -75,7 +79,7 @@ const registrarCliente = async ({
     tokenConfirmacion,
     tokenExpiracion,
     activo: false,
-    rol_id: rolCliente?.id,
+    rol_id: rolCliente.id,
   });
 
   await enviarEmailConfirmacion(email, tokenConfirmacion);

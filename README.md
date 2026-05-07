@@ -38,12 +38,12 @@ Para prender el backend:
 npm run dev
 ```
 
-## 🧪 Data de prueba
+## 🌱 Seeders
 
-Si queres que aparezca el **plan VIP** de prueba, corre:
+Para cargar datos base (actividades, salas, planes, roles y permisos):
 
 ```bash
-node seed-plan.js
+npx sequelize-cli db:seed:all
 ```
 
 Y listo, con eso ya deberias tener el back andando.

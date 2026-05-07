@@ -21,19 +21,25 @@ const getUsuarioById = async (req, res, next) => {
   }
 };
 
+const CAMPOS_USUARIO = [
+  "dni",
+  "nombre",
+  "apellido",
+  "email",
+  "genero",
+  "fechaNacimiento",
+  "telefono",
+  "fichaMedica",
+  "password",
+  "rol_id",
+];
+
+const pickCampos = (body) =>
+  Object.fromEntries(CAMPOS_USUARIO.filter((k) => body[k] !== undefined).map((k) => [k, body[k]]));
+
 const createUsuario = async (req, res, next) => {
   try {
-    const { dni, nombreUsuario, nombre, apellido, password, direccion, edad, rol_id } = req.body;
-    const usuario = await Usuario.create({
-      dni,
-      nombreUsuario,
-      nombre,
-      apellido,
-      password,
-      direccion,
-      edad,
-      rol_id,
-    });
+    const usuario = await Usuario.create({ ...pickCampos(req.body), activo: true });
     return res.status(201).json(usuario);
   } catch (error) {
     return next(error);
@@ -44,8 +50,7 @@ const updateUsuario = async (req, res, next) => {
   try {
     const usuario = await Usuario.findByPk(req.params.id);
     if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
-    const { dni, nombreUsuario, nombre, apellido, password, direccion, edad, rol_id } = req.body;
-    await usuario.update({ dni, nombreUsuario, nombre, apellido, password, direccion, edad, rol_id });
+    await usuario.update(pickCampos(req.body));
     return res.status(200).json(usuario);
   } catch (error) {
     return next(error);
@@ -62,7 +67,6 @@ const deleteUsuario = async (req, res, next) => {
     }
 
     usuario.activo = false;
-    usuario.fechaBaja = new Date();
     await usuario.save();
 
     return res.status(204).send();
