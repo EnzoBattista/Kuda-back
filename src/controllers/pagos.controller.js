@@ -1,4 +1,63 @@
+const { Op } = require("sequelize");
 const { MercadoPagoConfig, Preference } = require("mercadopago");
+const { Pago, Usuario } = require("../../db");
+
+const includes = [
+  { model: Usuario, as: "usuario" },
+  { model: Usuario, as: "recepcionista" },
+];
+
+const getAllPagos = async (req, res, next) => {
+  try {
+    const { usuario_id, origen, desde, hasta } = req.query;
+    const where = {};
+    if (usuario_id) where.usuario_id = usuario_id;
+    if (origen) where.origen = origen;
+    if (desde || hasta) {
+      where.fecha = {};
+      if (desde) where.fecha[Op.gte] = new Date(desde);
+      if (hasta) where.fecha[Op.lte] = new Date(hasta);
+    }
+
+    const pagos = await Pago.findAll({
+      where,
+      include: includes,
+      order: [["fecha", "DESC"]],
+    });
+    return res.status(200).json(pagos);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const createPago = async (req, res, next) => {
+  try {
+    const {
+      usuario_id,
+      recepcionista_id,
+      origen,
+      origen_id,
+      monto,
+      fecha,
+      medio,
+      mp_payment_id,
+    } = req.body;
+
+    const pago = await Pago.create({
+      usuario_id,
+      recepcionista_id,
+      origen,
+      origen_id,
+      monto,
+      fecha,
+      medio,
+      mp_payment_id,
+    });
+    return res.status(201).json(pago);
+  } catch (error) {
+    return next(error);
+  }
+};
 
 const createPreference = async (req, res, next) => {
   try {
@@ -35,28 +94,22 @@ const createPreference = async (req, res, next) => {
         success: "http://127.0.0.1:4200",
         failure: "http://127.0.0.1:4200",
         pending: "http://127.0.0.1:4200",
-      }
-      // 🔥 Borramos o comentamos el auto_return para que MP deje de llorar en local
+      },
     };
 
-    // 🔥 ESTE LOG ES CLAVE PARA VER QUÉ LE LLEGA A MP 🔥
-    console.log("=== DATOS ENVIADOS A MERCADO PAGO ===");
-    console.log(JSON.stringify(bodyData, null, 2));
-
-    const preference = await preferenceClient.create({
-      body: bodyData,
-    });
+    const preference = await preferenceClient.create({ body: bodyData });
 
     return res.status(201).json({
       id: preference.id,
       init_point: preference.init_point,
     });
   } catch (error) {
-    console.error("=== ERROR DE MERCADO PAGO ===", error);
     return next(error);
   }
 };
 
 module.exports = {
+  getAllPagos,
+  createPago,
   createPreference,
 };
