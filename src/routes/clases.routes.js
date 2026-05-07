@@ -1,4 +1,7 @@
 const express = require("express");
+const auth = require("../middleware/auth.middleware");
+const requirePermiso = require("../middleware/requirePermiso");
+const { PERMISOS } = require("../constants/permisos");
 const {
   getAllClases,
   createClase,
@@ -8,7 +11,7 @@ const {
 const router = express.Router();
 
 router.get("/", getAllClases);
-router.post("/", createClase);
-router.put("/:id", updateClase);
+router.post("/", auth, requirePermiso(PERMISOS.CLASE_GESTIONAR), createClase);
+router.put("/:id", auth, requirePermiso(PERMISOS.CLASE_GESTIONAR), updateClase);
 
 module.exports = router;

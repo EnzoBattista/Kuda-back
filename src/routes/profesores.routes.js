@@ -1,4 +1,7 @@
 const express = require("express");
+const auth = require("../middleware/auth.middleware");
+const requirePermiso = require("../middleware/requirePermiso");
+const { PERMISOS } = require("../constants/permisos");
 const router = express.Router();
 const {
   createProfesor,
@@ -8,6 +11,6 @@ const {
 
 router.get("/", getAllProfesores);
 router.get("/actividad/:id", getProfesoresByActividad);
-router.post("/", createProfesor);
+router.post("/", auth, requirePermiso(PERMISOS.ACTIVIDAD_GESTIONAR), createProfesor);
 
 module.exports = router;

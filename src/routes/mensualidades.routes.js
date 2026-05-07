@@ -1,4 +1,7 @@
 const express = require("express");
+const auth = require("../middleware/auth.middleware");
+const requirePermiso = require("../middleware/requirePermiso");
+const { PERMISOS } = require("../constants/permisos");
 const {
   getAllMensualidades,
   getMensualidadById,
@@ -8,9 +11,14 @@ const {
 
 const router = express.Router();
 
-router.get("/", getAllMensualidades);
-router.get("/:id", getMensualidadById);
-router.post("/", createMensualidad);
-router.patch("/:id/cancelar", cancelarMensualidad);
+router.get("/", auth, getAllMensualidades);
+router.get("/:id", auth, getMensualidadById);
+router.post("/", auth, requirePermiso(PERMISOS.CLASE_RESERVAR), createMensualidad);
+router.patch(
+  "/:id/cancelar",
+  auth,
+  requirePermiso(PERMISOS.CLASE_RESERVAR),
+  cancelarMensualidad
+);
 
 module.exports = router;

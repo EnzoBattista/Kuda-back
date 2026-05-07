@@ -1,4 +1,5 @@
 const { DataTypes } = require("sequelize");
+const { ROLES_LIST } = require("../constants/roles");
 
 module.exports = (sequelize) => {
   const Rol = sequelize.define(
@@ -10,11 +11,12 @@ module.exports = (sequelize) => {
         autoIncrement: true,
       },
       nombre: {
-        type: DataTypes.ENUM("admin", "visitante", "cliente", "trabajador"),
+        type: DataTypes.ENUM(...ROLES_LIST),
         allowNull: false,
+        unique: true,
         validate: {
           isIn: {
-            args: [["admin", "visitante", "cliente", "trabajador"]],
+            args: [ROLES_LIST],
             msg: "Rol no válido",
           },
         },
@@ -43,11 +45,7 @@ module.exports = (sequelize) => {
     if (!this.permisos) {
       await this.reload({ include: ["permisos"] });
     }
-
-    return this.permisos.some(
-      (permiso) =>
-        permiso.clave === permisoRequerido || permiso.clave === "admin"
-    );
+    return this.permisos.some((p) => p.clave === permisoRequerido);
   };
 
   return Rol;

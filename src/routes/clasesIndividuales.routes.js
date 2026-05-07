@@ -1,4 +1,7 @@
 const express = require("express");
+const auth = require("../middleware/auth.middleware");
+const requirePermiso = require("../middleware/requirePermiso");
+const { PERMISOS } = require("../constants/permisos");
 const {
   getAllClasesIndividuales,
   getClaseIndividualById,
@@ -8,9 +11,14 @@ const {
 
 const router = express.Router();
 
-router.get("/", getAllClasesIndividuales);
-router.get("/:id", getClaseIndividualById);
-router.post("/", createClaseIndividual);
-router.post("/:id/completar-sena", completarSeña);
+router.get("/", auth, getAllClasesIndividuales);
+router.get("/:id", auth, getClaseIndividualById);
+router.post("/", auth, requirePermiso(PERMISOS.CLASE_RESERVAR), createClaseIndividual);
+router.post(
+  "/:id/completar-sena",
+  auth,
+  requirePermiso(PERMISOS.CLASE_RESERVAR),
+  completarSeña
+);
 
 module.exports = router;
