@@ -161,3 +161,7 @@ Icon
 
 # Directorios de Apple creados por iCloud
 .apdisk
+
+# PlantUML
+*.plantuml
+./out/
