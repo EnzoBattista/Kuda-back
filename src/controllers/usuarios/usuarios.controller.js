@@ -1,4 +1,5 @@
 const { Usuario, Rol } = require("../../../db");
+const { crearUsuario, actualizarUsuario } = require("../../services/acceso/usuarios.service");
 
 const getAllUsuarios = async (_req, res, next) => {
   try {
@@ -9,9 +10,9 @@ const getAllUsuarios = async (_req, res, next) => {
   }
 };
 
-const getUsuarioById = async (req, res, next) => {
+const getUsuarioByEmail = async (req, res, next) => {
   try {
-    const usuario = await Usuario.findByPk(req.params.id, {
+    const usuario = await Usuario.findByPk(req.params.email, {
       include: [{ model: Rol, as: "rol" }],
     });
     if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
@@ -21,25 +22,14 @@ const getUsuarioById = async (req, res, next) => {
   }
 };
 
-const CAMPOS_USUARIO = [
-  "dni",
-  "nombre",
-  "apellido",
-  "email",
-  "genero",
-  "fechaNacimiento",
-  "telefono",
-  "fichaMedica",
-  "password",
-  "rol_id",
-];
+const CAMPOS_USUARIO = ["email", "dni", "nombre", "apellido", "telefono", "password", "rol_id"];
 
 const pickCampos = (body) =>
   Object.fromEntries(CAMPOS_USUARIO.filter((k) => body[k] !== undefined).map((k) => [k, body[k]]));
 
 const createUsuario = async (req, res, next) => {
   try {
-    const usuario = await Usuario.create({ ...pickCampos(req.body), activo: true });
+    const usuario = await crearUsuario({ ...pickCampos(req.body), activo: true });
     return res.status(201).json(usuario);
   } catch (error) {
     return next(error);
@@ -48,9 +38,9 @@ const createUsuario = async (req, res, next) => {
 
 const updateUsuario = async (req, res, next) => {
   try {
-    const usuario = await Usuario.findByPk(req.params.id);
+    const usuario = await Usuario.findByPk(req.params.email);
     if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
-    await usuario.update(pickCampos(req.body));
+    await actualizarUsuario(usuario, pickCampos(req.body));
     return res.status(200).json(usuario);
   } catch (error) {
     return next(error);
@@ -59,7 +49,7 @@ const updateUsuario = async (req, res, next) => {
 
 const deleteUsuario = async (req, res, next) => {
   try {
-    const usuario = await Usuario.findByPk(req.params.id);
+    const usuario = await Usuario.findByPk(req.params.email);
     if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
 
     if (!usuario.activo) {
@@ -77,7 +67,7 @@ const deleteUsuario = async (req, res, next) => {
 
 module.exports = {
   getAllUsuarios,
-  getUsuarioById,
+  getUsuarioByEmail,
   createUsuario,
   updateUsuario,
   deleteUsuario,

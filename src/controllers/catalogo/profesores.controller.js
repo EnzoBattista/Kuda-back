@@ -1,4 +1,5 @@
 const { Profesor, Actividad } = require("../../../db");
+const { crearProfesor } = require("../../services/catalogo/profesores.service");
 
 const createProfesor = async (req, res, next) => {
   try {
@@ -11,7 +12,7 @@ const createProfesor = async (req, res, next) => {
       });
     }
 
-    const nuevoProfesor = await Profesor.create({
+    const nuevoProfesor = await crearProfesor({
       nombre,
       apellido,
       dni,

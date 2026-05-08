@@ -3,11 +3,13 @@ const { Usuario, Rol, Permiso } = require("../../db");
 const requirePermiso = (permisoRequerido) => {
   return async (req, res, next) => {
     try {
-      if (!req.usuario || !req.usuario.id) {
+      if (!req.usuario || !req.usuario.email) {
         return res.status(401).json({ message: "No autenticado" });
       }
 
-      const usuario = await Usuario.findByPk(req.usuario.id, {
+      const { email } = req.usuario;
+
+      const usuario = await Usuario.findByPk(email, {
         include: [{ model: Rol, as: "rol", include: [{ model: Permiso, as: "permisos" }] }],
       });
 

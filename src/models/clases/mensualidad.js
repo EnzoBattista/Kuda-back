@@ -11,10 +11,10 @@ module.exports = (sequelize) => {
         primaryKey: true,
         autoIncrement: true,
       },
-      usuario_id: {
-        type: DataTypes.INTEGER,
+      cliente_email: {
+        type: DataTypes.STRING,
         allowNull: false,
-        references: { model: "usuarios", key: "id" },
+        references: { model: "clientes", key: "usuario_email" },
       },
       plan_id: {
         type: DataTypes.INTEGER,
@@ -56,13 +56,6 @@ module.exports = (sequelize) => {
     {
       tableName: "mensualidades",
       timestamps: true,
-      validate: {
-        periodoCoherente() {
-          if (this.periodo_inicio && this.periodo_fin && this.periodo_fin <= this.periodo_inicio) {
-            throw new Error("periodo_fin debe ser posterior a periodo_inicio");
-          }
-        },
-      },
     }
   );
 
@@ -77,7 +70,7 @@ module.exports = (sequelize) => {
   });
 
   Mensualidad.associate = (models) => {
-    Mensualidad.belongsTo(models.Usuario, { foreignKey: "usuario_id", as: "usuario" });
+    Mensualidad.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
     Mensualidad.belongsTo(models.Actividad, { foreignKey: "actividad_id", as: "actividad" });
     Mensualidad.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
     Mensualidad.belongsTo(models.Plan, { foreignKey: "plan_id", as: "plan" });

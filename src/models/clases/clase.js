@@ -22,19 +22,10 @@ module.exports = (sequelize) => {
       nombre: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          notEmpty: { msg: "El nombre de la clase no puede estar vacío" },
-        },
       },
       dia_semana: {
         type: DataTypes.ENUM(...DIAS_SEMANA),
         allowNull: false,
-        validate: {
-          isIn: {
-            args: [DIAS_SEMANA],
-            msg: "Día de la semana no válido",
-          },
-        },
       },
       hora_inicio: {
         type: DataTypes.TIME,
@@ -47,9 +38,6 @@ module.exports = (sequelize) => {
       cupo: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        validate: {
-          min: { args: [10], msg: "El cupo mínimo es de 10 personas" },
-        },
       },
       activa: {
         type: DataTypes.BOOLEAN,
@@ -76,13 +64,6 @@ module.exports = (sequelize) => {
       tableName: "clases",
       timestamps: true,
       paranoid: true,
-      validate: {
-        horarioCoherente() {
-          if (this.hora_inicio && this.hora_fin && this.hora_fin <= this.hora_inicio) {
-            throw new Error("La hora de fin debe ser posterior a la hora de inicio");
-          }
-        },
-      },
     }
   );
 

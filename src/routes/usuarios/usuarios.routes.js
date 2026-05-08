@@ -4,7 +4,7 @@ const requirePermiso = require("../../middleware/requirePermiso");
 const { PERMISOS } = require("../../constants/permisos");
 const {
   getAllUsuarios,
-  getUsuarioById,
+  getUsuarioByEmail,
   createUsuario,
   updateUsuario,
   deleteUsuario,
@@ -13,9 +13,9 @@ const {
 const router = express.Router();
 
 router.get("/", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), getAllUsuarios);
-router.get("/:id", auth, getUsuarioById);
+router.get("/:email", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), getUsuarioByEmail);
 router.post("/", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), createUsuario);
-router.put("/:id", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), updateUsuario);
-router.delete("/:id", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), deleteUsuario);
+router.put("/:email", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), updateUsuario);
+router.delete("/:email", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), deleteUsuario);
 
 module.exports = router;

@@ -14,12 +14,6 @@ module.exports = (sequelize) => {
         type: DataTypes.ENUM(...ROLES_LIST),
         allowNull: false,
         unique: true,
-        validate: {
-          isIn: {
-            args: [ROLES_LIST],
-            msg: "Rol no válido",
-          },
-        },
       },
     },
     {

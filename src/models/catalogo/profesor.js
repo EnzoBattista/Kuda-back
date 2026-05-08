@@ -12,24 +12,15 @@ module.exports = (sequelize) => {
       nombre: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          notEmpty: { msg: "El nombre no puede estar vacío" },
-        },
       },
       apellido: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          notEmpty: { msg: "El apellido no puede estar vacío" },
-        },
       },
       dni: {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
-        validate: {
-          notEmpty: { msg: "El DNI no puede estar vacío" },
-        },
       },
       activo: {
         type: DataTypes.BOOLEAN,

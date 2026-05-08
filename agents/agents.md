@@ -7,6 +7,7 @@ Este archivo contiene las directrices principales para cualquier asistente de in
 ## 1. Changelog
 *Mantén este registro actualizado cada vez que realices cambios estructurales grandes en el sistema.*
 
+- **[2026-05-07]**: Refactorización profunda de modelos y validaciones: Eliminación de `Empleado`. El modelo `Usuario` centraliza el acceso. El modelo `Cliente` se convierte en una tabla hija de `Usuario` (relación 1:1 vía `usuario_email`). Todas las validaciones a nivel base de datos (`validate: {}`) se extrajeron hacia los archivos en `/src/services/` para asegurar que el control ocurra previo a interactuar con Sequelize. Se agregaron validaciones de negocio estrictas a las clases (límite 4 horas, prohibido domingos, horario 07-22hs).
 - **[2026-05-07]**: Reorganización de `src/` por dominio dentro de cada capa (`acceso/`, `catalogo/`, `clases/`, `pagos/`). Nueva carpeta `src/utils/` con helpers reutilizables (`httpError`, `fechas`). `db.js` escanea modelos recursivamente. Actividades y planes solo se cargan vía seeders (sin endpoints CRUD).
 - **[2026-05-03]**: Implementación de la entidad `Profesor` (modelo, controlador, rutas) y actualización de relaciones con `Clase` y `Actividad`.
 - **[2026-05-03]**: Creación del directorio `agents/skills` para documentar la lógica de negocio mediante archivos Markdown.
@@ -26,8 +27,9 @@ Este archivo contiene las directrices principales para cualquier asistente de in
 - El proyecto sigue un patrón MVC orientado a controladores y rutas, contenido íntegramente dentro de la carpeta `src/`.
 - **Organización por dominio:** dentro de cada capa (`models/`, `controllers/`, `services/`, `routes/`) los archivos se agrupan en subcarpetas por dominio: `acceso/` (usuario, rol, permisos, auth), `catalogo/` (actividad, sala, sucursal, profesor, plan), `clases/` (clase, mensualidad, claseIndividual), `pagos/`.
 - **Rutas (`src/routes/`):** Define los endpoints y asocia los controladores correspondientes. Siempre usa el router de Express (`express.Router()`). Exponer todo mediante `src/routes/index.js`.
-- **Controladores (`src/controllers/`):** Manejan la petición (`req`), respuesta (`res`), e interacciones directas con los modelos. Usa SIEMPRE bloques `try/catch` y pasa los errores al middleware global usando `next(error)`.
-- **Modelos (`src/models/`):** Modelos definidos con Sequelize. Todas las asociaciones (relaciones entre tablas) deben declararse dentro del método `associate` de cada modelo. `db.js` escanea recursivamente las subcarpetas de modelos y llama iterativamente a `associate` en todos.
+- **Controladores (`src/controllers/`):** Manejan la petición (`req`), respuesta (`res`). **Importante:** No deben interactuar directamente con `Modelo.create` o `Modelo.update`. Toda creación o actualización debe pasar por los **Servicios**. Usa SIEMPRE bloques `try/catch` y pasa los errores al middleware global usando `next(error)`.
+- **Servicios (`src/services/`):** Capa intermedia obligatoria. Contienen **todas** las validaciones y reglas de negocio (`validarX`, `crearX`, `actualizarX`). Lanzan `httpError` ante datos inválidos.
+- **Modelos (`src/models/`):** Modelos definidos con Sequelize. Todas las asociaciones deben declararse dentro del método `associate` de cada modelo. `db.js` escanea recursivamente. **Regla de Arquitectura:** Los modelos NO deben contener bloques `validate: {}` propios de Sequelize; la validación ocurre en `services`.
 - **Utilidades (`src/utils/`):** helpers reutilizables. Para errores HTTP usá `throw httpError(status, mensaje)` en lugar de construir el `Error` a mano. Para fechas, `calcularEdad` y `sumarUnMes`.
 - **Datos base por seeders:** las actividades, salas, planes, roles y permisos se cargan exclusivamente desde `seeders/`. NO existen endpoints CRUD para crearlos (decisión de producto: el catálogo es estable y se versiona como parte del despliegue).
 - **Respuestas HTTP:** Utiliza los códigos de estado HTTP correctos (`200` OK, `201` Created, `400` Bad Request, `404` Not Found, `409` Conflict). Retorna SIEMPRE objetos JSON estructurados con mensajes descriptivos.
@@ -69,13 +71,13 @@ Asegúrate de consultar el archivo apropiado según la tarea:
 │   │   ├── clases/     # clases, mensualidades, clasesIndividuales
 │   │   └── pagos/
 │   ├── middleware/     # Middlewares (auth.middleware, requirePermiso)
-│   ├── models/         # Modelos Sequelize agrupados por dominio
-│   │   ├── acceso/     # usuario, rol, rolPermiso, permiso
+│   ├── models/         # Modelos Sequelize agrupados por dominio (Sin bloques validate)
+│   │   ├── acceso/     # usuario, rol, rolPermiso, permiso, cliente
 │   │   ├── catalogo/   # actividad, sala, sucursal, profesor, plan
 │   │   ├── clases/     # clase, mensualidad, pagoClaseIndividual
 │   │   └── pagos/      # pago
 │   ├── routes/         # Endpoints (subcarpetas espejo de controllers)
-│   ├── services/       # Lógica de negocio (auth, clases)
+│   ├── services/       # Lógica de negocio y Validaciones (acceso, catalogo, clases, pagos)
 │   └── utils/          # Helpers reutilizables (httpError, fechas)
 ├── .env                # (No en repositorio) Variables de entorno
 ├── app.js              # Configuración de la aplicación Express
