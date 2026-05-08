@@ -1,9 +1,10 @@
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-const { Usuario, Rol } = require("../../../db");
+const { Usuario, Cliente, Rol } = require("../../../db");
 const { ROLES } = require("../../constants/roles");
 const { calcularEdad } = require("../../utils/fechas");
 const httpError = require("../../utils/httpError");
+const { validarUsuario } = require("../acceso/usuarios.service");
 
 const enviarEmailConfirmacion = async (email, token) => {
   const transporter = nodemailer.createTransport({
@@ -66,20 +67,28 @@ const registrarCliente = async ({
   const tokenConfirmacion = crypto.randomBytes(32).toString("hex");
   const tokenExpiracion = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-  await Usuario.create({
+  const usuarioData = {
+    email,
+    dni,
     nombre,
     apellido,
-    dni,
-    email,
-    genero,
-    fechaNacimiento,
     telefono,
-    fichaMedica,
     password,
     tokenConfirmacion,
     tokenExpiracion,
     activo: false,
     rol_id: rolCliente.id,
+  };
+
+  validarUsuario(usuarioData);
+
+  const usuario = await Usuario.create(usuarioData);
+
+  await Cliente.create({
+    usuario_email: email,
+    genero,
+    fechaNacimiento,
+    fichaMedica,
   });
 
   await enviarEmailConfirmacion(email, tokenConfirmacion);

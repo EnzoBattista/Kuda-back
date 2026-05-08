@@ -2,8 +2,49 @@ const { Op } = require("sequelize");
 const { Clase, Actividad, Sala, Profesor } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
+const DIAS_SEMANA = [
+  "Lunes",
+  "Martes",
+  "Miercoles",
+  "Jueves",
+  "Viernes",
+  "Sabado",
+  "Domingo",
+];
+
 const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => {
-  const { dia_semana, hora_inicio, hora_fin, cupo, actividad_id, sala_id, profesor_id } = data;
+  const { nombre, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, sala_id, profesor_id } = data;
+
+  if (nombre !== undefined && !nombre.trim()) {
+    throw httpError(400, "El nombre de la clase no puede estar vacío");
+  }
+  if (dia_semana !== undefined && !DIAS_SEMANA.includes(dia_semana)) {
+    throw httpError(400, "Día de la semana no válido");
+  }
+  if (dia_semana === "Domingo") {
+    throw httpError(400, "No se pueden agendar clases los días Domingo");
+  }
+
+  if (hora_inicio && hora_fin && hora_fin <= hora_inicio) {
+    throw httpError(400, "La hora de fin debe ser posterior a la hora de inicio");
+  }
+
+  if (hora_inicio && hora_inicio < "07:00") {
+    throw httpError(400, "La clase no puede iniciar antes de las 07:00hs");
+  }
+
+  if (hora_fin && hora_fin > "22:00") {
+    throw httpError(400, "La clase no puede finalizar después de las 22:00hs");
+  }
+
+  if (hora_inicio && hora_fin) {
+    const [hI, mI] = hora_inicio.split(":").map(Number);
+    const [hF, mF] = hora_fin.split(":").map(Number);
+    const diff = (hF * 60 + mF) - (hI * 60 + mI);
+    if (diff > 240) {
+      throw httpError(400, "La duración de la clase no puede exceder las 4 horas");
+    }
+  }
 
   if (cupo !== undefined && cupo < 10) {
     throw httpError(400, "El cupo dinámico de la clase debe ser de al menos 10 personas");
