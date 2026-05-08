@@ -1,8 +1,9 @@
-const { Mensualidad, Usuario, Actividad, Clase, Plan } = require("../../../db");
+const { Mensualidad, Cliente, Actividad, Clase, Plan } = require("../../../db");
 const { sumarUnMes } = require("../../utils/fechas");
+const { crearMensualidad } = require("../../services/clases/mensualidades.service");
 
 const includes = [
-  { model: Usuario, as: "usuario" },
+  { model: Cliente, as: "cliente" },
   { model: Actividad, as: "actividad" },
   { model: Clase, as: "clase" },
   { model: Plan, as: "plan" },
@@ -10,9 +11,9 @@ const includes = [
 
 const getAllMensualidades = async (req, res, next) => {
   try {
-    const { usuario_id, estado } = req.query;
+    const { cliente_email, estado } = req.query;
     const where = {};
-    if (usuario_id) where.usuario_id = usuario_id;
+    if (cliente_email) where.cliente_email = cliente_email;
     if (estado) where.estado = estado;
 
     const mensualidades = await Mensualidad.findAll({
@@ -38,9 +39,9 @@ const getMensualidadById = async (req, res, next) => {
 
 const createMensualidad = async (req, res, next) => {
   try {
-    const { usuario_id, plan_id, clase_id, periodo_inicio } = req.body;
+    const { cliente_email, plan_id, clase_id, periodo_inicio } = req.body;
 
-    const plan = await Plan.findByPk(plan_id);
+    const plan = await Plan.findByPk(plan_id, { include: ["actividad"] });
     if (!plan) return res.status(404).json({ message: "Plan no encontrado" });
     if (plan.tipo !== "MENSUAL") {
       return res.status(400).json({ message: "El plan debe ser de tipo MENSUAL" });
@@ -59,15 +60,15 @@ const createMensualidad = async (req, res, next) => {
 
     const periodo_fin = sumarUnMes(periodo_inicio);
 
-    const mensualidad = await Mensualidad.create({
-      usuario_id,
+    const mensualidad = await crearMensualidad({
+      cliente_email,
       plan_id,
       actividad_id: plan.actividad_id,
       clase_id,
       periodo_inicio,
       periodo_fin,
       dia_vencimiento: periodo_fin,
-      monto: plan.precio,
+      monto: plan.actividad.precio,
       estado: "VIGENTE",
     });
     return res.status(201).json(mensualidad);

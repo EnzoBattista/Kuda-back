@@ -4,7 +4,7 @@ const authService = require("../../services/auth/auth.service");
 
 const generarToken = (usuario) => {
   return jwt.sign(
-    { id: usuario.id, nombreUsuario: usuario.nombreUsuario, rol_id: usuario.rol_id },
+    { email: usuario.email, rol_id: usuario.rol_id },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "8h" }
   );

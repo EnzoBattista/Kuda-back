@@ -1,16 +1,17 @@
-const { PagoClaseIndividual, Usuario, Clase, Plan } = require("../../../db");
+const { PagoClaseIndividual, Cliente, Clase, Plan } = require("../../../db");
+const { crearPagoClaseIndividual } = require("../../services/clases/clasesIndividuales.service");
 
 const includes = [
-  { model: Usuario, as: "usuario" },
+  { model: Cliente, as: "cliente" },
   { model: Clase, as: "clase" },
   { model: Plan, as: "plan" },
 ];
 
 const getAllClasesIndividuales = async (req, res, next) => {
   try {
-    const { usuario_id, modalidad, estado_seña } = req.query;
+    const { cliente_email, modalidad, estado_seña } = req.query;
     const where = {};
-    if (usuario_id) where.usuario_id = usuario_id;
+    if (cliente_email) where.cliente_email = cliente_email;
     if (modalidad) where.modalidad = modalidad;
     if (estado_seña) where.estado_seña = estado_seña;
 
@@ -37,9 +38,9 @@ const getClaseIndividualById = async (req, res, next) => {
 
 const createClaseIndividual = async (req, res, next) => {
   try {
-    const { usuario_id, clase_id, plan_id, fecha, modalidad, vencimiento_seña } = req.body;
+    const { cliente_email, clase_id, plan_id, fecha, modalidad, vencimiento_seña } = req.body;
 
-    const plan = await Plan.findByPk(plan_id);
+    const plan = await Plan.findByPk(plan_id, { include: ["actividad"] });
     if (!plan) return res.status(404).json({ message: "Plan no encontrado" });
     if (plan.tipo !== "INDIVIDUAL") {
       return res.status(400).json({ message: "El plan debe ser de tipo INDIVIDUAL" });
@@ -56,9 +57,9 @@ const createClaseIndividual = async (req, res, next) => {
       });
     }
 
-    const monto_total = plan.precio;
+    const monto_total = plan.actividad.precio * 0.333;
     const data = {
-      usuario_id,
+      cliente_email,
       clase_id,
       plan_id,
       fecha,
@@ -74,7 +75,7 @@ const createClaseIndividual = async (req, res, next) => {
       data.monto_pagado = monto_total;
     }
 
-    const item = await PagoClaseIndividual.create(data);
+    const item = await crearPagoClaseIndividual(data);
     return res.status(201).json(item);
   } catch (error) {
     return next(error);

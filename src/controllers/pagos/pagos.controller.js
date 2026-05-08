@@ -1,17 +1,17 @@
 const { Op } = require("sequelize");
 const { MercadoPagoConfig, Preference } = require("mercadopago");
-const { Pago, Usuario } = require("../../../db");
+const { Pago, Cliente, Usuario } = require("../../../db");
 
 const includes = [
-  { model: Usuario, as: "usuario" },
+  { model: Cliente, as: "cliente" },
   { model: Usuario, as: "recepcionista" },
 ];
 
 const getAllPagos = async (req, res, next) => {
   try {
-    const { usuario_id, origen, desde, hasta } = req.query;
+    const { cliente_email, origen, desde, hasta } = req.query;
     const where = {};
-    if (usuario_id) where.usuario_id = usuario_id;
+    if (cliente_email) where.cliente_email = cliente_email;
     if (origen) where.origen = origen;
     if (desde || hasta) {
       where.fecha = {};
@@ -33,8 +33,8 @@ const getAllPagos = async (req, res, next) => {
 const createPago = async (req, res, next) => {
   try {
     const {
-      usuario_id,
-      recepcionista_id,
+      cliente_email,
+      recepcionista_email,
       origen,
       origen_id,
       monto,
@@ -44,8 +44,8 @@ const createPago = async (req, res, next) => {
     } = req.body;
 
     const pago = await Pago.create({
-      usuario_id,
-      recepcionista_id,
+      cliente_email,
+      recepcionista_email,
       origen,
       origen_id,
       monto,

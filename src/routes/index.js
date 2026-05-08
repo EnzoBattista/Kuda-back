@@ -3,6 +3,7 @@ const router = express.Router();
 
 const authRouter = require("./auth/auth.routes");
 const usuariosRouter = require("./usuarios/usuarios.routes");
+const clientesRouter = require("./clientes/clientes.routes");
 const planesRouter = require("./catalogo/planes.routes");
 const profesoresRouter = require("./catalogo/profesores.routes");
 const clasesRouter = require("./clases/clases.routes");
@@ -16,6 +17,7 @@ router.get("/", (_req, res) => {
     endpoints: {
       auth: "/api/auth",
       usuarios: "/api/usuarios",
+      clientes: "/api/clientes",
       planes: "/api/planes",
       profesores: "/api/profesores",
       clases: "/api/clases",
@@ -28,6 +30,7 @@ router.get("/", (_req, res) => {
 
 router.use("/api/auth", authRouter);
 router.use("/api/usuarios", usuariosRouter);
+router.use("/api/clientes", clientesRouter);
 router.use("/api/planes", planesRouter);
 router.use("/api/profesores", profesoresRouter);
 router.use("/api/clases", clasesRouter);
