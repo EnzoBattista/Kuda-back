@@ -12,15 +12,15 @@ module.exports = (sequelize) => {
         primaryKey: true,
         autoIncrement: true,
       },
-      usuario_id: {
-        type: DataTypes.INTEGER,
+      cliente_email: {
+        type: DataTypes.STRING,
         allowNull: false,
-        references: { model: "usuarios", key: "id" },
+        references: { model: "clientes", key: "usuario_email" },
       },
-      recepcionista_id: {
-        type: DataTypes.INTEGER,
+      recepcionista_email: {
+        type: DataTypes.STRING,
         allowNull: true,
-        references: { model: "usuarios", key: "id" },
+        references: { model: "usuarios", key: "email" },
       },
       origen: {
         type: DataTypes.ENUM(...ORIGENES),
@@ -59,8 +59,8 @@ module.exports = (sequelize) => {
   Pago.MEDIOS = MEDIOS;
 
   Pago.associate = (models) => {
-    Pago.belongsTo(models.Usuario, { foreignKey: "usuario_id", as: "usuario" });
-    Pago.belongsTo(models.Usuario, { foreignKey: "recepcionista_id", as: "recepcionista" });
+    Pago.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
+    Pago.belongsTo(models.Usuario, { foreignKey: "recepcionista_email", as: "recepcionista" });
   };
 
   return Pago;

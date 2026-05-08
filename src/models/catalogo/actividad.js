@@ -13,13 +13,15 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
-        validate: {
-          notEmpty: { msg: "El nombre de la actividad no puede estar vacío" },
-        },
       },
       descripcion: {
         type: DataTypes.TEXT,
         allowNull: true,
+      },
+      precio: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+        defaultValue: 0,
       },
     },
     {

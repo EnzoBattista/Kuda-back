@@ -12,10 +12,10 @@ module.exports = (sequelize) => {
         primaryKey: true,
         autoIncrement: true,
       },
-      usuario_id: {
-        type: DataTypes.INTEGER,
+      cliente_email: {
+        type: DataTypes.STRING,
         allowNull: false,
-        references: { model: "usuarios", key: "id" },
+        references: { model: "clientes", key: "usuario_email" },
       },
       clase_id: {
         type: DataTypes.INTEGER,
@@ -56,19 +56,6 @@ module.exports = (sequelize) => {
     {
       tableName: "pagos_clase_individual",
       timestamps: true,
-      validate: {
-        coherenciaSeña() {
-          if (this.modalidad === "SEÑA") {
-            if (!this.estado_seña || !this.vencimiento_seña) {
-              throw new Error("Una seña requiere estado_seña y vencimiento_seña");
-            }
-          } else if (this.modalidad === "COMPLETO") {
-            if (this.estado_seña || this.vencimiento_seña) {
-              throw new Error("Pago COMPLETO no debe tener datos de seña");
-            }
-          }
-        },
-      },
     }
   );
 
@@ -76,7 +63,7 @@ module.exports = (sequelize) => {
   PagoClaseIndividual.ESTADOS_SEÑA = ESTADOS_SEÑA;
 
   PagoClaseIndividual.associate = (models) => {
-    PagoClaseIndividual.belongsTo(models.Usuario, { foreignKey: "usuario_id", as: "usuario" });
+    PagoClaseIndividual.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
     PagoClaseIndividual.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
     PagoClaseIndividual.belongsTo(models.Plan, { foreignKey: "plan_id", as: "plan" });
   };

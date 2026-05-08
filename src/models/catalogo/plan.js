@@ -24,10 +24,7 @@ module.exports = (sequelize) => {
         type: DataTypes.ENUM(...TIPOS),
         allowNull: false,
       },
-      precio: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-      },
+
       activo: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
