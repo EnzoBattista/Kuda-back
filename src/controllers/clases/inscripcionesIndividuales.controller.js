@@ -1,13 +1,13 @@
-const { PagoClaseIndividual, Cliente, Clase, Plan } = require("../../../db");
-const { crearPagoClaseIndividual } = require("../../services/clases/clasesIndividuales.service");
+const { InscripcionIndividual, Cliente, Clase, Actividad } = require("../../../db");
+const { crearInscripcionIndividual } = require("../../services/clases/inscripcionesIndividuales.service");
 
 const includes = [
   { model: Cliente, as: "cliente" },
   { model: Clase, as: "clase" },
-  { model: Plan, as: "plan" },
+  { model: Actividad, as: "actividad" },
 ];
 
-const getAllClasesIndividuales = async (req, res, next) => {
+const getAllInscripcionesIndividuales = async (req, res, next) => {
   try {
     const { cliente_email, modalidad, estado_seña } = req.query;
     const where = {};
@@ -15,7 +15,7 @@ const getAllClasesIndividuales = async (req, res, next) => {
     if (modalidad) where.modalidad = modalidad;
     if (estado_seña) where.estado_seña = estado_seña;
 
-    const items = await PagoClaseIndividual.findAll({
+    const items = await InscripcionIndividual.findAll({
       where,
       include: includes,
       order: [["fecha", "DESC"]],
@@ -26,42 +26,36 @@ const getAllClasesIndividuales = async (req, res, next) => {
   }
 };
 
-const getClaseIndividualById = async (req, res, next) => {
+const getInscripcionIndividualById = async (req, res, next) => {
   try {
-    const item = await PagoClaseIndividual.findByPk(req.params.id, { include: includes });
-    if (!item) return res.status(404).json({ message: "Pago de clase individual no encontrado" });
+    const item = await InscripcionIndividual.findByPk(req.params.id, { include: includes });
+    if (!item) return res.status(404).json({ message: "Inscripción individual no encontrada" });
     return res.status(200).json(item);
   } catch (error) {
     return next(error);
   }
 };
 
-const createClaseIndividual = async (req, res, next) => {
+const createInscripcionIndividual = async (req, res, next) => {
   try {
-    const { cliente_email, clase_id, plan_id, fecha, modalidad, vencimiento_seña } = req.body;
+    const { cliente_email, actividad_id, clase_id, fecha, modalidad, vencimiento_seña } = req.body;
 
-    const plan = await Plan.findByPk(plan_id, { include: ["actividad"] });
-    if (!plan) return res.status(404).json({ message: "Plan no encontrado" });
-    if (plan.tipo !== "INDIVIDUAL") {
-      return res.status(400).json({ message: "El plan debe ser de tipo INDIVIDUAL" });
-    }
-    if (!plan.activo) {
-      return res.status(400).json({ message: "El plan no está activo" });
-    }
+    const actividad = await Actividad.findByPk(actividad_id);
+    if (!actividad) return res.status(404).json({ message: "Actividad no encontrada" });
 
     const clase = await Clase.findByPk(clase_id);
     if (!clase) return res.status(404).json({ message: "Clase no encontrada" });
-    if (clase.actividad_id !== plan.actividad_id) {
+    if (clase.actividad_id !== actividad.id) {
       return res.status(400).json({
-        message: "La clase no pertenece a la actividad del plan",
+        message: "La clase no pertenece a la actividad indicada",
       });
     }
 
-    const monto_total = plan.actividad.precio * 0.333;
+    const monto_total = actividad.precio * 0.333;
     const data = {
       cliente_email,
       clase_id,
-      plan_id,
+      actividad_id,
       fecha,
       modalidad,
       monto_total,
@@ -75,7 +69,7 @@ const createClaseIndividual = async (req, res, next) => {
       data.monto_pagado = monto_total;
     }
 
-    const item = await crearPagoClaseIndividual(data);
+    const item = await crearInscripcionIndividual(data);
     return res.status(201).json(item);
   } catch (error) {
     return next(error);
@@ -84,10 +78,10 @@ const createClaseIndividual = async (req, res, next) => {
 
 const completarSeña = async (req, res, next) => {
   try {
-    const item = await PagoClaseIndividual.findByPk(req.params.id);
-    if (!item) return res.status(404).json({ message: "Pago de clase individual no encontrado" });
+    const item = await InscripcionIndividual.findByPk(req.params.id);
+    if (!item) return res.status(404).json({ message: "Inscripción individual no encontrada" });
     if (item.modalidad !== "SEÑA") {
-      return res.status(409).json({ message: "Este pago no es una seña" });
+      return res.status(409).json({ message: "Esta inscripción no es una seña" });
     }
     if (item.estado_seña !== "PENDIENTE") {
       return res.status(409).json({ message: `La seña está ${item.estado_seña}` });
@@ -102,8 +96,8 @@ const completarSeña = async (req, res, next) => {
 };
 
 module.exports = {
-  getAllClasesIndividuales,
-  getClaseIndividualById,
-  createClaseIndividual,
+  getAllInscripcionesIndividuales,
+  getInscripcionIndividualById,
+  createInscripcionIndividual,
   completarSeña,
 };
