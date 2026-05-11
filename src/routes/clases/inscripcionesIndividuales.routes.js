@@ -3,17 +3,17 @@ const auth = require("../../middleware/auth.middleware");
 const requirePermiso = require("../../middleware/requirePermiso");
 const { PERMISOS } = require("../../constants/permisos");
 const {
-  getAllClasesIndividuales,
-  getClaseIndividualById,
-  createClaseIndividual,
+  getAllInscripcionesIndividuales,
+  getInscripcionIndividualById,
+  createInscripcionIndividual,
   completarSeña,
-} = require("../../controllers/clases/clasesIndividuales.controller");
+} = require("../../controllers/clases/inscripcionesIndividuales.controller");
 
 const router = express.Router();
 
-router.get("/", auth, getAllClasesIndividuales);
-router.get("/:id", auth, getClaseIndividualById);
-router.post("/", auth, requirePermiso(PERMISOS.CLASE_RESERVAR), createClaseIndividual);
+router.get("/", auth, getAllInscripcionesIndividuales);
+router.get("/:id", auth, getInscripcionIndividualById);
+router.post("/", auth, requirePermiso(PERMISOS.CLASE_RESERVAR), createInscripcionIndividual);
 router.post(
   "/:id/completar-sena",
   auth,

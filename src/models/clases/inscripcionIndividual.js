@@ -4,8 +4,8 @@ const MODALIDADES = ["COMPLETO", "SEÑA"];
 const ESTADOS_SEÑA = ["PENDIENTE", "COMPLETADA", "VENCIDA"];
 
 module.exports = (sequelize) => {
-  const PagoClaseIndividual = sequelize.define(
-    "PagoClaseIndividual",
+  const InscripcionIndividual = sequelize.define(
+    "InscripcionIndividual",
     {
       id: {
         type: DataTypes.INTEGER,
@@ -17,15 +17,15 @@ module.exports = (sequelize) => {
         allowNull: false,
         references: { model: "clientes", key: "usuario_email" },
       },
+      actividad_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: "actividades", key: "id" },
+      },
       clase_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: { model: "clases", key: "id" },
-      },
-      plan_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: { model: "planes", key: "id" },
       },
       fecha: {
         type: DataTypes.DATEONLY,
@@ -54,19 +54,19 @@ module.exports = (sequelize) => {
       },
     },
     {
-      tableName: "pagos_clase_individual",
+      tableName: "inscripciones_individuales",
       timestamps: true,
     }
   );
 
-  PagoClaseIndividual.MODALIDADES = MODALIDADES;
-  PagoClaseIndividual.ESTADOS_SEÑA = ESTADOS_SEÑA;
+  InscripcionIndividual.MODALIDADES = MODALIDADES;
+  InscripcionIndividual.ESTADOS_SEÑA = ESTADOS_SEÑA;
 
-  PagoClaseIndividual.associate = (models) => {
-    PagoClaseIndividual.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
-    PagoClaseIndividual.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
-    PagoClaseIndividual.belongsTo(models.Plan, { foreignKey: "plan_id", as: "plan" });
+  InscripcionIndividual.associate = (models) => {
+    InscripcionIndividual.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
+    InscripcionIndividual.belongsTo(models.Actividad, { foreignKey: "actividad_id", as: "actividad" });
+    InscripcionIndividual.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
   };
 
-  return PagoClaseIndividual;
+  return InscripcionIndividual;
 };

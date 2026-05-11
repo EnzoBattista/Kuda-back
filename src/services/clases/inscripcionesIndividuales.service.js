@@ -1,10 +1,10 @@
-const { PagoClaseIndividual } = require("../../../db");
+const { InscripcionIndividual } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
 const MODALIDADES = ["COMPLETO", "SEÑA"];
 const ESTADOS_SEÑA = ["PENDIENTE", "COMPLETADA", "VENCIDA"];
 
-const validarPagoClaseIndividual = (data) => {
+const validarInscripcionIndividual = (data) => {
   if (data.modalidad !== undefined) {
     if (!MODALIDADES.includes(data.modalidad)) {
       throw httpError(400, "Modalidad no válida");
@@ -27,18 +27,18 @@ const validarPagoClaseIndividual = (data) => {
   }
 };
 
-const crearPagoClaseIndividual = async (data) => {
-  validarPagoClaseIndividual(data);
-  return PagoClaseIndividual.create(data);
+const crearInscripcionIndividual = async (data) => {
+  validarInscripcionIndividual(data);
+  return InscripcionIndividual.create(data);
 };
 
-const actualizarPagoClaseIndividual = async (pago, data) => {
-  validarPagoClaseIndividual(data);
-  return pago.update(data);
+const actualizarInscripcionIndividual = async (inscripcion, data) => {
+  validarInscripcionIndividual(data);
+  return inscripcion.update(data);
 };
 
 module.exports = {
-  validarPagoClaseIndividual,
-  crearPagoClaseIndividual,
-  actualizarPagoClaseIndividual,
+  validarInscripcionIndividual,
+  crearInscripcionIndividual,
+  actualizarInscripcionIndividual,
 };
