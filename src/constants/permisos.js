@@ -7,6 +7,7 @@ const PERMISOS = Object.freeze({
   ASISTENCIA_ESCANEAR: "asistencia.escanear",
   ASISTENCIA_DENEGAR: "asistencia.denegar",
   USUARIO_GESTIONAR: "usuario.gestionar",
+  EMPLEADO_GESTIONAR: "empleado.gestionar",
   ACTIVIDAD_GESTIONAR: "actividad.gestionar",
   REPORTE_VER: "reporte.ver",
 });
@@ -24,6 +25,7 @@ const MATRIZ_ROL_PERMISOS = Object.freeze({
     PERMISOS.ASISTENCIA_ESCANEAR,
     PERMISOS.ASISTENCIA_DENEGAR,
     PERMISOS.USUARIO_GESTIONAR,
+    PERMISOS.EMPLEADO_GESTIONAR,
     PERMISOS.ACTIVIDAD_GESTIONAR,
     PERMISOS.REPORTE_VER,
   ],

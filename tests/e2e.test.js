@@ -118,6 +118,46 @@ describe("Flujo E2E Kuda-back", () => {
       expect(conToken.body.message).toMatch(/sesión cerrada/i);
     });
 
+    it("Debe permitir al admin registrar un recepcionista (HU49) y rechazar duplicados o sin permiso", async () => {
+      const ok = await request(app)
+        .post("/api/recepcionistas")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          email: "recep@test.com",
+          dni: "44444444",
+          nombre: "Recep",
+          apellido: "Test",
+          telefono: "555",
+          password: "password123",
+        });
+      expect(ok.statusCode).toBe(201);
+      expect(ok.body.recepcionista.email).toBe("recep@test.com");
+
+      const duplicado = await request(app)
+        .post("/api/recepcionistas")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          email: "recep@test.com",
+          dni: "44444444",
+          nombre: "Recep",
+          apellido: "Test",
+          password: "password123",
+        });
+      expect(duplicado.statusCode).toBe(409);
+
+      const sinPermiso = await request(app)
+        .post("/api/recepcionistas")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          email: "otro@test.com",
+          dni: "55555555",
+          nombre: "Otro",
+          apellido: "Test",
+          password: "password123",
+        });
+      expect(sinPermiso.statusCode).toBe(403);
+    });
+
     it("Debe filtrar usuarios por rol, estado activo y búsqueda libre (HU86)", async () => {
       const todos = await request(app)
         .get("/api/usuarios")
