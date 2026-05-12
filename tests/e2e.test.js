@@ -118,6 +118,32 @@ describe("Flujo E2E Kuda-back", () => {
       expect(conToken.body.message).toMatch(/sesión cerrada/i);
     });
 
+    it("Debe filtrar usuarios por rol, estado activo y búsqueda libre (HU86)", async () => {
+      const todos = await request(app)
+        .get("/api/usuarios")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(todos.statusCode).toBe(200);
+      expect(todos.body.length).toBeGreaterThanOrEqual(2);
+
+      const soloClientes = await request(app)
+        .get("/api/usuarios?rol=CLIENTE")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(soloClientes.statusCode).toBe(200);
+      expect(soloClientes.body.every((u) => u.rol.nombre === "CLIENTE")).toBe(true);
+
+      const soloActivos = await request(app)
+        .get("/api/usuarios?activo=true")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(soloActivos.statusCode).toBe(200);
+      expect(soloActivos.body.every((u) => u.activo === true)).toBe(true);
+
+      const buscado = await request(app)
+        .get("/api/usuarios?q=cliente@test")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(buscado.statusCode).toBe(200);
+      expect(buscado.body.some((u) => u.email === clienteEmail)).toBe(true);
+    });
+
     it("Debe cambiar la contraseña del cliente cuando la actual es correcta", async () => {
       const malActual = await request(app)
         .post("/api/auth/cambiar-password")
