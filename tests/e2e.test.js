@@ -158,6 +158,39 @@ describe("Flujo E2E Kuda-back", () => {
       expect(sinPermiso.statusCode).toBe(403);
     });
 
+    it("Debe listar empleados (admin + recepcionistas) y ver detalle por email (HU74)", async () => {
+      const lista = await request(app)
+        .get("/api/empleados")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(lista.statusCode).toBe(200);
+      expect(lista.body.every((e) => ["ADMIN", "RECEPCIONISTA"].includes(e.rol.nombre))).toBe(true);
+      expect(lista.body.some((e) => e.email === "recep@test.com")).toBe(true);
+      expect(lista.body.some((e) => e.email === clienteEmail)).toBe(false);
+
+      const detalle = await request(app)
+        .get("/api/empleados/recep@test.com")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(detalle.statusCode).toBe(200);
+      expect(detalle.body.email).toBe("recep@test.com");
+      expect(detalle.body.rol.nombre).toBe("RECEPCIONISTA");
+
+      const noEmpleado = await request(app)
+        .get(`/api/empleados/${clienteEmail}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(noEmpleado.statusCode).toBe(404);
+
+      const filtrado = await request(app)
+        .get("/api/empleados?rol=RECEPCIONISTA")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(filtrado.statusCode).toBe(200);
+      expect(filtrado.body.every((e) => e.rol.nombre === "RECEPCIONISTA")).toBe(true);
+
+      const sinPermiso = await request(app)
+        .get("/api/empleados")
+        .set("Authorization", `Bearer ${clienteToken}`);
+      expect(sinPermiso.statusCode).toBe(403);
+    });
+
     it("Debe filtrar usuarios por rol, estado activo y búsqueda libre (HU86)", async () => {
       const todos = await request(app)
         .get("/api/usuarios")
