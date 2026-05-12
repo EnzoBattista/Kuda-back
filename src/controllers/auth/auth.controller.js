@@ -63,4 +63,8 @@ const login = async (req, res, next) => {
   }
 };
 
-module.exports = { register, confirmarCuenta, login };
+const logout = (_req, res) => {
+  return res.status(200).json({ message: "Sesión cerrada correctamente" });
+};
+
+module.exports = { register, confirmarCuenta, login, logout };

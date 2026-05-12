@@ -106,6 +106,17 @@ describe("Flujo E2E Kuda-back", () => {
 
       clienteToken = res.body.token;
     });
+
+    it("Debe permitir cerrar sesión a un usuario autenticado y rechazar si no hay token", async () => {
+      const sinToken = await request(app).post("/api/auth/logout");
+      expect(sinToken.statusCode).toBe(401);
+
+      const conToken = await request(app)
+        .post("/api/auth/logout")
+        .set("Authorization", `Bearer ${clienteToken}`);
+      expect(conToken.statusCode).toBe(200);
+      expect(conToken.body.message).toMatch(/sesión cerrada/i);
+    });
   });
 
   describe("2. Catálogo (Profesores)", () => {
