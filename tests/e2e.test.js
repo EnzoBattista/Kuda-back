@@ -117,6 +117,45 @@ describe("Flujo E2E Kuda-back", () => {
       expect(conToken.statusCode).toBe(200);
       expect(conToken.body.message).toMatch(/sesión cerrada/i);
     });
+
+    it("Debe cambiar la contraseña del cliente cuando la actual es correcta", async () => {
+      const malActual = await request(app)
+        .post("/api/auth/cambiar-password")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          passwordActual: "passwordEquivocada",
+          passwordNueva: "passwordNueva1",
+          confirmPassword: "passwordNueva1",
+        });
+      expect(malActual.statusCode).toBe(400);
+
+      const corto = await request(app)
+        .post("/api/auth/cambiar-password")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          passwordActual: "password123",
+          passwordNueva: "corto1",
+          confirmPassword: "corto1",
+        });
+      expect(corto.statusCode).toBe(400);
+
+      const ok = await request(app)
+        .post("/api/auth/cambiar-password")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          passwordActual: "password123",
+          passwordNueva: "passwordNueva1",
+          confirmPassword: "passwordNueva1",
+        });
+      expect(ok.statusCode).toBe(200);
+
+      const loginNuevo = await request(app).post("/api/auth/login").send({
+        email: clienteEmail,
+        password: "passwordNueva1",
+      });
+      expect(loginNuevo.statusCode).toBe(200);
+      clienteToken = loginNuevo.body.token;
+    });
   });
 
   describe("2. Catálogo (Profesores)", () => {
