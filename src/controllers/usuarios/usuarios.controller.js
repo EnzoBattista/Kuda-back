@@ -1,9 +1,44 @@
+const { Op } = require("sequelize");
 const { Usuario, Rol } = require("../../../db");
 const { crearUsuario, actualizarUsuario } = require("../../services/acceso/usuarios.service");
 
-const getAllUsuarios = async (_req, res, next) => {
+const parseBool = (valor) => {
+  if (valor === undefined) return undefined;
+  if (typeof valor === "boolean") return valor;
+  if (valor === "true") return true;
+  if (valor === "false") return false;
+  return undefined;
+};
+
+const getAllUsuarios = async (req, res, next) => {
   try {
-    const usuarios = await Usuario.findAll({ include: [{ model: Rol, as: "rol" }] });
+    const { rol, activo, q } = req.query;
+    const where = {};
+
+    const activoBool = parseBool(activo);
+    if (activoBool !== undefined) where.activo = activoBool;
+
+    if (q && q.trim()) {
+      const term = `%${q.trim()}%`;
+      where[Op.or] = [
+        { nombre: { [Op.iLike]: term } },
+        { apellido: { [Op.iLike]: term } },
+        { email: { [Op.iLike]: term } },
+        { dni: { [Op.iLike]: term } },
+      ];
+    }
+
+    const includeRol = { model: Rol, as: "rol" };
+    if (rol && rol.trim()) {
+      includeRol.where = { nombre: rol.trim().toUpperCase() };
+      includeRol.required = true;
+    }
+
+    const usuarios = await Usuario.findAll({
+      where,
+      include: [includeRol],
+      order: [["apellido", "ASC"], ["nombre", "ASC"]],
+    });
     return res.status(200).json(usuarios);
   } catch (error) {
     return next(error);

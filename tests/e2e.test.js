@@ -106,6 +106,155 @@ describe("Flujo E2E Kuda-back", () => {
 
       clienteToken = res.body.token;
     });
+
+    it("Debe permitir cerrar sesión a un usuario autenticado y rechazar si no hay token", async () => {
+      const sinToken = await request(app).post("/api/auth/logout");
+      expect(sinToken.statusCode).toBe(401);
+
+      const conToken = await request(app)
+        .post("/api/auth/logout")
+        .set("Authorization", `Bearer ${clienteToken}`);
+      expect(conToken.statusCode).toBe(200);
+      expect(conToken.body.message).toMatch(/sesión cerrada/i);
+    });
+
+    it("Debe permitir al admin registrar un recepcionista (HU49) y rechazar duplicados o sin permiso", async () => {
+      const ok = await request(app)
+        .post("/api/recepcionistas")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          email: "recep@test.com",
+          dni: "44444444",
+          nombre: "Recep",
+          apellido: "Test",
+          telefono: "555",
+          password: "password123",
+        });
+      expect(ok.statusCode).toBe(201);
+      expect(ok.body.recepcionista.email).toBe("recep@test.com");
+
+      const duplicado = await request(app)
+        .post("/api/recepcionistas")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          email: "recep@test.com",
+          dni: "44444444",
+          nombre: "Recep",
+          apellido: "Test",
+          password: "password123",
+        });
+      expect(duplicado.statusCode).toBe(409);
+
+      const sinPermiso = await request(app)
+        .post("/api/recepcionistas")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          email: "otro@test.com",
+          dni: "55555555",
+          nombre: "Otro",
+          apellido: "Test",
+          password: "password123",
+        });
+      expect(sinPermiso.statusCode).toBe(403);
+    });
+
+    it("Debe listar empleados (admin + recepcionistas) y ver detalle por email (HU74)", async () => {
+      const lista = await request(app)
+        .get("/api/empleados")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(lista.statusCode).toBe(200);
+      expect(lista.body.every((e) => ["ADMIN", "RECEPCIONISTA"].includes(e.rol.nombre))).toBe(true);
+      expect(lista.body.some((e) => e.email === "recep@test.com")).toBe(true);
+      expect(lista.body.some((e) => e.email === clienteEmail)).toBe(false);
+
+      const detalle = await request(app)
+        .get("/api/empleados/recep@test.com")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(detalle.statusCode).toBe(200);
+      expect(detalle.body.email).toBe("recep@test.com");
+      expect(detalle.body.rol.nombre).toBe("RECEPCIONISTA");
+
+      const noEmpleado = await request(app)
+        .get(`/api/empleados/${clienteEmail}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(noEmpleado.statusCode).toBe(404);
+
+      const filtrado = await request(app)
+        .get("/api/empleados?rol=RECEPCIONISTA")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(filtrado.statusCode).toBe(200);
+      expect(filtrado.body.every((e) => e.rol.nombre === "RECEPCIONISTA")).toBe(true);
+
+      const sinPermiso = await request(app)
+        .get("/api/empleados")
+        .set("Authorization", `Bearer ${clienteToken}`);
+      expect(sinPermiso.statusCode).toBe(403);
+    });
+
+    it("Debe filtrar usuarios por rol, estado activo y búsqueda libre (HU86)", async () => {
+      const todos = await request(app)
+        .get("/api/usuarios")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(todos.statusCode).toBe(200);
+      expect(todos.body.length).toBeGreaterThanOrEqual(2);
+
+      const soloClientes = await request(app)
+        .get("/api/usuarios?rol=CLIENTE")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(soloClientes.statusCode).toBe(200);
+      expect(soloClientes.body.every((u) => u.rol.nombre === "CLIENTE")).toBe(true);
+
+      const soloActivos = await request(app)
+        .get("/api/usuarios?activo=true")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(soloActivos.statusCode).toBe(200);
+      expect(soloActivos.body.every((u) => u.activo === true)).toBe(true);
+
+      const buscado = await request(app)
+        .get("/api/usuarios?q=cliente@test")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(buscado.statusCode).toBe(200);
+      expect(buscado.body.some((u) => u.email === clienteEmail)).toBe(true);
+    });
+
+    it("Debe cambiar la contraseña del cliente cuando la actual es correcta", async () => {
+      const malActual = await request(app)
+        .post("/api/auth/cambiar-password")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          passwordActual: "passwordEquivocada",
+          passwordNueva: "passwordNueva1",
+          confirmPassword: "passwordNueva1",
+        });
+      expect(malActual.statusCode).toBe(400);
+
+      const corto = await request(app)
+        .post("/api/auth/cambiar-password")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          passwordActual: "password123",
+          passwordNueva: "corto1",
+          confirmPassword: "corto1",
+        });
+      expect(corto.statusCode).toBe(400);
+
+      const ok = await request(app)
+        .post("/api/auth/cambiar-password")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          passwordActual: "password123",
+          passwordNueva: "passwordNueva1",
+          confirmPassword: "passwordNueva1",
+        });
+      expect(ok.statusCode).toBe(200);
+
+      const loginNuevo = await request(app).post("/api/auth/login").send({
+        email: clienteEmail,
+        password: "passwordNueva1",
+      });
+      expect(loginNuevo.statusCode).toBe(200);
+      clienteToken = loginNuevo.body.token;
+    });
   });
 
   describe("2. Catálogo (Profesores)", () => {

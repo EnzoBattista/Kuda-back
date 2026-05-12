@@ -118,4 +118,34 @@ const confirmarCuenta = async (token) => {
   return { message: "Usted ha sido registrado correctamente" };
 };
 
-module.exports = { registrarCliente, confirmarCuenta };
+const cambiarPassword = async (email, { passwordActual, passwordNueva, confirmPassword }) => {
+  if (!passwordActual || !passwordNueva) {
+    throw httpError(400, "Debe indicar contraseña actual y nueva");
+  }
+  if (passwordNueva !== confirmPassword) {
+    throw httpError(400, "La nueva contraseña y su confirmación no coinciden");
+  }
+  if (passwordNueva.length < 8) {
+    throw httpError(400, "La nueva contraseña debe tener al menos 8 caracteres");
+  }
+  if (passwordActual === passwordNueva) {
+    throw httpError(400, "La nueva contraseña debe ser distinta a la actual");
+  }
+
+  const usuario = await Usuario.findByPk(email);
+  if (!usuario) {
+    throw httpError(404, "Usuario no encontrado");
+  }
+
+  const actualValida = await usuario.verificarPassword(passwordActual);
+  if (!actualValida) {
+    throw httpError(400, "La contraseña actual es incorrecta");
+  }
+
+  usuario.password = passwordNueva;
+  await usuario.save();
+
+  return { message: "Contraseña actualizada correctamente" };
+};
+
+module.exports = { registrarCliente, confirmarCuenta, cambiarPassword };
