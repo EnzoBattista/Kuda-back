@@ -162,6 +162,9 @@ describe("Flujo E2E Kuda-back", () => {
       const lista = await request(app)
         .get("/api/empleados")
         .set("Authorization", `Bearer ${adminToken}`);
+      
+      console.log("=== LISTADO DE EMPLEADOS ===", JSON.stringify(lista.body, null, 2));
+      
       expect(lista.statusCode).toBe(200);
       expect(lista.body.every((e) => ["ADMIN", "RECEPCIONISTA"].includes(e.rol.nombre))).toBe(true);
       expect(lista.body.some((e) => e.email === "recep@test.com")).toBe(true);
@@ -170,6 +173,7 @@ describe("Flujo E2E Kuda-back", () => {
       const detalle = await request(app)
         .get("/api/empleados/recep@test.com")
         .set("Authorization", `Bearer ${adminToken}`);
+      console.log("=== DETALLE EMPLEADO ===", JSON.stringify(detalle.body, null, 2));
       expect(detalle.statusCode).toBe(200);
       expect(detalle.body.email).toBe("recep@test.com");
       expect(detalle.body.rol.nombre).toBe("RECEPCIONISTA");
@@ -177,17 +181,20 @@ describe("Flujo E2E Kuda-back", () => {
       const noEmpleado = await request(app)
         .get(`/api/empleados/${clienteEmail}`)
         .set("Authorization", `Bearer ${adminToken}`);
+      console.log("=== NO EMPLEADO (404) ===", JSON.stringify(noEmpleado.body, null, 2));
       expect(noEmpleado.statusCode).toBe(404);
 
       const filtrado = await request(app)
         .get("/api/empleados?rol=RECEPCIONISTA")
         .set("Authorization", `Bearer ${adminToken}`);
+      console.log("=== EMPLEADOS FILTRADOS ===", JSON.stringify(filtrado.body, null, 2));
       expect(filtrado.statusCode).toBe(200);
       expect(filtrado.body.every((e) => e.rol.nombre === "RECEPCIONISTA")).toBe(true);
 
       const sinPermiso = await request(app)
         .get("/api/empleados")
         .set("Authorization", `Bearer ${clienteToken}`);
+      console.log("=== SIN PERMISO (403) ===", JSON.stringify(sinPermiso.body, null, 2));
       expect(sinPermiso.statusCode).toBe(403);
     });
 
@@ -195,24 +202,28 @@ describe("Flujo E2E Kuda-back", () => {
       const todos = await request(app)
         .get("/api/usuarios")
         .set("Authorization", `Bearer ${adminToken}`);
+      console.log("=== TODOS LOS USUARIOS ===", JSON.stringify(todos.body, null, 2));
       expect(todos.statusCode).toBe(200);
       expect(todos.body.length).toBeGreaterThanOrEqual(2);
 
       const soloClientes = await request(app)
         .get("/api/usuarios?rol=CLIENTE")
         .set("Authorization", `Bearer ${adminToken}`);
+      console.log("=== SOLO CLIENTES ===", JSON.stringify(soloClientes.body, null, 2));
       expect(soloClientes.statusCode).toBe(200);
       expect(soloClientes.body.every((u) => u.rol.nombre === "CLIENTE")).toBe(true);
 
       const soloActivos = await request(app)
         .get("/api/usuarios?activo=true")
         .set("Authorization", `Bearer ${adminToken}`);
+      console.log("=== SOLO ACTIVOS ===", JSON.stringify(soloActivos.body, null, 2));
       expect(soloActivos.statusCode).toBe(200);
       expect(soloActivos.body.every((u) => u.activo === true)).toBe(true);
 
       const buscado = await request(app)
         .get("/api/usuarios?q=cliente@test")
         .set("Authorization", `Bearer ${adminToken}`);
+      console.log("=== BUSCADO POR Q ===", JSON.stringify(buscado.body, null, 2));
       expect(buscado.statusCode).toBe(200);
       expect(buscado.body.some((u) => u.email === clienteEmail)).toBe(true);
     });
