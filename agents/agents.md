@@ -7,6 +7,7 @@ Este archivo contiene las directrices principales para cualquier asistente de in
 ## 1. Changelog
 *Mantén este registro actualizado cada vez que realices cambios estructurales grandes en el sistema.*
 
+- **[2026-05-12]**: Inicio del Sprint 1 (ver `docs/PLAN_SPRINT_1.md`). Se habilita CRUD de Actividades (HU 57/58/59/89): los seeders pasan a ser solo carga inicial y el administrador puede crear, modificar, cambiar precio y dar de baja lógica las actividades vía endpoints REST.
 - **[2026-05-07]**: Refactorización profunda de modelos y validaciones: Eliminación de `Empleado`. El modelo `Usuario` centraliza el acceso. El modelo `Cliente` se convierte en una tabla hija de `Usuario` (relación 1:1 vía `usuario_email`). Todas las validaciones a nivel base de datos (`validate: {}`) se extrajeron hacia los archivos en `/src/services/` para asegurar que el control ocurra previo a interactuar con Sequelize. Se agregaron validaciones de negocio estrictas a las clases (límite 4 horas, prohibido domingos, horario 07-22hs).
 - **[2026-05-07]**: Reorganización de `src/` por dominio dentro de cada capa (`acceso/`, `catalogo/`, `clases/`, `pagos/`). Nueva carpeta `src/utils/` con helpers reutilizables (`httpError`, `fechas`). `db.js` escanea modelos recursivamente. Actividades y planes solo se cargan vía seeders (sin endpoints CRUD).
 - **[2026-05-03]**: Implementación de la entidad `Profesor` (modelo, controlador, rutas) y actualización de relaciones con `Clase` y `Actividad`.
@@ -31,7 +32,8 @@ Este archivo contiene las directrices principales para cualquier asistente de in
 - **Servicios (`src/services/`):** Capa intermedia obligatoria. Contienen **todas** las validaciones y reglas de negocio (`validarX`, `crearX`, `actualizarX`). Lanzan `httpError` ante datos inválidos.
 - **Modelos (`src/models/`):** Modelos definidos con Sequelize. Todas las asociaciones deben declararse dentro del método `associate` de cada modelo. `db.js` escanea recursivamente. **Regla de Arquitectura:** Los modelos NO deben contener bloques `validate: {}` propios de Sequelize; la validación ocurre en `services`.
 - **Utilidades (`src/utils/`):** helpers reutilizables. Para errores HTTP usá `throw httpError(status, mensaje)` en lugar de construir el `Error` a mano. Para fechas, `calcularEdad` y `sumarUnMes`.
-- **Datos base por seeders:** las actividades, salas, planes, roles y permisos se cargan exclusivamente desde `seeders/`. NO existen endpoints CRUD para crearlos (decisión de producto: el catálogo es estable y se versiona como parte del despliegue).
+- **Datos base por seeders:** salas, roles y permisos se cargan exclusivamente desde `seeders/`. NO existen endpoints CRUD para esos recursos (decisión de producto: son configuración estable y se versionan como parte del despliegue).
+- **Actividades:** se cargan inicialmente vía seeder, pero el administrador puede gestionarlas (alta, modificación, cambio de precio, baja lógica) mediante los endpoints de `/api/actividades`. El catálogo de actividades no es estático.
 - **Respuestas HTTP:** Utiliza los códigos de estado HTTP correctos (`200` OK, `201` Created, `400` Bad Request, `404` Not Found, `409` Conflict). Retorna SIEMPRE objetos JSON estructurados con mensajes descriptivos.
 
 ---
