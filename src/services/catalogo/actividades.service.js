@@ -1,24 +1,149 @@
-const { Actividad } = require("../../../db");
+const { Actividad, Clase, Profesor, InscripcionMensual, InscripcionIndividual } = require("../../../db");
 const httpError = require("../../utils/httpError");
+const { Op } = require("sequelize");
 
-const validarActividad = (data) => {
-  if (data.nombre !== undefined && !data.nombre.trim()) {
+const getAllActividades = async (soloActivas = false) => {
+  const where = soloActivas ? { activa: true } : {};
+  const actividades = await Actividad.findAll({
+    where,
+    order: [["nombre", "ASC"]],
+  });
+  return actividades;
+};
+
+const createActividad = async (data) => {
+  const { nombre, descripcion, precio, activa } = data;
+
+  if (!nombre || !nombre.trim()) {
     throw httpError(400, "El nombre de la actividad no puede estar vacío");
   }
+
+  if (precio !== undefined && precio < 0) {
+    throw httpError(400, "El precio no puede ser negativo");
+  }
+
+  const existente = await Actividad.findOne({ where: { nombre } });
+  if (existente) {
+    throw httpError(409, "Ya existe una actividad con ese nombre");
+  }
+
+  const nuevaActividad = await Actividad.create({
+    nombre,
+    descripcion,
+    precio,
+    activa: activa !== undefined ? activa : true,
+  });
+
+  return nuevaActividad;
 };
 
-const crearActividad = async (data) => {
-  validarActividad(data);
-  return Actividad.create(data);
+const updateActividad = async (id, data) => {
+  const { nombre, descripcion, activa } = data;
+
+  if (nombre !== undefined && !nombre.trim()) {
+    throw httpError(400, "El nombre de la actividad no puede estar vacío");
+  }
+
+  const actividad = await Actividad.findByPk(id);
+  if (!actividad) {
+    throw httpError(404, "Actividad no encontrada");
+  }
+
+  if (nombre && nombre !== actividad.nombre) {
+    const existente = await Actividad.findOne({ where: { nombre } });
+    if (existente) {
+      throw httpError(409, "Ya existe otra actividad con ese nombre");
+    }
+  }
+
+  await actividad.update({
+    nombre: nombre || actividad.nombre,
+    descripcion: descripcion !== undefined ? descripcion : actividad.descripcion,
+    activa: activa !== undefined ? activa : actividad.activa,
+  });
+
+  return actividad;
 };
 
-const actualizarActividad = async (actividad, data) => {
-  validarActividad(data);
-  return actividad.update(data);
+const updatePrecio = async (id, nuevoPrecio) => {
+  if (nuevoPrecio === undefined || nuevoPrecio < 0) {
+    throw httpError(400, "El precio es inválido o negativo");
+  }
+
+  const actividad = await Actividad.findByPk(id);
+  if (!actividad) {
+    throw httpError(404, "Actividad no encontrada");
+  }
+
+  await actividad.update({ precio: nuevoPrecio });
+
+  return actividad;
+};
+
+const deleteActividad = async (id) => {
+  const actividad = await Actividad.findByPk(id);
+  if (!actividad) {
+    throw httpError(404, "Actividad no encontrada");
+  }
+
+  const clasesActivas = await Clase.findAll({
+    where: { actividad_id: id, activa: true },
+    attributes: ["id"],
+  });
+
+  if (clasesActivas.length > 0) {
+    const clasesIds = clasesActivas.map((c) => c.id);
+
+    const mensualesActivas = await InscripcionMensual.count({
+      where: {
+        clase_id: { [Op.in]: clasesIds },
+        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
+      },
+    });
+
+    if (mensualesActivas > 0) {
+      throw httpError(409, "No se puede eliminar la actividad porque tiene clases con inscripciones mensuales activas");
+    }
+
+    const individualesFuturas = await InscripcionIndividual.count({
+      where: {
+        clase_id: { [Op.in]: clasesIds },
+        fecha: { [Op.gte]: new Date() },
+      },
+    });
+
+    if (individualesFuturas > 0) {
+      throw httpError(409, "No se puede eliminar la actividad porque tiene clases con inscripciones individuales futuras");
+    }
+  }
+
+  await actividad.update({ activa: false });
+  return { message: "Actividad dada de baja exitosamente" };
+};
+
+const getProfesoresPorActividad = async (id) => {
+  const actividad = await Actividad.findByPk(id, {
+    include: [
+      {
+        model: Profesor,
+        as: "profesores",
+        through: { attributes: [] },
+      },
+    ],
+  });
+
+  if (!actividad) {
+    throw httpError(404, "Actividad no encontrada");
+  }
+
+  return actividad.profesores;
 };
 
 module.exports = {
-  validarActividad,
-  crearActividad,
-  actualizarActividad,
+  getAllActividades,
+  createActividad,
+  updateActividad,
+  updatePrecio,
+  deleteActividad,
+  getProfesoresPorActividad,
 };
