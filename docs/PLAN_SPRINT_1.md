@@ -32,7 +32,7 @@
 - Actualizar `agents/agents.md` removiendo la regla que prohíbe CRUD para Actividades.
 - Confirmar matriz `MATRIZ_ROL_PERMISOS` (admin ya tiene `ACTIVIDAD_GESTIONAR`).
 
-## 3. Fase 1 — Gestión de Usuarios (gaps)
+## 3. Fase 1 — Gestión de Usuarios (gaps) ✅ (HECHO)
 
 | HU | Cambio |
 |----|--------|
@@ -42,7 +42,7 @@
 | 49 | `POST /api/recepcionistas` — solo admin; crea Usuario con rol RECEPCIONISTA, sin fila en `clientes`. |
 | 74 | `GET /api/empleados` y `GET /api/empleados/:email` — usuarios con rol ≠ CLIENTE. |
 
-## 4. Fase 2 — Catálogo (Actividades)
+## 4. Fase 2 — Catálogo (Actividades) ✅ (HECHO)
 
 Agregar columna `activa BOOLEAN DEFAULT true` al modelo `Actividad`.
 
@@ -55,7 +55,7 @@ Agregar columna `activa BOOLEAN DEFAULT true` al modelo `Actividad`.
 | 59 | `DELETE /api/actividades/:id` — baja lógica; rechaza si hay clases activas con inscriptos. |
 | 60 | `GET /api/actividades/:id/profesores` (confirmar implementación). |
 
-## 5. Fase 3 — Clases
+## 5. Fase 3 — Clases ✅ (HECHO)
 
 | HU | Cambio |
 |----|--------|

@@ -51,15 +51,7 @@ beforeAll(async () => {
     fechaNacimiento: "2000-01-01"
   });
 
-  // Crear Actividad directamente (no hay endpoint CRUD aún)
-  const actividad = await conn.models.Actividad.create({
-    nombre: "Crossfit",
-    descripcion: "Entrenamiento funcional",
-    precio: 10000,
-    estado: true,
-    requiereAptoFisico: true,
-  });
-  actividadId = actividad.id;
+  // La Actividad ahora se creará mediante el endpoint en el test de Catálogo (Actividades)
 
   // Crear Sala directamente (no hay endpoint CRUD aún)
   const sala = await conn.models.Sala.create({
@@ -268,6 +260,64 @@ describe("Flujo E2E Kuda-back", () => {
     });
   });
 
+  describe("1.5. Catálogo (Actividades)", () => {
+    it("Debe permitir al Administrador crear una Actividad, validando su nombre único", async () => {
+      const res = await request(app)
+        .post("/api/actividades")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          nombre: "Crossfit",
+          descripcion: "Entrenamiento funcional",
+          precio: 10000,
+          activa: true,
+        });
+      expect(res.statusCode).toBe(201);
+      expect(res.body.actividad.nombre).toBe("Crossfit");
+      
+      actividadId = res.body.actividad.id;
+
+      const duplicado = await request(app)
+        .post("/api/actividades")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          nombre: "Crossfit",
+          precio: 12000,
+        });
+      expect(duplicado.statusCode).toBe(409);
+    });
+
+    it("Debe listar las actividades públicas para un cliente", async () => {
+      const res = await request(app)
+        .get("/api/actividades")
+        .set("Authorization", `Bearer ${clienteToken}`);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("Debe permitir actualizar el precio (HU89) y dar de baja lógica (HU59)", async () => {
+      // Creamos una actividad temporal para dar de baja
+      const temp = await request(app)
+        .post("/api/actividades")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ nombre: "Temporal", precio: 100 });
+      const tempId = temp.body.actividad.id;
+
+      // Actualizar precio
+      const patchRes = await request(app)
+        .patch(`/api/actividades/${tempId}/precio`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ precio: 200 });
+      expect(patchRes.statusCode).toBe(200);
+      expect(Number(patchRes.body.actividad.precio)).toBe(200);
+
+      // Baja lógica
+      const delRes = await request(app)
+        .delete(`/api/actividades/${tempId}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(delRes.statusCode).toBe(200);
+    });
+  });
+
   describe("2. Catálogo (Profesores)", () => {
     it("Debe permitir al Administrador registrar un Profesor, asegurando su vinculación a las Actividades correspondientes", async () => {
       const res = await request(app)
@@ -323,6 +373,55 @@ describe("Flujo E2E Kuda-back", () => {
       expect(res.body.clase.cupo).toBe(15);
 
       claseId = res.body.clase.id;
+    });
+
+    it("Debe devolver el detalle de la clase y sus próximas fechas (HU79), permitiendo cancelar una fecha (HU63)", async () => {
+      const res = await request(app)
+        .get(`/api/clases/${claseId}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.proximas_fechas).toBeDefined();
+      expect(res.body.proximas_fechas.length).toBeGreaterThan(0);
+      
+      const primerFecha = res.body.proximas_fechas[0];
+
+      const cancel = await request(app)
+        .post(`/api/clases/${claseId}/cancelaciones`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          fecha: primerFecha,
+          motivo: "Feriado",
+        });
+      expect(cancel.statusCode).toBe(201);
+      
+      const resPostCancel = await request(app)
+        .get(`/api/clases/${claseId}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      
+      expect(resPostCancel.body.proximas_fechas).not.toContain(primerFecha);
+    });
+
+    it("Debe permitir dar de baja una clase si no tiene inscriptos (HU44)", async () => {
+      const tempClase = await request(app)
+        .post("/api/clases")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          nombre: "Clase para borrar",
+          dia_semana: "Martes",
+          hora_inicio: "15:00:00",
+          hora_fin: "16:00:00",
+          cupo: 10,
+          activa: true,
+          actividad_id: actividadId,
+          sala_id: salaId,
+          profesor_id: profesorId,
+        });
+      const tempClaseId = tempClase.body.clase.id;
+
+      const deleteOk = await request(app)
+        .delete(`/api/clases/${tempClaseId}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(deleteOk.statusCode).toBe(200);
     });
   });
 
@@ -384,6 +483,22 @@ describe("Flujo E2E Kuda-back", () => {
       // Validar datos de pago individual
       expect(res.body.modalidad).toBe("COMPLETO");
       expect(Number(res.body.monto_total)).toBe(3330); // Independientemente de si viene como string o number
+    });
+  });
+
+  describe("5. Borrado con inscriptos (Validación estricta)", () => {
+    it("Debe rechazar la eliminación de la Clase porque tiene inscripciones vigentes (HU44)", async () => {
+      const res = await request(app)
+        .delete(`/api/clases/${claseId}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.statusCode).toBe(409);
+    });
+
+    it("Debe rechazar la eliminación de la Actividad porque tiene clases con inscripciones (HU59)", async () => {
+      const res = await request(app)
+        .delete(`/api/actividades/${actividadId}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(res.statusCode).toBe(409);
     });
   });
 });
