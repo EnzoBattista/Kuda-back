@@ -63,4 +63,20 @@ const login = async (req, res, next) => {
   }
 };
 
-module.exports = { register, confirmarCuenta, login };
+const logout = (_req, res) => {
+  return res.status(200).json({ message: "Sesión cerrada correctamente" });
+};
+
+const cambiarPassword = async (req, res, next) => {
+  try {
+    const resultado = await authService.cambiarPassword(req.usuario.email, req.body);
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
+module.exports = { register, confirmarCuenta, login, logout, cambiarPassword };

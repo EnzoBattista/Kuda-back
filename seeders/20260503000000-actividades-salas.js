@@ -8,6 +8,7 @@ module.exports = {
       {
         nombre: "Yoga",
         descripcion: "Disciplina enfocada en el equilibrio integral",
+        precio: 25000,
         createdAt: now,
         updatedAt: now,
       },
@@ -15,12 +16,14 @@ module.exports = {
         nombre: "Pilates",
         descripcion:
           "Método de entrenamiento que prioriza el control corporal, la alineación y el fortalecimiento",
+        precio: 28000,
         createdAt: now,
         updatedAt: now,
       },
       {
         nombre: "Funcional",
         descripcion: "Entrenamiento de movimientos funcionales y fuerza",
+        precio: 30000,
         createdAt: now,
         updatedAt: now,
       },

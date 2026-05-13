@@ -3,8 +3,8 @@ const { DataTypes } = require("sequelize");
 const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA"];
 
 module.exports = (sequelize) => {
-  const Mensualidad = sequelize.define(
-    "Mensualidad",
+  const InscripcionMensual = sequelize.define(
+    "InscripcionMensual",
     {
       id: {
         type: DataTypes.INTEGER,
@@ -15,11 +15,6 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING,
         allowNull: false,
         references: { model: "clientes", key: "usuario_email" },
-      },
-      plan_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: { model: "planes", key: "id" },
       },
       actividad_id: {
         type: DataTypes.INTEGER,
@@ -54,27 +49,18 @@ module.exports = (sequelize) => {
       },
     },
     {
-      tableName: "mensualidades",
+      tableName: "inscripciones_mensuales",
       timestamps: true,
     }
   );
 
-  Mensualidad.ESTADOS = ESTADOS;
+  InscripcionMensual.ESTADOS = ESTADOS;
 
-  Mensualidad.addHook("beforeValidate", async (mensualidad) => {
-    if (mensualidad.plan_id && !mensualidad.actividad_id) {
-      const Plan = sequelize.models.Plan;
-      const plan = await Plan.findByPk(mensualidad.plan_id);
-      if (plan) mensualidad.actividad_id = plan.actividad_id;
-    }
-  });
-
-  Mensualidad.associate = (models) => {
-    Mensualidad.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
-    Mensualidad.belongsTo(models.Actividad, { foreignKey: "actividad_id", as: "actividad" });
-    Mensualidad.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
-    Mensualidad.belongsTo(models.Plan, { foreignKey: "plan_id", as: "plan" });
+  InscripcionMensual.associate = (models) => {
+    InscripcionMensual.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
+    InscripcionMensual.belongsTo(models.Actividad, { foreignKey: "actividad_id", as: "actividad" });
+    InscripcionMensual.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
   };
 
-  return Mensualidad;
+  return InscripcionMensual;
 };

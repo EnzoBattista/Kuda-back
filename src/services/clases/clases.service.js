@@ -1,6 +1,16 @@
 const { Op } = require("sequelize");
-const { Clase, Actividad, Sala, Profesor } = require("../../../db");
+const { Clase, Actividad, Sala, Profesor, CancelacionClase, InscripcionMensual, InscripcionIndividual } = require("../../../db");
 const httpError = require("../../utils/httpError");
+
+const MAPA_DIAS = {
+  Domingo: 0,
+  Lunes: 1,
+  Martes: 2,
+  Miercoles: 3,
+  Jueves: 4,
+  Viernes: 5,
+  Sabado: 6,
+};
 
 const DIAS_SEMANA = [
   "Lunes",
@@ -126,7 +136,118 @@ const modificarClase = async (id, data) => {
   return clase;
 };
 
+const getClaseById = async (id) => {
+  const clase = await Clase.findByPk(id, {
+    include: [
+      { model: Actividad, as: "actividad" },
+      { model: Sala, as: "sala" },
+      { model: Profesor, as: "profesor" },
+    ],
+  });
+
+  if (!clase) throw httpError(404, "Clase no encontrada");
+
+  const cancelaciones = await CancelacionClase.findAll({
+    where: { clase_id: id },
+    attributes: ["fecha"],
+  });
+  const fechasCanceladas = cancelaciones.map((c) => c.fecha);
+
+  const proximasFechas = [];
+  let actual = new Date();
+  const diaObjetivo = MAPA_DIAS[clase.dia_semana];
+
+  while (actual.getDay() !== diaObjetivo) {
+    actual.setDate(actual.getDate() + 1);
+  }
+
+  let generadas = 0;
+  // Buscamos hasta 4 fechas, con un límite de iteraciones por seguridad
+  let intentos = 0;
+  while (generadas < 4 && intentos < 12) {
+    const fechaStr = actual.toISOString().slice(0, 10);
+    if (!fechasCanceladas.includes(fechaStr)) {
+      proximasFechas.push(fechaStr);
+      generadas++;
+    }
+    actual.setDate(actual.getDate() + 7);
+    intentos++;
+  }
+
+  return {
+    ...clase.toJSON(),
+    proximas_fechas: proximasFechas,
+  };
+};
+
+const deleteClase = async (id) => {
+  const clase = await Clase.findByPk(id);
+  if (!clase) throw httpError(404, "Clase no encontrada");
+
+  const mensualesActivas = await InscripcionMensual.count({
+    where: {
+      clase_id: id,
+      estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
+    },
+  });
+
+  if (mensualesActivas > 0) {
+    throw httpError(409, "No se puede eliminar la clase porque tiene inscripciones mensuales activas");
+  }
+
+  const individualesFuturas = await InscripcionIndividual.count({
+    where: {
+      clase_id: id,
+      fecha: { [Op.gte]: new Date() },
+    },
+  });
+
+  if (individualesFuturas > 0) {
+    throw httpError(409, "No se puede eliminar la clase porque tiene inscripciones individuales futuras");
+  }
+
+  await clase.update({ activa: false });
+  return { message: "Clase eliminada exitosamente" };
+};
+
+const cancelarFechaClase = async (claseId, data) => {
+  const { fecha, motivo } = data;
+  if (!fecha) throw httpError(400, "Debe proveer una fecha a cancelar");
+
+  const clase = await Clase.findByPk(claseId);
+  if (!clase) throw httpError(404, "Clase no encontrada");
+
+  const fechaObj = new Date(`${fecha}T12:00:00Z`); // Mediodía UTC para evitar desfase de timezone
+  if (fechaObj.getDay() !== MAPA_DIAS[clase.dia_semana]) {
+    throw httpError(400, `La fecha ${fecha} no es un ${clase.dia_semana}`);
+  }
+
+  const hoyStr = new Date().toISOString().slice(0, 10);
+  if (fecha < hoyStr) {
+    throw httpError(400, "No se puede cancelar una clase pasada");
+  }
+
+  const existente = await CancelacionClase.findOne({
+    where: { clase_id: claseId, fecha },
+  });
+
+  if (existente) {
+    throw httpError(409, "Esta fecha ya se encuentra cancelada");
+  }
+
+  const cancelacion = await CancelacionClase.create({
+    clase_id: claseId,
+    fecha,
+    motivo,
+  });
+
+  return cancelacion;
+};
+
 module.exports = {
   crearClase,
   modificarClase,
+  getClaseById,
+  deleteClase,
+  cancelarFechaClase,
 };
