@@ -154,9 +154,9 @@ describe("Flujo E2E Kuda-back", () => {
       const lista = await request(app)
         .get("/api/empleados")
         .set("Authorization", `Bearer ${adminToken}`);
-      
+
       console.log("=== LISTADO DE EMPLEADOS ===", JSON.stringify(lista.body, null, 2));
-      
+
       expect(lista.statusCode).toBe(200);
       expect(lista.body.every((e) => ["ADMIN", "RECEPCIONISTA"].includes(e.rol.nombre))).toBe(true);
       expect(lista.body.some((e) => e.email === "recep@test.com")).toBe(true);
@@ -273,7 +273,7 @@ describe("Flujo E2E Kuda-back", () => {
         });
       expect(res.statusCode).toBe(201);
       expect(res.body.actividad.nombre).toBe("Crossfit");
-      
+
       actividadId = res.body.actividad.id;
 
       const duplicado = await request(app)
@@ -382,7 +382,7 @@ describe("Flujo E2E Kuda-back", () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.proximas_fechas).toBeDefined();
       expect(res.body.proximas_fechas.length).toBeGreaterThan(0);
-      
+
       const primerFecha = res.body.proximas_fechas[0];
 
       const cancel = await request(app)
@@ -393,11 +393,11 @@ describe("Flujo E2E Kuda-back", () => {
           motivo: "Feriado",
         });
       expect(cancel.statusCode).toBe(201);
-      
+
       const resPostCancel = await request(app)
         .get(`/api/clases/${claseId}`)
         .set("Authorization", `Bearer ${adminToken}`);
-      
+
       expect(resPostCancel.body.proximas_fechas).not.toContain(primerFecha);
     });
 
@@ -426,36 +426,114 @@ describe("Flujo E2E Kuda-back", () => {
   });
 
   describe("4. Inscripciones Mensuales e Individuales (Validación de Refactor)", () => {
-    it("Debe generar una Inscripción Mensual vinculada de manera directa a la Actividad y Clase, confirmando la eliminación del modelo 'Plan'", async () => {
+    let inscripcionMensualId;
+
+    it("(HU30) Debe crear una Inscripción Mensual con el body mínimo real, ignorando campos que calcula el controller", async () => {
       const res = await request(app)
         .post("/api/inscripciones-mensuales")
-        .set("Authorization", `Bearer ${clienteToken}`) // El cliente se inscribe a sí mismo
+        .set("Authorization", `Bearer ${clienteToken}`)
         .send({
-          periodo_inicio: "2026-06-01",
-          periodo_fin: "2026-06-30",
-          dia_vencimiento: "2026-06-05",
-          estado: "PENDIENTE",
-          monto: 10000,
           cliente_email: clienteEmail,
           actividad_id: actividadId,
           clase_id: claseId,
+          periodo_inicio: "2026-06-01",
         });
       if (res.statusCode !== 201) console.error("Mensual Error:", res.body);
 
       expect(res.statusCode).toBe(201);
 
-      // Validación estricta del refactor:
-      // 1. Debe existir actividad_id apuntando directo a la Actividad
+      // El controller calcula periodo_fin, dia_vencimiento, monto y estado internamente
+      expect(res.body.estado).toBe("VIGENTE");
       expect(res.body.actividad_id).toBe(actividadId);
-
-      // 2. Debe existir la clase_id para la asistencia
       expect(res.body.clase_id).toBe(claseId);
-
-      // 3. El plan_id DEBE ser indefinido (ya no existe intermediario)
       expect(res.body.plan_id).toBeUndefined();
-
-      // 4. Verificamos asignación al cliente correcto
       expect(res.body.cliente_email).toBe(clienteEmail);
+
+      inscripcionMensualId = res.body.id;
+    });
+
+    it("(HU30) Debe rechazar una segunda inscripción mensual VIGENTE del mismo cliente para la misma actividad", async () => {
+      const res = await request(app)
+        .post("/api/inscripciones-mensuales")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          cliente_email: clienteEmail,
+          actividad_id: actividadId,
+          clase_id: claseId,
+          periodo_inicio: "2026-07-01",
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toMatch(/vigente/i);
+    });
+
+    it("(HU30) Debe rechazar una inscripción mensual si la clase está dada de baja", async () => {
+      const claseInactiva = await conn.models.Clase.create({
+        nombre: "Clase Inactiva",
+        dia_semana: "Miercoles",
+        hora_inicio: "08:00:00",
+        hora_fin: "09:00:00",
+        cupo: 10,
+        activa: false,
+        actividad_id: actividadId,
+        sala_id: salaId,
+        profesor_id: profesorId,
+      });
+
+      const res = await request(app)
+        .post("/api/inscripciones-mensuales")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          cliente_email: adminEmail,
+          actividad_id: actividadId,
+          clase_id: claseInactiva.id,
+          periodo_inicio: "2026-06-01",
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toMatch(/inactiva|baja/i);
+
+      await claseInactiva.destroy({ force: true });
+    });
+
+    it("(HU30) Debe rechazar una inscripción mensual si la clase no tiene cupo disponible", async () => {
+      const claseLlena = await conn.models.Clase.create({
+        nombre: "Clase Sin Cupo",
+        dia_semana: "Jueves",
+        hora_inicio: "09:00:00",
+        hora_fin: "10:00:00",
+        cupo: 1,
+        activa: true,
+        actividad_id: actividadId,
+        sala_id: salaId,
+        profesor_id: profesorId,
+      });
+      await conn.models.InscripcionMensual.create({
+        cliente_email: adminEmail,
+        actividad_id: actividadId,
+        clase_id: claseLlena.id,
+        periodo_inicio: "2026-06-01",
+        periodo_fin: "2026-06-30",
+        dia_vencimiento: "2026-06-30",
+        monto: 10000,
+        estado: "VIGENTE",
+      });
+
+      const res = await request(app)
+        .post("/api/inscripciones-mensuales")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          cliente_email: clienteEmail,
+          actividad_id: actividadId,
+          clase_id: claseLlena.id,
+          periodo_inicio: "2026-06-01",
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toMatch(/cupo/i);
+
+      await conn.models.InscripcionMensual.destroy({ where: { clase_id: claseLlena.id }, force: true });
+      await claseLlena.destroy({ force: true });
     });
 
     it("Debe generar una Inscripción Individual (Clase Suelta) ligada directamente a la Actividad, garantizando la independencia estructural", async () => {
@@ -475,14 +553,11 @@ describe("Flujo E2E Kuda-back", () => {
 
       expect(res.statusCode).toBe(201);
 
-      // Validación estricta del refactor:
       expect(res.body.actividad_id).toBe(actividadId);
       expect(res.body.clase_id).toBe(claseId);
-      expect(res.body.plan_id).toBeUndefined(); // Confirmar ausencia de plan
-
-      // Validar datos de pago individual
+      expect(res.body.plan_id).toBeUndefined();
       expect(res.body.modalidad).toBe("COMPLETO");
-      expect(Number(res.body.monto_total)).toBe(3330); // Independientemente de si viene como string o number
+      expect(Number(res.body.monto_total)).toBe(3330);
     });
   });
 
