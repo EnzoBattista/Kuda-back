@@ -13,7 +13,7 @@ const validarInscripcionMensual = async (data, inscripcionIdActual = null) => {
   const whereInscripcion = {
     cliente_email: data.cliente_email,
     actividad_id: data.actividad_id,
-    estado: "VIGENTE"
+    estado: ["VIGENTE", "EN_GRACIA"]
   };
 
   if (inscripcionIdActual) {
