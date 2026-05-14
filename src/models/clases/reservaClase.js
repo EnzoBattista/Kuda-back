@@ -25,7 +25,6 @@ module.exports = (sequelize) => {
       fecha_exacta: {
         type: DataTypes.DATEONLY,
         allowNull: false,
-        comment: "Fecha concreta de la clase (ej: 2026-06-03)",
       },
       asistio: {
         type: DataTypes.BOOLEAN,
@@ -40,19 +39,16 @@ module.exports = (sequelize) => {
       origen: {
         type: DataTypes.ENUM(...ORIGENES),
         allowNull: false,
-        comment: "Indica si la reserva proviene de una inscripción mensual o individual",
       },
       origen_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        comment: "ID de la InscripcionMensual o InscripcionIndividual que generó esta reserva",
       },
     },
     {
       tableName: "reservas_clase",
       timestamps: true,
       indexes: [
-        // Garantiza que un cliente no tenga dos reservas ACTIVAS para la misma clase el mismo día
         {
           unique: true,
           fields: ["cliente_email", "clase_id", "fecha_exacta"],
