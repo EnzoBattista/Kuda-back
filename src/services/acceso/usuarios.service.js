@@ -1,4 +1,5 @@
-const { Usuario } = require("../../../db");
+const { Op } = require("sequelize");
+const { Usuario, InscripcionMensual } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
 const validarUsuario = (data) => {
@@ -23,8 +24,31 @@ const actualizarUsuario = async (usuario, data) => {
   return usuario.update(data);
 };
 
+const darDeBajaUsuario = async (email) => {
+  const usuario = await Usuario.findByPk(email);
+  if (!usuario) throw httpError(404, "Usuario no encontrado");
+  if (!usuario.activo) throw httpError(410, "Usuario ya dado de baja");
+
+  usuario.activo = false;
+  await usuario.save();
+
+  // Cancelar las inscripciones mensuales activas del usuario (si es cliente)
+  await InscripcionMensual.update(
+    { estado: "CANCELADA" },
+    {
+      where: {
+        cliente_email: email,
+        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA", "PENDIENTE"] },
+      },
+    }
+  );
+
+  return usuario;
+};
+
 module.exports = {
   validarUsuario,
   crearUsuario,
   actualizarUsuario,
+  darDeBajaUsuario,
 };
