@@ -1,18 +1,19 @@
 const { Op } = require("sequelize");
-const { ReservaClase, InscripcionMensual, InscripcionIndividual, Vale } = require("../../../db");
+const { ReservaClase, InscripcionMensual, InscripcionIndividual, Vale, Clase } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
 const HORAS_ANTICIPACION = 24;
 const PORCENTAJE_VALE = 0.20; // 20% de la mensualidad
 
 /**
- * Calcula cuántas horas faltan desde ahora hasta fecha_exacta.
+ * Calcula cuántas horas faltan desde ahora hasta fecha_exacta a la hora de inicio.
  * @param {string} fechaExacta - "YYYY-MM-DD"
+ * @param {string} horaInicio - "HH:mm:ss"
  * @returns {number} horas de anticipación
  */
-const horasHastaClase = (fechaExacta) => {
+const horasHastaClase = (fechaExacta, horaInicio) => {
   const ahora = new Date();
-  const fechaClase = new Date(fechaExacta + "T00:00:00Z");
+  const fechaClase = new Date(`${fechaExacta}T${horaInicio}`);
   return (fechaClase - ahora) / (1000 * 60 * 60);
 };
 
@@ -44,7 +45,9 @@ const generarVale = async (clienteEmail, montoMensualidad) => {
  * @returns {{ reserva, vale?, reembolso: boolean, mensaje: string }}
  */
 const cancelarReserva = async (reservaId, emailUsuario) => {
-  const reserva = await ReservaClase.findByPk(reservaId);
+  const reserva = await ReservaClase.findByPk(reservaId, {
+    include: [{ model: Clase, as: "clase" }],
+  });
   if (!reserva) throw httpError(404, "Reserva no encontrada");
   if (reserva.cliente_email !== emailUsuario) {
     throw httpError(403, "No tenés permiso para cancelar esta reserva");
@@ -53,7 +56,12 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
     throw httpError(409, "La reserva ya está cancelada");
   }
 
-  const horas = horasHastaClase(reserva.fecha_exacta);
+  const horas = horasHastaClase(reserva.fecha_exacta, reserva.clase.hora_inicio);
+  
+  if (horas < 0) {
+    throw httpError(400, "No se puede cancelar una clase que ya comenzó o finalizó");
+  }
+
   const conAnticipacion = horas >= HORAS_ANTICIPACION;
 
   // Cancelar la reserva
@@ -71,24 +79,22 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
       if (inscripcion) {
         vale = await generarVale(emailUsuario, inscripcion.monto);
       }
-      mensaje = "Cancelación exitosa. Se acreditó un vale de descuento para el mes siguiente.";
+      mensaje = "Cancelación exitosa con reembolso";
     } else {
-      mensaje = "Cancelación exitosa. Sin devolución por cancelar con menos de 24hs de anticipación.";
+      mensaje = "Cancelación exitosa sin reembolso";
     }
   } else if (reserva.origen === "INDIVIDUAL") {
     const inscripcion = await InscripcionIndividual.findByPk(reserva.origen_id);
 
-    if (inscripcion && inscripcion.modalidad === "SEÑA") {
-      mensaje = "Cancelación exitosa. La seña fue retenida.";
-    } else if (conAnticipacion) {
-      // Marcar la inscripción individual como pendiente de reembolso
+    if (conAnticipacion) {
       if (inscripcion) {
-        await inscripcion.update({ estado_seña: null }); // campo reutilizado como señal, o bien un campo propio en Fase 3
+        // En un futuro se podría cambiar el estado general de la inscripción a 'REEMBOLSADA'
+        await inscripcion.update({ estado_seña: null });
       }
       reembolso = true;
-      mensaje = "Cancelación exitosa. El reembolso será procesado en los próximos días.";
+      mensaje = "Cancelación exitosa con reembolso";
     } else {
-      mensaje = "Cancelación exitosa. Sin devolución por cancelar con menos de 24hs de anticipación.";
+      mensaje = "Cancelación exitosa sin reembolso";
     }
   }
 
