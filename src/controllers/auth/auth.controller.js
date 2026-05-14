@@ -56,6 +56,13 @@ const login = async (req, res, next) => {
       return res.status(401).json({ message: "Datos de inicio de sesión incorrectos" });
     }
 
+    if (!usuario.activo) {
+      return res.status(403).json({
+        message: "La cuenta aún no fue confirmada. Revisá tu casilla de email para activar el registro.",
+        codigo: "CUENTA_INACTIVA",
+      });
+    }
+
     const token = generarToken(usuario);
     return res.status(200).json({ usuario, token });
   } catch (error) {
