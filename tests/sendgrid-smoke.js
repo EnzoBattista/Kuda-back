@@ -20,15 +20,20 @@ if (!from) {
 
 sgMail.setApiKey(apiKey);
 
+const useSandbox = process.argv.includes("--sandbox");
+console.log("Modo:", useSandbox ? "SANDBOX (no envía)" : "REAL (envía a la casilla EMAIL_FROM)");
+console.log("");
+
 const msg = {
-  to: "smoke-test@example.com",
+  to: from,
   from,
   subject: "Smoke test - Kuda",
-  html: "<p>Esto no se envía, está en sandbox mode.</p>",
-  mail_settings: {
-    sandbox_mode: { enable: true },
-  },
+  html: "<p>Smoke test - este email se mandó a sí mismo para validar la integración.</p>",
 };
+
+if (useSandbox) {
+  msg.mail_settings = { sandbox_mode: { enable: true } };
+}
 
 sgMail
   .send(msg)
