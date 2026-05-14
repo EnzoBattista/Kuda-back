@@ -1,27 +1,26 @@
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
-const { Usuario, Cliente, Rol } = require("../../../db");
+const sgMail = require("@sendgrid/mail");
+const { Usuario, Cliente, Rol, conn } = require("../../../db");
 const { ROLES } = require("../../constants/roles");
 const { calcularEdad } = require("../../utils/fechas");
 const httpError = require("../../utils/httpError");
 const { validarUsuario } = require("../acceso/usuarios.service");
 
 const enviarEmailConfirmacion = async (email, token) => {
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+  if (!process.env.SENDGRID_API_KEY) {
+    throw new Error("SENDGRID_API_KEY no está configurada");
+  }
+  if (!process.env.EMAIL_FROM) {
+    throw new Error("EMAIL_FROM no está configurado (remitente verificado en SendGrid)");
+  }
+
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
   const urlConfirmacion = `${process.env.APP_URL}/api/auth/confirmar/${token}`;
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+  await sgMail.send({
     to: email,
+    from: process.env.EMAIL_FROM,
     subject: "Confirmación de registro - Kuda",
     html: `
       <h2>Bienvenido a Kuda</h2>
@@ -82,16 +81,26 @@ const registrarCliente = async ({
 
   validarUsuario(usuarioData);
 
-  const usuario = await Usuario.create(usuarioData);
+  await conn.transaction(async (t) => {
+    await Usuario.create(usuarioData, { transaction: t });
+    await Cliente.create(
+      { usuario_email: email, genero, fechaNacimiento, fichaMedica },
+      { transaction: t }
+    );
 
-  await Cliente.create({
-    usuario_email: email,
-    genero,
-    fechaNacimiento,
-    fichaMedica,
+    try {
+      await enviarEmailConfirmacion(email, tokenConfirmacion);
+    } catch (emailError) {
+      console.error(
+        "[auth.register] Falló el envío del email de confirmación:",
+        emailError.message
+      );
+      throw httpError(
+        503,
+        "El registro no pudo completarse: el servicio de email no está disponible. Intente más tarde."
+      );
+    }
   });
-
-  await enviarEmailConfirmacion(email, tokenConfirmacion);
 
   return {
     message:
