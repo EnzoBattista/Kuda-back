@@ -3,7 +3,7 @@ const { ReservaClase, InscripcionMensual, InscripcionIndividual, Vale, Clase } =
 const httpError = require("../../utils/httpError");
 
 const HORAS_ANTICIPACION = 24;
-const PORCENTAJE_VALE = 0.20; // 20% de la mensualidad
+const PORCENTAJE_VALE = 0.33;
 
 /**
  * Calcula cuántas horas faltan desde ahora hasta fecha_exacta a la hora de inicio.
@@ -23,8 +23,8 @@ const horasHastaClase = (fechaExacta, horaInicio) => {
  */
 const generarVale = async (clienteEmail, montoMensualidad) => {
   const hoy = new Date();
-  const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1); // 1ro del mes siguiente
-  const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0); // último día del mes siguiente
+  const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+  const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
 
   return Vale.create({
     cliente_email: clienteEmail,
@@ -41,7 +41,7 @@ const generarVale = async (clienteEmail, montoMensualidad) => {
  * - origen INDIVIDUAL SEÑA: seña siempre retenida.
  *
  * @param {number} reservaId
- * @param {string} emailUsuario - email del usuario autenticado (para verificar propiedad)
+ * @param {string} emailUsuario
  * @returns {{ reserva, vale?, reembolso: boolean, mensaje: string }}
  */
 const cancelarReserva = async (reservaId, emailUsuario) => {
@@ -57,7 +57,7 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
   }
 
   const horas = horasHastaClase(reserva.fecha_exacta, reserva.clase.hora_inicio);
-  
+
   if (horas < 0) {
     throw httpError(400, "No se puede cancelar una clase que ya comenzó o finalizó");
   }
@@ -74,7 +74,6 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
 
   if (reserva.origen === "MENSUAL") {
     if (conAnticipacion) {
-      // Buscar la inscripción mensual para obtener el monto
       const inscripcion = await InscripcionMensual.findByPk(reserva.origen_id);
       if (inscripcion) {
         vale = await generarVale(emailUsuario, inscripcion.monto);
@@ -88,7 +87,6 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
 
     if (conAnticipacion) {
       if (inscripcion) {
-        // En un futuro se podría cambiar el estado general de la inscripción a 'REEMBOLSADA'
         await inscripcion.update({ estado_seña: null });
       }
       reembolso = true;
