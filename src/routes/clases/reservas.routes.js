@@ -18,7 +18,7 @@ router.get("/", auth, requirePermiso(PERMISOS.CLASE_RESERVAR), getReservasActiva
 router.get("/historial", auth, requirePermiso(PERMISOS.CLASE_RESERVAR), getHistorialReservas);
 
 // Vales de descuento vigentes del cliente autenticado
-router.get("/mis-vales", auth, requirePermiso(PERMISOS.CLASE_RESERVAR), getMisVales);
+router.get("/mis-vales", auth, getMisVales);
 
 // Cancelar una reserva concreta
 router.patch("/:id/cancelar", auth, requirePermiso(PERMISOS.CLASE_RESERVAR), cancelarReservaController);
