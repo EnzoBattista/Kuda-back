@@ -15,8 +15,8 @@ const register = async (req, res, next) => {
     const resultado = await authService.registrarCliente(req.body);
     return res.status(201).json(resultado);
   } catch (error) {
-    if (error.status === 400) {
-      return res.status(400).json({ message: error.message });
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
     }
     return next(error);
   }
@@ -27,8 +27,8 @@ const confirmarCuenta = async (req, res, next) => {
     const resultado = await authService.confirmarCuenta(req.params.token);
     return res.status(200).json(resultado);
   } catch (error) {
-    if (error.status === 400) {
-      return res.status(400).json({ message: error.message });
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
     }
     return next(error);
   }
