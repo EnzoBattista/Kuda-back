@@ -427,6 +427,16 @@ describe("Flujo E2E Kuda-back", () => {
 
   describe("4. Inscripciones Mensuales e Individuales (Validación de Refactor)", () => {
     let inscripcionMensualId;
+    let actividadId2; // Actividad auxiliar para tests de clase inactiva y sin cupo
+
+    beforeAll(async () => {
+      const act = await conn.models.Actividad.create({
+        nombre: "Actividad Edge Cases",
+        precio: 5000,
+        activa: true,
+      });
+      actividadId2 = act.id;
+    });
 
     it("(HU30) Debe crear una Inscripción Mensual con el body mínimo real, ignorando campos que calcula el controller", async () => {
       const res = await request(app)
@@ -468,24 +478,25 @@ describe("Flujo E2E Kuda-back", () => {
     });
 
     it("(HU30) Debe rechazar una inscripción mensual si la clase está dada de baja", async () => {
+      // Usamos actividadId2 para que clienteEmail no tenga VIGENTE previa en esa actividad
       const claseInactiva = await conn.models.Clase.create({
-        nombre: "Clase Inactiva",
+        nombre: "Clase Inactiva Edge",
         dia_semana: "Miercoles",
         hora_inicio: "08:00:00",
         hora_fin: "09:00:00",
         cupo: 10,
         activa: false,
-        actividad_id: actividadId,
+        actividad_id: actividadId2,
         sala_id: salaId,
         profesor_id: profesorId,
       });
 
       const res = await request(app)
         .post("/api/inscripciones-mensuales")
-        .set("Authorization", `Bearer ${adminToken}`)
+        .set("Authorization", `Bearer ${clienteToken}`)
         .send({
-          cliente_email: adminEmail,
-          actividad_id: actividadId,
+          cliente_email: clienteEmail,
+          actividad_id: actividadId2,
           clase_id: claseInactiva.id,
           periodo_inicio: "2026-06-01",
         });
@@ -497,26 +508,28 @@ describe("Flujo E2E Kuda-back", () => {
     });
 
     it("(HU30) Debe rechazar una inscripción mensual si la clase no tiene cupo disponible", async () => {
+      // Usamos actividadId2 + cupo:1 y llenamos el cupo con una ReservaClase directa
       const claseLlena = await conn.models.Clase.create({
-        nombre: "Clase Sin Cupo",
+        nombre: "Clase Sin Cupo Edge",
         dia_semana: "Jueves",
         hora_inicio: "09:00:00",
         hora_fin: "10:00:00",
         cupo: 1,
         activa: true,
-        actividad_id: actividadId,
+        actividad_id: actividadId2,
         sala_id: salaId,
         profesor_id: profesorId,
       });
-      await conn.models.InscripcionMensual.create({
-        cliente_email: adminEmail,
-        actividad_id: actividadId,
+
+      // Llenar el cupo insertando directamente una ReservaClase (origen_id ficticio; constraints:false)
+      await conn.models.ReservaClase.create({
+        cliente_email: clienteEmail,
         clase_id: claseLlena.id,
-        periodo_inicio: "2026-06-01",
-        periodo_fin: "2026-06-30",
-        dia_vencimiento: "2026-06-30",
-        monto: 10000,
-        estado: "VIGENTE",
+        fecha_exacta: "2026-06-05",
+        origen: "MENSUAL",
+        origen_id: 9999,
+        estado: "ACTIVA",
+        asistio: false,
       });
 
       const res = await request(app)
@@ -524,7 +537,7 @@ describe("Flujo E2E Kuda-back", () => {
         .set("Authorization", `Bearer ${clienteToken}`)
         .send({
           cliente_email: clienteEmail,
-          actividad_id: actividadId,
+          actividad_id: actividadId2,
           clase_id: claseLlena.id,
           periodo_inicio: "2026-06-01",
         });
@@ -532,7 +545,7 @@ describe("Flujo E2E Kuda-back", () => {
       expect(res.statusCode).toBe(400);
       expect(res.body.message).toMatch(/cupo/i);
 
-      await conn.models.InscripcionMensual.destroy({ where: { clase_id: claseLlena.id }, force: true });
+      await conn.models.ReservaClase.destroy({ where: { clase_id: claseLlena.id }, force: true });
       await claseLlena.destroy({ force: true });
     });
 
@@ -576,5 +589,223 @@ describe("Flujo E2E Kuda-back", () => {
       expect(res.statusCode).toBe(409);
     });
   });
-});
 
+  describe("6. ReservaClase — Generación automática", () => {
+    it("Debe haber creado ReservaClase MENSUALES al inscribir al cliente (una por cada Lunes de junio 2026)", async () => {
+      // La clase es "Lunes", el período es 2026-06-01 a 2026-07-01
+      // Lunes de junio 2026: 1, 8, 15, 22, 29 → 5 fechas
+      const reservas = await conn.models.ReservaClase.findAll({
+        where: {
+          cliente_email: clienteEmail,
+          clase_id: claseId,
+          origen: "MENSUAL",
+        },
+      });
+
+      expect(reservas.length).toBe(5);
+      expect(reservas.every((r) => r.estado === "ACTIVA")).toBe(true);
+      expect(reservas.every((r) => r.asistio === false)).toBe(true);
+
+      // Verificar que las fechas sean todas lunes
+      reservas.forEach((r) => {
+        const fecha = new Date(r.fecha_exacta + "T00:00:00Z");
+        expect(fecha.getUTCDay()).toBe(1); // 1 = Lunes
+      });
+    });
+
+    it("Debe haber creado exactamente 1 ReservaClase INDIVIDUAL al inscribir clase suelta", async () => {
+      const reservas = await conn.models.ReservaClase.findAll({
+        where: {
+          cliente_email: clienteEmail,
+          clase_id: claseId,
+          origen: "INDIVIDUAL",
+        },
+      });
+
+      expect(reservas.length).toBe(1);
+      expect(reservas[0].fecha_exacta).toBe("2026-05-15");
+      expect(reservas[0].estado).toBe("ACTIVA");
+      expect(reservas[0].asistio).toBe(false);
+    });
+  });
+
+  describe("7. Reservas (Fase 2 — Cancelaciones y Endpoints Unificados)", () => {
+    let reservaMensualId;
+    let reservaIndividualId;
+
+    beforeAll(async () => {
+      const mensual = await conn.models.ReservaClase.findOne({
+        where: { cliente_email: clienteEmail, clase_id: claseId, origen: "MENSUAL", estado: "ACTIVA" },
+        order: [["fecha_exacta", "ASC"]],
+      });
+      reservaMensualId = mensual?.id;
+
+      const individual = await conn.models.ReservaClase.findOne({
+        where: { cliente_email: clienteEmail, clase_id: claseId, origen: "INDIVIDUAL" },
+      });
+      reservaIndividualId = individual?.id;
+    });
+
+    it("(HU15) Debe listar las reservas activas con include de Clase y Actividad", async () => {
+      const res = await request(app)
+        .get("/api/reservas")
+        .set("Authorization", `Bearer ${clienteToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body[0].clase).toBeDefined();
+      expect(res.body[0].clase.actividad).toBeDefined();
+      const fechas = res.body.map((r) => r.fecha_exacta);
+      expect(fechas).toEqual([...fechas].sort());
+    });
+
+    it("(HU33) Debe devolver el historial paginado de reservas", async () => {
+      const res = await request(app)
+        .get("/api/reservas/historial?page=1&limit=10")
+        .set("Authorization", `Bearer ${clienteToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.total).toBeDefined();
+      expect(res.body.paginas).toBeDefined();
+      expect(Array.isArray(res.body.reservas)).toBe(true);
+    });
+
+    it("(HU31) Debe cancelar reserva mensual +24hs y generar Vale de descuento", async () => {
+      expect(reservaMensualId).toBeDefined();
+
+      const res = await request(app)
+        .patch(`/api/reservas/${reservaMensualId}/cancelar`)
+        .set("Authorization", `Bearer ${clienteToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.reserva.estado).toBe("CANCELADA");
+      expect(res.body.vale).not.toBeNull();
+      expect(Number(res.body.vale.monto)).toBeGreaterThan(0);
+      expect(res.body.mensaje).toMatch(/vale/i);
+    });
+
+    it("(HU31) Debe listar los vales vigentes del cliente tras la cancelacion", async () => {
+      const res = await request(app)
+        .get("/api/reservas/mis-vales")
+        .set("Authorization", `Bearer ${clienteToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThanOrEqual(1);
+      expect(res.body[0].cliente_email).toBe(clienteEmail);
+    });
+
+    it("(HU67) Debe cancelar reserva individual COMPLETO +24hs e indicar reembolso", async () => {
+      expect(reservaIndividualId).toBeDefined();
+
+      const res = await request(app)
+        .patch(`/api/reservas/${reservaIndividualId}/cancelar`)
+        .set("Authorization", `Bearer ${clienteToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.reserva.estado).toBe("CANCELADA");
+      expect(res.body.reembolso).toBe(true);
+      expect(res.body.mensaje).toMatch(/reembolso/i);
+    });
+
+    it("Debe rechazar cancelar una reserva ya cancelada (409)", async () => {
+      const res = await request(app)
+        .patch(`/api/reservas/${reservaMensualId}/cancelar`)
+        .set("Authorization", `Bearer ${clienteToken}`);
+
+      expect(res.statusCode).toBe(409);
+    });
+
+    it("Debe rechazar cancelar reserva de otro cliente por falta de permiso (403)", async () => {
+      const reserva = await conn.models.ReservaClase.findOne({
+        where: { cliente_email: clienteEmail, estado: "ACTIVA" },
+      });
+      expect(reserva).not.toBeNull();
+
+      const res = await request(app)
+        .patch(`/api/reservas/${reserva.id}/cancelar`)
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+  });
+
+  describe("8. HU47 — Validaciones al crear Inscripcion Individual", () => {
+    it("(HU47) Debe rechazar inscripcion individual si la fecha fue cancelada para esa clase", async () => {
+      // Obtener la proxima fecha de la clase (dia Lunes) que no este cancelada aun
+      // Cancelamos la fecha "2026-06-09" (segundo lunes de junio) directamente en BD
+      const fechaCancelada = "2026-06-09";
+      await conn.models.CancelacionClase.create({
+        clase_id: claseId,
+        fecha: fechaCancelada,
+        motivo: "Feriado test",
+      });
+
+      const res = await request(app)
+        .post("/api/inscripciones-individuales")
+        .set("Authorization", `Bearer ${clienteToken}`)
+        .send({
+          fecha: fechaCancelada,
+          modalidad: "COMPLETO",
+          cliente_email: clienteEmail,
+          actividad_id: actividadId,
+          clase_id: claseId,
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toMatch(/cancelada/i);
+
+      // Limpiar
+      await conn.models.CancelacionClase.destroy({ where: { clase_id: claseId, fecha: fechaCancelada }, force: true });
+    });
+
+    it("(HU47) Debe rechazar inscripcion individual si la clase no tiene cupo en esa fecha", async () => {
+      // Crear una clase con cupo 1 y llenarla con una ReservaClase para la misma fecha
+      const claseConCupo1 = await conn.models.Clase.create({
+        nombre: "Clase Cupo1 Individual",
+        dia_semana: "Viernes",
+        hora_inicio: "18:00:00",
+        hora_fin: "19:00:00",
+        cupo: 1,
+        activa: true,
+        actividad_id: actividadId,
+        sala_id: salaId,
+        profesor_id: profesorId,
+      });
+
+      const fechaTest = "2026-06-05";
+      // Llenar el cupo
+      await conn.models.ReservaClase.create({
+        cliente_email: clienteEmail,
+        clase_id: claseConCupo1.id,
+        fecha_exacta: fechaTest,
+        origen: "MENSUAL",
+        origen_id: 9999,
+        estado: "ACTIVA",
+        asistio: false,
+      });
+
+      // Intentar reservar la misma fecha con otro cliente (usamos adminEmail pero necesitamos otro cliente)
+      // Como adminEmail no esta en clientes, insertamos directamente una segunda ReservaClase
+      // En realidad chequeamos que el endpoint rechaza para CUALQUIER cliente cuando cupo esta lleno
+      // Usamos clienteEmail pero para una actividad2 diferente para evitar conflicto con duplicado
+      // Simplificacion: verificamos que el service rechaza correctamente inspeccionando el count
+      const ocupacion = await conn.models.ReservaClase.count({
+        where: { clase_id: claseConCupo1.id, fecha_exacta: fechaTest, estado: "ACTIVA" },
+      });
+      expect(ocupacion).toBe(1); // El cupo esta lleno
+
+      // Ahora una segunda persona intentaria reservar — simulamos con una nueva inscripcion desde API
+      // Para evitar conflicto de FK usamos directamente el service
+      const { validarDisponibilidadFecha } = require("../src/services/clases/inscripcionesIndividuales.service");
+      await expect(
+        validarDisponibilidadFecha(claseConCupo1.id, fechaTest)
+      ).rejects.toMatchObject({ status: 400, message: expect.stringMatching(/cupo/i) });
+
+      // Limpiar
+      await conn.models.ReservaClase.destroy({ where: { clase_id: claseConCupo1.id }, force: true });
+      await claseConCupo1.destroy({ force: true });
+    });
+  });
+});

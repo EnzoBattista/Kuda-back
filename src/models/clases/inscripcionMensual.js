@@ -60,6 +60,12 @@ module.exports = (sequelize) => {
     InscripcionMensual.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
     InscripcionMensual.belongsTo(models.Actividad, { foreignKey: "actividad_id", as: "actividad" });
     InscripcionMensual.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
+    InscripcionMensual.hasMany(models.ReservaClase, {
+      foreignKey: "origen_id",
+      constraints: false,
+      scope: { origen: "MENSUAL" },
+      as: "reservas",
+    });
   };
 
   return InscripcionMensual;
