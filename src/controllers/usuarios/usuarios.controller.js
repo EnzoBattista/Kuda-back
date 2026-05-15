@@ -1,6 +1,6 @@
 const { Op } = require("sequelize");
 const { Usuario, Rol } = require("../../../db");
-const { crearUsuario, actualizarUsuario } = require("../../services/acceso/usuarios.service");
+const { crearUsuario, actualizarUsuario, darDeBajaUsuario } = require("../../services/acceso/usuarios.service");
 
 const parseBool = (valor) => {
   if (valor === undefined) return undefined;
@@ -84,18 +84,12 @@ const updateUsuario = async (req, res, next) => {
 
 const deleteUsuario = async (req, res, next) => {
   try {
-    const usuario = await Usuario.findByPk(req.params.email);
-    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
-
-    if (!usuario.activo) {
-      return res.status(410).json({ message: "Usuario ya dado de baja" });
-    }
-
-    usuario.activo = false;
-    await usuario.save();
-
+    await darDeBajaUsuario(req.params.email);
     return res.status(204).send();
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     return next(error);
   }
 };

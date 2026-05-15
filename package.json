@@ -8,6 +8,7 @@
     "test": "jest --runInBand --detectOpenHandles --forceExit"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "bcrypt": "^6.0.0",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.6",
@@ -19,7 +20,6 @@
     "jsonwebtoken": "^9.0.3",
     "mercadopago": "^2.12.0",
     "morgan": "~1.9.1",
-    "nodemailer": "^8.0.7",
     "pg": "^8.16.0",
     "sequelize": "^6.37.7"
   },
