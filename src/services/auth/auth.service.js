@@ -6,7 +6,7 @@ const { calcularEdad } = require("../../utils/fechas");
 const httpError = require("../../utils/httpError");
 const { validarUsuario } = require("../acceso/usuarios.service");
 
-const enviarEmailConfirmacion = async (email, token) => {
+const enviarEmailConfirmacion = async (email, nombre, token) => {
   if (!process.env.SENDGRID_API_KEY) {
     throw new Error("SENDGRID_API_KEY no está configurada");
   }
@@ -22,11 +22,37 @@ const enviarEmailConfirmacion = async (email, token) => {
     to: email,
     from: process.env.EMAIL_FROM,
     subject: "Confirmación de registro - Kuda",
-    html: `
-      <h2>Bienvenido a Kuda</h2>
-      <p>Haga clic en el siguiente enlace para confirmar su registro.
-         El enlace expira en 48 horas:</p>
-      <a href="${urlConfirmacion}">${urlConfirmacion}</a>
+    html:
+      `
+       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd;">
+        <div style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #003366;">
+            <img src="https://i.ibb.co/DgwmFzK8/Logo.png" alt="CEF Logo" style="max-width: 150px;">
+        </div>
+
+        <div style="padding: 30px; text-align: center;">
+            <h2 style="color: #003366;">¡Hola, ${nombre}!</h2>
+            <p>Gracias por unirte a <strong>CEF Actividades</strong>. Para comenzar, necesitamos verificar tu dirección de correo electrónico.</p>
+            
+            <div style="margin: 30px 0;">
+                <a href="${urlConfirmacion}" 
+                   style="background-color: #E30613; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                   VERIFICAR MI CUENTA
+                </a>
+            </div>
+
+            <p style="font-size: 0.9em; color: #666;">
+                Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
+                <a href="${urlConfirmacion}" style="color: #003366;">${urlConfirmacion}</a>
+            </p>
+        </div>
+
+        <div style="background-color: #003366; color: #ffffff; padding: 20px; text-align: center; font-size: 12px;">
+            <p style="margin: 0; font-weight: bold;">CEF Actividades</p>
+            <p style="margin: 5px 0;">&copy; 2026 Todos los derechos reservados.</p>
+            <div style="margin-top: 10px;">
+            </div>
+        </div>
+    </div>
     `,
   });
 };
@@ -89,7 +115,7 @@ const registrarCliente = async ({
     );
 
     try {
-      await enviarEmailConfirmacion(email, tokenConfirmacion);
+      await enviarEmailConfirmacion(email, nombre, tokenConfirmacion);
     } catch (emailError) {
       console.error(
         "[auth.register] Falló el envío del email de confirmación:",
