@@ -1,3 +1,4 @@
+const { Op } = require("sequelize");
 const { Profesor, Actividad } = require("../../../db");
 const { crearProfesor } = require("../../services/catalogo/profesores.service");
 
@@ -31,9 +32,75 @@ const createProfesor = async (req, res, next) => {
   }
 };
 
-const getAllProfesores = async (_req, res, next) => {
+const updateProfesor = async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const { nombre, apellido, dni, activo, actividades } = req.body;
+
+    const profesor = await Profesor.findByPk(id);
+    if (!profesor) {
+      return res.status(404).json({ message: "Profesor no encontrado" });
+    }
+
+    if (dni && dni !== profesor.dni) {
+      const existingProfesor = await Profesor.findOne({ where: { dni } });
+      if (existingProfesor) {
+        return res.status(409).json({
+          message: "El profesor con este número de documento ya se encuentra registrado",
+        });
+      }
+    }
+
+    await profesor.update({ nombre, apellido, dni, activo });
+
+    if (actividades !== undefined) {
+      await profesor.setActividades(actividades);
+    }
+
+    return res.status(200).json({
+      message: "Profesor actualizado con éxito",
+      profesor,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const deleteProfesor = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const profesor = await Profesor.findByPk(id);
+
+    if (!profesor) {
+      return res.status(404).json({ message: "Profesor no encontrado" });
+    }
+
+    // Baja lógica
+    await profesor.update({ activo: false });
+    await profesor.destroy(); // Usa paranoid: true, establece deletedAt
+
+    return res.status(200).json({
+      message: "Profesor eliminado con éxito",
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getAllProfesores = async (req, res, next) => {
+  try {
+    const { nombre } = req.query;
+    const where = {};
+
+    if (nombre) {
+      where[Op.or] = [
+        { nombre: { [Op.iLike]: `%${nombre}%` } },
+        { apellido: { [Op.iLike]: `%${nombre}%` } },
+      ];
+    }
+
     const profesores = await Profesor.findAll({
+      where,
       include: [
         {
           model: Actividad,
@@ -41,14 +108,11 @@ const getAllProfesores = async (_req, res, next) => {
           through: { attributes: [] }, // No traer atributos de la tabla intermedia
         },
       ],
-      order: [["apellido", "ASC"], ["nombre", "ASC"]],
+      order: [
+        ["apellido", "ASC"],
+        ["nombre", "ASC"],
+      ],
     });
-
-    if (profesores.length === 0) {
-      return res.status(404).json({
-        message: "No hay profesores registrados actualmente en el sistema",
-      });
-    }
 
     return res.status(200).json(profesores);
   } catch (error) {
@@ -88,6 +152,8 @@ const getProfesoresByActividad = async (req, res, next) => {
 
 module.exports = {
   createProfesor,
+  updateProfesor,
+  deleteProfesor,
   getAllProfesores,
   getProfesoresByActividad,
 };
