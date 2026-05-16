@@ -86,6 +86,19 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction }) =>
     throw httpError(409, `La clase está cancelada en la fecha ${fecha}`);
   }
 
+  const existente = await ReservaClase.findOne({
+    where: {
+      cliente_email: inscripcion.cliente_email,
+      clase_id: clase.id,
+      fecha_exacta: fecha,
+      estado: "ACTIVA",
+    },
+    transaction,
+  });
+  if (existente) {
+    throw httpError(400, "Ya tienes una reserva activa para esta clase en esta fecha");
+  }
+
   await verificarCupo(clase, fecha, transaction);
 
   const reserva = await ReservaClase.create(
@@ -245,6 +258,17 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
     if (conAnticipacion) {
       if (inscripcion) {
         await inscripcion.update({ estado_seña: null });
+        
+        const hoy = new Date();
+        const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+        const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
+
+        vale = await Vale.create({
+          cliente_email: emailUsuario,
+          monto: Number(inscripcion.monto_pagado),
+          valido_desde: validoDesde.toISOString().slice(0, 10),
+          valido_hasta: validoHasta.toISOString().slice(0, 10),
+        });
       }
       reembolso = true;
       mensaje = "Cancelación exitosa con reembolso";
