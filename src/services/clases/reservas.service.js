@@ -261,7 +261,7 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
       if (conAnticipacion) {
         if (inscripcion) {
           await inscripcion.update({ estado_seña: null }, { transaction });
-          
+
           const hoy = new Date();
           const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
           const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);

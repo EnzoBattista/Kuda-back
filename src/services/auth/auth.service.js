@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 const sgMail = require("@sendgrid/mail");
 const { Usuario, Cliente, Rol, conn } = require("../../../db");
 const { ROLES } = require("../../constants/roles");
@@ -53,6 +54,57 @@ const enviarEmailConfirmacion = async (email, nombre, token) => {
             </div>
         </div>
     </div>
+    `,
+  });
+};
+
+const enviarEmailRecuperacion = async (email, nombre, token) => {
+  if (!process.env.SENDGRID_API_KEY) {
+    throw new Error("SENDGRID_API_KEY no está configurada");
+  }
+  if (!process.env.EMAIL_FROM) {
+    throw new Error("EMAIL_FROM no está configurado (remitente verificado en SendGrid)");
+  }
+
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+  // La URL del frontend que armará el equipo en el futuro (usamos FRONTEND_URL o APP_URL como fallback)
+  const baseUrl = process.env.FRONTEND_URL || process.env.APP_URL;
+  const urlRecuperacion = `${baseUrl}/recuperar-password/${token}`;
+
+  await sgMail.send({
+    to: email,
+    from: process.env.EMAIL_FROM,
+    subject: "Recuperación de contraseña - Kuda",
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd;">
+        <div style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #003366;">
+            <img src="https://i.ibb.co/DgwmFzK8/Logo.png" alt="Kuda Logo" style="max-width: 150px;">
+        </div>
+
+        <div style="padding: 30px; text-align: center;">
+            <h2 style="color: #003366;">Hola, ${nombre}</h2>
+            <p>Hemos recibido una solicitud para restablecer tu contraseña. Haz clic en el botón de abajo para continuar:</p>
+            
+            <div style="margin: 30px 0;">
+                <a href="${urlRecuperacion}" 
+                   style="background-color: #E30613; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                   RESTABLECER CONTRASEÑA
+                </a>
+            </div>
+
+            <p style="font-size: 0.9em; color: #666;">
+                Si no solicitaste este cambio, puedes ignorar este correo. El enlace expirará en 1 hora.<br><br>
+                Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
+                <a href="${urlRecuperacion}" style="color: #003366;">${urlRecuperacion}</a>
+            </p>
+        </div>
+
+        <div style="background-color: #003366; color: #ffffff; padding: 20px; text-align: center; font-size: 12px;">
+            <p style="margin: 0; font-weight: bold;">CEF Actividades</p>
+            <p style="margin: 5px 0;">&copy; 2026 Todos los derechos reservados.</p>
+        </div>
+      </div>
     `,
   });
 };
@@ -183,4 +235,76 @@ const cambiarPassword = async (email, { passwordActual, passwordNueva, confirmPa
   return { message: "Contraseña actualizada correctamente" };
 };
 
-module.exports = { registrarCliente, confirmarCuenta, cambiarPassword };
+const solicitarRecuperacionPassword = async (email) => {
+  if (!email) throw httpError(400, "Debe proveer un email");
+
+  const usuario = await Usuario.findByPk(email);
+  if (!usuario) {
+    throw httpError(404, "Si el email existe en el sistema, recibirás un enlace de recuperación");
+  }
+
+  if (!usuario.activo) {
+    throw httpError(403, "La cuenta no está activa. Confirma tu registro primero.");
+  }
+
+  // Generar un JWT stateless de un solo uso.
+  // Al agregar el password actual al secreto, cuando el password cambie, el token quedará invalidado automáticamente.
+  const secret = process.env.JWT_SECRET + usuario.password;
+  const tokenRecuperacion = jwt.sign({ email: usuario.email }, secret, { expiresIn: "1h" });
+
+  try {
+    await enviarEmailRecuperacion(email, usuario.nombre, tokenRecuperacion);
+  } catch (emailError) {
+    console.error("[auth.recover] Falló el envío del email de recuperación:", emailError.message);
+    throw httpError(503, "No se pudo enviar el correo de recuperación. Intenta más tarde.");
+  }
+
+  return { message: "Se ha enviado un enlace de recuperación a tu casilla de email" };
+};
+
+const resetearPassword = async (token, passwordNueva, confirmPassword) => {
+  if (!token || !passwordNueva || !confirmPassword) {
+    throw httpError(400, "Faltan datos requeridos (token, nueva contraseña, confirmación)");
+  }
+  if (passwordNueva !== confirmPassword) {
+    throw httpError(400, "La nueva contraseña y su confirmación no coinciden");
+  }
+  if (passwordNueva.length < 8) {
+    throw httpError(400, "La nueva contraseña debe tener al menos 8 caracteres");
+  }
+
+  // Decodificar sin verificar para obtener el email
+  const payloadDecodificado = jwt.decode(token);
+  if (!payloadDecodificado || !payloadDecodificado.email) {
+    throw httpError(400, "El enlace de recuperación es inválido o incorrecto");
+  }
+
+  const usuario = await Usuario.findByPk(payloadDecodificado.email);
+  if (!usuario) {
+    throw httpError(400, "El enlace de recuperación es inválido o incorrecto");
+  }
+
+  // Verificar la firma asegurando que la contraseña no haya cambiado desde que se generó el token
+  const secret = process.env.JWT_SECRET + usuario.password;
+  try {
+    jwt.verify(token, secret);
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      throw httpError(400, "El enlace de recuperación ha expirado. Solicita uno nuevo.");
+    }
+    throw httpError(400, "El enlace de recuperación es inválido o ya ha sido utilizado.");
+  }
+
+  usuario.password = passwordNueva;
+  await usuario.save();
+
+  return { message: "Contraseña restablecida correctamente. Ya puedes iniciar sesión." };
+};
+
+module.exports = { 
+  registrarCliente, 
+  confirmarCuenta, 
+  cambiarPassword,
+  solicitarRecuperacionPassword,
+  resetearPassword
+};
