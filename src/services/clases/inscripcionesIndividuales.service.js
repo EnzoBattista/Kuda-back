@@ -1,5 +1,6 @@
-const { InscripcionIndividual } = require("../../../db");
+const { InscripcionIndividual, Clase, ReservaClase, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
+const { generarReservasIndividual } = require("./reservas.service");
 
 const MODALIDADES = ["COMPLETO", "SEÑA"];
 const ESTADOS_SEÑA = ["PENDIENTE", "COMPLETADA", "VENCIDA"];
@@ -29,7 +30,21 @@ const validarInscripcionIndividual = (data) => {
 
 const crearInscripcionIndividual = async (data) => {
   validarInscripcionIndividual(data);
-  return InscripcionIndividual.create(data);
+
+  return conn.transaction(async (transaction) => {
+    const clase = await Clase.findByPk(data.clase_id, { transaction });
+    if (!clase) {
+      throw httpError(404, "Clase no encontrada");
+    }
+
+    const inscripcion = await InscripcionIndividual.create(data, { transaction });
+    await generarReservasIndividual(inscripcion, clase, { transaction });
+
+    return InscripcionIndividual.findByPk(inscripcion.id, {
+      include: [{ model: ReservaClase, as: "reservas" }],
+      transaction,
+    });
+  });
 };
 
 const actualizarInscripcionIndividual = async (inscripcion, data) => {
