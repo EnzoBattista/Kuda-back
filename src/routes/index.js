@@ -12,6 +12,7 @@ const clasesRouter = require("./clases/clases.routes");
 const inscripcionesMensualesRouter = require("./clases/inscripcionesMensuales.routes");
 const inscripcionesIndividualesRouter = require("./clases/inscripcionesIndividuales.routes");
 const pagosRouter = require("./pagos/pagos.routes");
+const reservasRouter = require("./clases/reservas.routes");
 
 router.get("/", (_req, res) => {
   res.json({
@@ -28,6 +29,7 @@ router.get("/", (_req, res) => {
       inscripcionesMensuales: "/api/inscripciones-mensuales",
       inscripcionesIndividuales: "/api/inscripciones-individuales",
       pagos: "/api/pagos",
+      reservas: "/api/reservas",
     },
   });
 });
@@ -43,5 +45,6 @@ router.use("/api/clases", clasesRouter);
 router.use("/api/inscripciones-mensuales", inscripcionesMensualesRouter);
 router.use("/api/inscripciones-individuales", inscripcionesIndividualesRouter);
 router.use("/api/pagos", pagosRouter);
+router.use("/api/reservas", reservasRouter);
 
 module.exports = router;

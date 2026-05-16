@@ -15,4 +15,41 @@ const sumarUnMes = (fechaIso) => {
   return d.toISOString().slice(0, 10);
 };
 
-module.exports = { calcularEdad, sumarUnMes };
+/**
+ * Devuelve todas las fechas (YYYY-MM-DD) dentro del rango [inicio, fin)
+ * que correspondan al día de la semana indicado.
+ * @param {string} diaSemana  - Nombre en español: "Lunes", "Martes", ..., "Domingo"
+ * @param {string} inicioIso  - Fecha inicio ISO (incluida): "2026-06-01"
+ * @param {string} finIso     - Fecha fin ISO (excluida):    "2026-07-01"
+ * @returns {string[]}        - Array de fechas "YYYY-MM-DD"
+ */
+const DIAS_SEMANA_MAP = {
+  Domingo: 0,
+  Lunes: 1,
+  Martes: 2,
+  Miercoles: 3,
+  Jueves: 4,
+  Viernes: 5,
+  Sabado: 6,
+};
+
+const fechasDelMesPorDia = (diaSemana, inicioIso, finIso) => {
+  const targetDay = DIAS_SEMANA_MAP[diaSemana];
+  if (targetDay === undefined) throw new Error(`Día de semana inválido: ${diaSemana}`);
+
+  const fechas = [];
+  // Trabajamos en UTC para evitar desfases de zona horaria
+  const cursor = new Date(inicioIso + "T00:00:00Z");
+  const fin = new Date(finIso + "T00:00:00Z");
+
+  while (cursor < fin) {
+    if (cursor.getUTCDay() === targetDay) {
+      fechas.push(cursor.toISOString().slice(0, 10));
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return fechas;
+};
+
+module.exports = { calcularEdad, sumarUnMes, fechasDelMesPorDia };

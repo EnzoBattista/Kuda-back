@@ -7,6 +7,7 @@ const {
   getInscripcionMensualById,
   createInscripcionMensual,
   cancelarInscripcionMensual,
+  renovarInscripcionMensual,
 } = require("../../controllers/clases/inscripcionesMensuales.controller");
 
 const router = express.Router();
@@ -19,6 +20,12 @@ router.patch(
   auth,
   requirePermiso(PERMISOS.CLASE_RESERVAR),
   cancelarInscripcionMensual
+);
+router.post(
+  "/:id/renovar",
+  auth,
+  requirePermiso(PERMISOS.CLASE_RESERVAR),
+  renovarInscripcionMensual
 );
 
 module.exports = router;

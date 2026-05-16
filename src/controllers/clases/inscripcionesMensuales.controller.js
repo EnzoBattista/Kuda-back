@@ -1,6 +1,9 @@
 const { InscripcionMensual, Cliente, Actividad, Clase } = require("../../../db");
 const { sumarUnMes } = require("../../utils/fechas");
-const { crearInscripcionMensual } = require("../../services/clases/inscripcionesMensuales.service");
+const {
+  crearInscripcionMensual,
+  actualizarInscripcionMensual,
+} = require("../../services/clases/inscripcionesMensuales.service");
 
 const includes = [
   { model: Cliente, as: "cliente" },
@@ -76,9 +79,46 @@ const cancelarInscripcionMensual = async (req, res, next) => {
     if (inscripcion.estado === "CANCELADA" || inscripcion.estado === "FINALIZADA") {
       return res.status(409).json({ message: `La inscripción ya está ${inscripcion.estado}` });
     }
-    inscripcion.estado = "CANCELADA";
-    await inscripcion.save();
+    await actualizarInscripcionMensual(inscripcion, { estado: "CANCELADA" });
     return res.status(200).json(inscripcion);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * POST /inscripciones-mensuales/:id/renovar
+ * Crea una nueva inscripción para el siguiente período y genera sus reservas.
+ */
+const renovarInscripcionMensual = async (req, res, next) => {
+  try {
+    const inscripcion = await InscripcionMensual.findByPk(req.params.id);
+    if (!inscripcion) return res.status(404).json({ message: "Inscripción mensual no encontrada" });
+
+    const estadosNoRenovables = ["CANCELADA", "FINALIZADA"];
+    if (estadosNoRenovables.includes(inscripcion.estado)) {
+      return res
+        .status(409)
+        .json({ message: `No se puede renovar una inscripción en estado ${inscripcion.estado}` });
+    }
+
+    const nuevoPeriodoInicio = inscripcion.periodo_fin;
+    const nuevoPeriodoFin = sumarUnMes(nuevoPeriodoInicio);
+
+    const actividad = await Actividad.findByPk(inscripcion.actividad_id);
+
+    const nuevaInscripcion = await crearInscripcionMensual({
+      cliente_email: inscripcion.cliente_email,
+      actividad_id: inscripcion.actividad_id,
+      clase_id: inscripcion.clase_id,
+      periodo_inicio: nuevoPeriodoInicio,
+      periodo_fin: nuevoPeriodoFin,
+      dia_vencimiento: nuevoPeriodoFin,
+      monto: actividad ? actividad.precio : inscripcion.monto,
+      estado: "VIGENTE",
+    });
+
+    return res.status(201).json(nuevaInscripcion);
   } catch (error) {
     return next(error);
   }
@@ -89,4 +129,5 @@ module.exports = {
   getInscripcionMensualById,
   createInscripcionMensual,
   cancelarInscripcionMensual,
+  renovarInscripcionMensual,
 };

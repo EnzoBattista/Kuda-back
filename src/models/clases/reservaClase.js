@@ -1,9 +1,6 @@
 const { DataTypes } = require("sequelize");
 
-// ACTIVA: la reserva sigue en pie.
-// CANCELADA_CLIENTE: la dio de baja el cliente (no genera vale).
-// CANCELADA_CEF: la canceló el CEF/recepción (habilita la regla de vale).
-const ESTADOS = ["ACTIVA", "CANCELADA_CLIENTE", "CANCELADA_CEF"];
+const ESTADOS = ["ACTIVA", "CANCELADA"];
 
 module.exports = (sequelize) => {
   const ReservaClase = sequelize.define(

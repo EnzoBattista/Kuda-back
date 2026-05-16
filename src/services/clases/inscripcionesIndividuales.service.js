@@ -28,6 +28,10 @@ const validarInscripcionIndividual = (data) => {
   }
 };
 
+/**
+ * Crea la InscripcionIndividual y genera automáticamente la
+ * ReservaClase concreta para la fecha de la clase, usando transacciones.
+ */
 const crearInscripcionIndividual = async (data) => {
   validarInscripcionIndividual(data);
 

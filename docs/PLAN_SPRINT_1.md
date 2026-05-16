@@ -63,7 +63,7 @@ Agregar columna `activa BOOLEAN DEFAULT true` al modelo `Actividad`.
 | 44 | `DELETE /api/clases/:id` — baja lógica; rechaza si hay inscripciones VIGENTE/EN_GRACIA o individuales futuras. |
 | 63 | Nuevo modelo `CancelacionClase { id, clase_id, fecha, motivo, creado_por }`. `POST /api/clases/:id/cancelaciones` — la fecha debe coincidir con `dia_semana` y ser futura. Stub de notificación queda para Sprint 2. |
 
-## 6. Fase 4 — Reservas
+## 6. Fase 4 — Reservas ✅ (HECHO)
 
 | HU | Cambio |
 |----|--------|
