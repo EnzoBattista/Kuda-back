@@ -1,5 +1,6 @@
-const { InscripcionMensual } = require("../../../db");
+const { InscripcionMensual, Clase, ReservaClase, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
+const { generarReservasMensual } = require("./reservas.service");
 
 const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA"];
 
@@ -14,7 +15,21 @@ const validarInscripcionMensual = (data) => {
 
 const crearInscripcionMensual = async (data) => {
   validarInscripcionMensual(data);
-  return InscripcionMensual.create(data);
+
+  return conn.transaction(async (transaction) => {
+    const clase = await Clase.findByPk(data.clase_id, { transaction });
+    if (!clase) {
+      throw httpError(404, "Clase no encontrada");
+    }
+
+    const inscripcion = await InscripcionMensual.create(data, { transaction });
+    await generarReservasMensual(inscripcion, clase, { transaction });
+
+    return InscripcionMensual.findByPk(inscripcion.id, {
+      include: [{ model: ReservaClase, as: "reservas" }],
+      transaction,
+    });
+  });
 };
 
 const actualizarInscripcionMensual = async (inscripcion, data) => {
