@@ -6,6 +6,7 @@ const {
   CancelacionClase,
   Vale,
   Clase,
+  conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
@@ -192,7 +193,7 @@ const horasHastaClase = (fechaExacta, horaInicio) => {
  * Genera el vale de descuento para un cliente abonado que cancela con +24hs.
  * El vale es válido durante el mes siguiente.
  */
-const generarVale = async (clienteEmail, montoMensualidad) => {
+const generarVale = async (clienteEmail, montoMensualidad, options = {}) => {
   const hoy = new Date();
   const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
   const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
@@ -202,7 +203,7 @@ const generarVale = async (clienteEmail, montoMensualidad) => {
     monto: Number((montoMensualidad * PORCENTAJE_VALE).toFixed(2)),
     valido_desde: validoDesde.toISOString().slice(0, 10),
     valido_hasta: validoHasta.toISOString().slice(0, 10),
-  });
+  }, options);
 };
 
 /**
@@ -215,69 +216,72 @@ const generarVale = async (clienteEmail, montoMensualidad) => {
  * @returns {{ reserva, vale?, reembolso: boolean, mensaje: string }}
  */
 const cancelarReserva = async (reservaId, emailUsuario) => {
-  const reserva = await ReservaClase.findByPk(reservaId, {
-    include: [{ model: Clase, as: "clase" }],
+  return conn.transaction(async (transaction) => {
+    const reserva = await ReservaClase.findByPk(reservaId, {
+      include: [{ model: Clase, as: "clase" }],
+      transaction,
+    });
+    if (!reserva) throw httpError(404, "Reserva no encontrada");
+    if (reserva.cliente_email !== emailUsuario) {
+      throw httpError(403, "No tenés permiso para cancelar esta reserva");
+    }
+    if (reserva.estado === "CANCELADA") {
+      throw httpError(409, "La reserva ya está cancelada");
+    }
+
+    const horas = horasHastaClase(reserva.fecha_exacta, reserva.clase.hora_inicio);
+
+    if (horas < 0) {
+      throw httpError(400, "No se puede cancelar una clase que ya comenzó o finalizó");
+    }
+
+    const conAnticipacion = horas >= HORAS_ANTICIPACION;
+
+    reserva.estado = "CANCELADA";
+    await reserva.save({ transaction });
+
+    let vale = null;
+    let reembolso = false;
+    let mensaje = "";
+
+    // Determinar el origen usando las FKs
+    if (reserva.inscripcion_mensual_id) {
+      if (conAnticipacion) {
+        const inscripcion = await InscripcionMensual.findByPk(reserva.inscripcion_mensual_id, { transaction });
+        if (inscripcion) {
+          vale = await generarVale(emailUsuario, inscripcion.monto, { transaction });
+        }
+        mensaje = "Cancelación exitosa con reembolso";
+      } else {
+        mensaje = "Cancelación exitosa sin reembolso";
+      }
+    } else if (reserva.inscripcion_individual_id) {
+      const inscripcion = await InscripcionIndividual.findByPk(reserva.inscripcion_individual_id, { transaction });
+
+      if (conAnticipacion) {
+        if (inscripcion) {
+          await inscripcion.update({ estado_seña: null }, { transaction });
+          
+          const hoy = new Date();
+          const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+          const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
+
+          vale = await Vale.create({
+            cliente_email: emailUsuario,
+            monto: Number(inscripcion.monto_pagado),
+            valido_desde: validoDesde.toISOString().slice(0, 10),
+            valido_hasta: validoHasta.toISOString().slice(0, 10),
+          }, { transaction });
+        }
+        reembolso = true;
+        mensaje = "Cancelación exitosa con reembolso";
+      } else {
+        mensaje = "Cancelación exitosa sin reembolso";
+      }
+    }
+
+    return { reserva, vale, reembolso, mensaje };
   });
-  if (!reserva) throw httpError(404, "Reserva no encontrada");
-  if (reserva.cliente_email !== emailUsuario) {
-    throw httpError(403, "No tenés permiso para cancelar esta reserva");
-  }
-  if (reserva.estado === "CANCELADA") {
-    throw httpError(409, "La reserva ya está cancelada");
-  }
-
-  const horas = horasHastaClase(reserva.fecha_exacta, reserva.clase.hora_inicio);
-
-  if (horas < 0) {
-    throw httpError(400, "No se puede cancelar una clase que ya comenzó o finalizó");
-  }
-
-  const conAnticipacion = horas >= HORAS_ANTICIPACION;
-
-  reserva.estado = "CANCELADA";
-  await reserva.save();
-
-  let vale = null;
-  let reembolso = false;
-  let mensaje = "";
-
-  // Determinar el origen usando las FKs
-  if (reserva.inscripcion_mensual_id) {
-    if (conAnticipacion) {
-      const inscripcion = await InscripcionMensual.findByPk(reserva.inscripcion_mensual_id);
-      if (inscripcion) {
-        vale = await generarVale(emailUsuario, inscripcion.monto);
-      }
-      mensaje = "Cancelación exitosa con reembolso";
-    } else {
-      mensaje = "Cancelación exitosa sin reembolso";
-    }
-  } else if (reserva.inscripcion_individual_id) {
-    const inscripcion = await InscripcionIndividual.findByPk(reserva.inscripcion_individual_id);
-
-    if (conAnticipacion) {
-      if (inscripcion) {
-        await inscripcion.update({ estado_seña: null });
-        
-        const hoy = new Date();
-        const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
-        const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
-
-        vale = await Vale.create({
-          cliente_email: emailUsuario,
-          monto: Number(inscripcion.monto_pagado),
-          valido_desde: validoDesde.toISOString().slice(0, 10),
-          valido_hasta: validoHasta.toISOString().slice(0, 10),
-        });
-      }
-      reembolso = true;
-      mensaje = "Cancelación exitosa con reembolso";
-    } else {
-      mensaje = "Cancelación exitosa sin reembolso";
-    }
-  }
-
-  return { reserva, vale, reembolso, mensaje };
 };
 
 module.exports = {

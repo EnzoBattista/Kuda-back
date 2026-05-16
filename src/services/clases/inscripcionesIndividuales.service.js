@@ -53,7 +53,9 @@ const crearInscripcionIndividual = async (data) => {
 
 const actualizarInscripcionIndividual = async (inscripcion, data) => {
   validarInscripcionIndividual(data);
-  return inscripcion.update(data);
+  return conn.transaction(async (transaction) => {
+    return inscripcion.update(data, { transaction });
+  });
 };
 
 module.exports = {

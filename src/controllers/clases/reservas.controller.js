@@ -1,6 +1,7 @@
 const { Op } = require("sequelize");
 const { ReservaClase, Clase, Actividad, Profesor, Sala, Vale } = require("../../../db");
 const { cancelarReserva } = require("../../services/clases/reservas.service");
+const { toReservaDTO } = require("../../dtos/reservas.dto");
 
 const getReservasActivas = async (req, res, next) => {
   try {
@@ -34,7 +35,7 @@ const getReservasActivas = async (req, res, next) => {
       order: [["fecha_exacta", "ASC"]],
     });
 
-    return res.status(200).json(reservas);
+    return res.status(200).json(reservas.map(toReservaDTO));
   } catch (error) {
     return next(error);
   }
@@ -82,7 +83,7 @@ const getHistorialReservas = async (req, res, next) => {
       total: count,
       pagina: Number(page),
       paginas: Math.ceil(count / Number(limit)),
-      reservas: rows,
+      reservas: rows.map(toReservaDTO),
     });
   } catch (error) {
     return next(error);
