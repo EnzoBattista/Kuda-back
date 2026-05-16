@@ -86,8 +86,8 @@ const actualizarInscripcionMensual = async (inscripcion, data) => {
     throw httpError(400, "Estado de inscripción no válido");
   }
 
-  if (estadoCambia || fechasCambian || claseCambia) {
-    await conn.transaction(async (transaction) => {
+  return conn.transaction(async (transaction) => {
+    if (estadoCambia || fechasCambian || claseCambia) {
       // Eliminar reservas futuras existentes
       await ReservaClase.destroy({
         where: {
@@ -117,10 +117,10 @@ const actualizarInscripcionMensual = async (inscripcion, data) => {
 
         await generarReservasMensual(pseudoInscripcion, clase, { transaction });
       }
-    });
-  }
+    }
 
-  return inscripcion.update(data);
+    return inscripcion.update(data, { transaction });
+  });
 };
 
 module.exports = {
