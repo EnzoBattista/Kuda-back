@@ -187,22 +187,24 @@ const registrarCliente = async ({
 };
 
 const confirmarCuenta = async (token) => {
-  const usuario = await Usuario.findOne({ where: { tokenConfirmacion: token } });
+  return conn.transaction(async (transaction) => {
+    const usuario = await Usuario.findOne({ where: { tokenConfirmacion: token }, transaction });
 
-  if (!usuario || usuario.activo) {
-    throw httpError(400, "El enlace de confirmación es inválido");
-  }
-  if (new Date() > usuario.tokenExpiracion) {
-    throw httpError(400, "El enlace de confirmación ha expirado");
-  }
+    if (!usuario || usuario.activo) {
+      throw httpError(400, "El enlace de confirmación es inválido");
+    }
+    if (new Date() > usuario.tokenExpiracion) {
+      throw httpError(400, "El enlace de confirmación ha expirado");
+    }
 
-  await usuario.update({
-    activo: true,
-    tokenConfirmacion: null,
-    tokenExpiracion: null,
+    await usuario.update({
+      activo: true,
+      tokenConfirmacion: null,
+      tokenExpiracion: null,
+    }, { transaction });
+
+    return { message: "Usted ha sido registrado correctamente" };
   });
-
-  return { message: "Usted ha sido registrado correctamente" };
 };
 
 const cambiarPassword = async (email, { passwordActual, passwordNueva, confirmPassword }) => {
@@ -219,20 +221,22 @@ const cambiarPassword = async (email, { passwordActual, passwordNueva, confirmPa
     throw httpError(400, "La nueva contraseña debe ser distinta a la actual");
   }
 
-  const usuario = await Usuario.findByPk(email);
-  if (!usuario) {
-    throw httpError(404, "Usuario no encontrado");
-  }
+  return conn.transaction(async (transaction) => {
+    const usuario = await Usuario.findByPk(email, { transaction });
+    if (!usuario) {
+      throw httpError(404, "Usuario no encontrado");
+    }
 
-  const actualValida = await usuario.verificarPassword(passwordActual);
-  if (!actualValida) {
-    throw httpError(400, "La contraseña actual es incorrecta");
-  }
+    const actualValida = await usuario.verificarPassword(passwordActual);
+    if (!actualValida) {
+      throw httpError(400, "La contraseña actual es incorrecta");
+    }
 
-  usuario.password = passwordNueva;
-  await usuario.save();
+    usuario.password = passwordNueva;
+    await usuario.save({ transaction });
 
-  return { message: "Contraseña actualizada correctamente" };
+    return { message: "Contraseña actualizada correctamente" };
+  });
 };
 
 const solicitarRecuperacionPassword = async (email) => {
@@ -279,26 +283,28 @@ const resetearPassword = async (token, passwordNueva, confirmPassword) => {
     throw httpError(400, "El enlace de recuperación es inválido o incorrecto");
   }
 
-  const usuario = await Usuario.findByPk(payloadDecodificado.email);
-  if (!usuario) {
-    throw httpError(400, "El enlace de recuperación es inválido o incorrecto");
-  }
-
-  // Verificar la firma asegurando que la contraseña no haya cambiado desde que se generó el token
-  const secret = process.env.JWT_SECRET + usuario.password;
-  try {
-    jwt.verify(token, secret);
-  } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      throw httpError(400, "El enlace de recuperación ha expirado. Solicita uno nuevo.");
+  return conn.transaction(async (transaction) => {
+    const usuario = await Usuario.findByPk(payloadDecodificado.email, { transaction });
+    if (!usuario) {
+      throw httpError(400, "El enlace de recuperación es inválido o incorrecto");
     }
-    throw httpError(400, "El enlace de recuperación es inválido o ya ha sido utilizado.");
-  }
 
-  usuario.password = passwordNueva;
-  await usuario.save();
+    // Verificar la firma asegurando que la contraseña no haya cambiado desde que se generó el token
+    const secret = process.env.JWT_SECRET + usuario.password;
+    try {
+      jwt.verify(token, secret);
+    } catch (error) {
+      if (error.name === "TokenExpiredError") {
+        throw httpError(400, "El enlace de recuperación ha expirado. Solicita uno nuevo.");
+      }
+      throw httpError(400, "El enlace de recuperación es inválido o ya ha sido utilizado.");
+    }
 
-  return { message: "Contraseña restablecida correctamente. Ya puedes iniciar sesión." };
+    usuario.password = passwordNueva;
+    await usuario.save({ transaction });
+
+    return { message: "Contraseña restablecida correctamente. Ya puedes iniciar sesión." };
+  });
 };
 
 module.exports = { 
