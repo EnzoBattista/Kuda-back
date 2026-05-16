@@ -86,4 +86,38 @@ const cambiarPassword = async (req, res, next) => {
   }
 };
 
-module.exports = { register, confirmarCuenta, login, logout, cambiarPassword };
+const solicitarRecuperacion = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const resultado = await authService.solicitarRecuperacionPassword(email);
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
+const resetearPassword = async (req, res, next) => {
+  try {
+    const { token, passwordNueva, confirmPassword } = req.body;
+    const resultado = await authService.resetearPassword(token, passwordNueva, confirmPassword);
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
+module.exports = { 
+  register, 
+  confirmarCuenta, 
+  login, 
+  logout, 
+  cambiarPassword,
+  solicitarRecuperacion,
+  resetearPassword
+};
