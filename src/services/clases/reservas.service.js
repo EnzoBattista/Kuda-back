@@ -9,6 +9,7 @@ const {
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
+const { notificarPrimero } = require("./listaEspera.service");
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -280,13 +281,35 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
       }
     }
 
-    return { reserva, vale, reembolso, mensaje };
+    const resultado = { reserva, vale, reembolso, mensaje };
+    return resultado;
   });
+};
+
+// Después del commit, notificar a la lista de espera sin bloquear el response
+const cancelarReservaConNotificacion = async (reservaId, emailUsuario) => {
+  const resultado = await cancelarReserva(reservaId, emailUsuario);
+
+  // Disparar notificación de lista de espera de forma async (no bloquea ni propaga errores)
+  setImmediate(async () => {
+    try {
+      const { reserva } = resultado;
+      if (reserva.inscripcion_mensual_id) {
+        await notificarPrimero(reserva.clase_id, "MENSUAL");
+      } else if (reserva.inscripcion_individual_id) {
+        await notificarPrimero(reserva.clase_id, "INDIVIDUAL", reserva.fecha_exacta);
+      }
+    } catch (err) {
+      console.error("[cancelarReserva] Error al notificar lista de espera:", err.message);
+    }
+  });
+
+  return resultado;
 };
 
 module.exports = {
   fechasDeClaseEnPeriodo,
   generarReservasIndividual,
   generarReservasMensual,
-  cancelarReserva,
+  cancelarReserva: cancelarReservaConNotificacion,
 };

@@ -13,6 +13,7 @@ const inscripcionesMensualesRouter = require("./clases/inscripcionesMensuales.ro
 const inscripcionesIndividualesRouter = require("./clases/inscripcionesIndividuales.routes");
 const pagosRouter = require("./pagos/pagos.routes");
 const reservasRouter = require("./clases/reservas.routes");
+const listaEsperaRouter = require("./clases/listaEspera.routes");
 
 router.get("/", (_req, res) => {
   res.json({
@@ -30,6 +31,7 @@ router.get("/", (_req, res) => {
       inscripcionesIndividuales: "/api/inscripciones-individuales",
       pagos: "/api/pagos",
       reservas: "/api/reservas",
+      listaEspera: "/api/lista-espera",
     },
   });
 });
@@ -46,5 +48,6 @@ router.use("/api/inscripciones-mensuales", inscripcionesMensualesRouter);
 router.use("/api/inscripciones-individuales", inscripcionesIndividualesRouter);
 router.use("/api/pagos", pagosRouter);
 router.use("/api/reservas", reservasRouter);
+router.use("/api/lista-espera", listaEsperaRouter);
 
 module.exports = router;
