@@ -97,7 +97,7 @@ module.exports = (sequelize) => {
     if (rows.length === 0) {
       await sequelize.query(
         'ALTER TABLE "reservas_clase" ADD CONSTRAINT "reservas_clase_xor_inscripcion" ' +
-          "CHECK ((inscripcion_mensual_id IS NULL) <> (inscripcion_individual_id IS NULL))"
+          "CHECK ((inscripcion_mensual_id IS NULL) <> (inscripcion_individual_id IS NULL)) NOT VALID"
       );
     }
   });

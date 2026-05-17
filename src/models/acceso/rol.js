@@ -13,12 +13,17 @@ module.exports = (sequelize) => {
       nombre: {
         type: DataTypes.ENUM(...ROLES_LIST),
         allowNull: false,
-        unique: true,
       },
     },
     {
       tableName: "roles",
       timestamps: true,
+      indexes: [
+        {
+          unique: true,
+          fields: ["nombre"],
+        },
+      ],
     }
   );
 
