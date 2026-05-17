@@ -2,6 +2,7 @@ const { Op } = require("sequelize");
 const { InscripcionMensual, Clase, ReservaClase, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { generarReservasMensual } = require("./reservas.service");
+const { notificarPrimero } = require("./listaEspera.service");
 
 const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA"];
 
@@ -86,7 +87,7 @@ const actualizarInscripcionMensual = async (inscripcion, data) => {
     throw httpError(400, "Estado de inscripción no válido");
   }
 
-  return conn.transaction(async (transaction) => {
+  const resultado = await conn.transaction(async (transaction) => {
     if (estadoCambia || fechasCambian || claseCambia) {
       // Eliminar reservas futuras existentes
       await ReservaClase.destroy({
@@ -121,6 +122,19 @@ const actualizarInscripcionMensual = async (inscripcion, data) => {
 
     return inscripcion.update(data, { transaction });
   });
+
+  // Si se canceló la inscripción mensual, notificar al primero de la lista de espera MENSUAL
+  if (data.estado === "CANCELADA") {
+    setImmediate(async () => {
+      try {
+        await notificarPrimero(inscripcion.clase_id, "MENSUAL");
+      } catch (err) {
+        console.error("[actualizarInscripcionMensual] Error al notificar lista de espera:", err.message);
+      }
+    });
+  }
+
+  return resultado;
 };
 
 module.exports = {
