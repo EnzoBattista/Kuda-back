@@ -313,10 +313,7 @@ const resetearPassword = async (token, passwordNueva, confirmPassword) => {
 module.exports = {
   registrarCliente,
   confirmarCuenta,
-  module.exports = {
-    registrarCliente,
-    confirmarCuenta,
-    cambiarPassword,
-    solicitarRecuperacionPassword,
-    resetearPassword
-  };
+  cambiarPassword,
+  solicitarRecuperacionPassword,
+  resetearPassword
+};
