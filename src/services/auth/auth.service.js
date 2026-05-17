@@ -79,7 +79,7 @@ const enviarEmailRecuperacion = async (email, nombre, token) => {
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd;">
         <div style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #003366;">
-            <img src="https://i.ibb.co/DgwmFzK8/Logo.png" alt="Kuda Logo" style="max-width: 150px;">
+            <img src="https://github.com/EnzoBattista/Kuda-front/blob/main/public/Logo.png?raw=true" alt="Kuda Logo" style="max-width: 150px;">
         </div>
 
         <div style="padding: 30px; text-align: center;">
@@ -307,9 +307,9 @@ const resetearPassword = async (token, passwordNueva, confirmPassword) => {
   });
 };
 
-module.exports = { 
-  registrarCliente, 
-  confirmarCuenta, 
+module.exports = {
+  registrarCliente,
+  confirmarCuenta,
   cambiarPassword,
   solicitarRecuperacionPassword,
   resetearPassword
