@@ -7,6 +7,8 @@ const { calcularEdad } = require("../../utils/fechas");
 const httpError = require("../../utils/httpError");
 const { validarUsuario } = require("../acceso/usuarios.service");
 
+const urlLogo = "https://raw.githubusercontent.com/EnzoBattista/Kuda-front/refs/heads/main/public/Logo.png";
+
 const enviarEmailConfirmacion = async (email, nombre, token) => {
   if (!process.env.SENDGRID_API_KEY) {
     throw new Error("SENDGRID_API_KEY no está configurada");
@@ -19,6 +21,7 @@ const enviarEmailConfirmacion = async (email, nombre, token) => {
 
   const urlConfirmacion = `${process.env.APP_URL}/api/auth/confirmar/${token}`;
 
+
   await sgMail.send({
     to: email,
     from: process.env.EMAIL_FROM,
@@ -27,7 +30,7 @@ const enviarEmailConfirmacion = async (email, nombre, token) => {
       `
        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd;">
         <div style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #003366;">
-            <img src="https://i.ibb.co/DgwmFzK8/Logo.png" alt="CEF Logo" style="max-width: 150px;">
+            <img src="${urlLogo}" alt="CEF Logo" style="max-width: 150px;">
         </div>
 
         <div style="padding: 30px; text-align: center;">
@@ -79,7 +82,7 @@ const enviarEmailRecuperacion = async (email, nombre, token) => {
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd;">
         <div style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #003366;">
-            <img src="https://i.ibb.co/DgwmFzK8/Logo.png" alt="Kuda Logo" style="max-width: 150px;">
+            <img src=${urlLogo} alt="Kuda Logo" style="max-width: 150px;">
         </div>
 
         <div style="padding: 30px; text-align: center;">
@@ -307,9 +310,9 @@ const resetearPassword = async (token, passwordNueva, confirmPassword) => {
   });
 };
 
-module.exports = { 
-  registrarCliente, 
-  confirmarCuenta, 
+module.exports = {
+  registrarCliente,
+  confirmarCuenta,
   cambiarPassword,
   solicitarRecuperacionPassword,
   resetearPassword
