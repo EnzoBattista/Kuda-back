@@ -80,7 +80,7 @@ const deleteProfesor = async (req, res, next) => {
     await profesor.destroy(); // Usa paranoid: true, establece deletedAt
 
     return res.status(200).json({
-      message: "Profesor eliminado con éxito",
+      message: "Empleado eliminado con éxito",
     });
   } catch (error) {
     return next(error);
@@ -114,6 +114,9 @@ const getAllProfesores = async (req, res, next) => {
       ],
     });
 
+    if (profesores.length === 0) {
+      return res.status(200).json({ message: "No se han encontrado profesores", data: [] });
+    }
     return res.status(200).json(profesores);
   } catch (error) {
     return next(error);
@@ -139,8 +142,9 @@ const getProfesoresByActividad = async (req, res, next) => {
     }
 
     if (!actividad.profesores || actividad.profesores.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         message: "No existen profesores asociados a esta actividad",
+        data: []
       });
     }
 

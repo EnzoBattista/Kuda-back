@@ -34,6 +34,9 @@ const getAllEmpleados = async (req, res, next) => {
       include: [includeRolEmpleado(rol)],
       order: [["apellido", "ASC"], ["nombre", "ASC"]],
     });
+    if (empleados.length === 0) {
+      return res.status(200).json({ message: "No se han encontrado empleados", data: [] });
+    }
     return res.status(200).json(empleados);
   } catch (error) {
     return next(error);

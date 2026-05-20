@@ -24,6 +24,9 @@ const getAllPagos = async (req, res, next) => {
       include: includes,
       order: [["fecha", "DESC"]],
     });
+    if (pagos.length === 0) {
+      return res.status(200).json({ message: "No se han encontrado pagos", data: [] });
+    }
     return res.status(200).json(pagos);
   } catch (error) {
     return next(error);
@@ -43,6 +46,10 @@ const createPago = async (req, res, next) => {
       mp_payment_id,
     } = req.body;
 
+    if (monto <= 0) {
+      return res.status(400).json({ message: "El monto del pago debe ser mayor a cero" });
+    }
+
     const pago = await Pago.create({
       cliente_email,
       recepcionista_email,
@@ -53,7 +60,7 @@ const createPago = async (req, res, next) => {
       medio,
       mp_payment_id,
     });
-    return res.status(201).json(pago);
+    return res.status(201).json({ message: "Pago registrado correctamente", data: pago });
   } catch (error) {
     return next(error);
   }
@@ -108,8 +115,22 @@ const createPreference = async (req, res, next) => {
   }
 };
 
+const generarComprobante = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    // Mock
+    if (id === 'error') {
+      return res.status(500).json({ message: "hubo un error al recuperar la informacion del pago" });
+    }
+    return res.status(200).json({ message: "Generar comprobante", id });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getAllPagos,
   createPago,
   createPreference,
+  generarComprobante,
 };

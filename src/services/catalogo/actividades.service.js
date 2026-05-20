@@ -52,7 +52,7 @@ const updateActividad = async (id, data) => {
   if (nombre && nombre !== actividad.nombre) {
     const existente = await Actividad.findOne({ where: { nombre } });
     if (existente) {
-      throw httpError(409, "Ya existe otra actividad con ese nombre");
+      throw httpError(409, "Ya existe una actividad con ese nombre");
     }
   }
 
@@ -102,7 +102,7 @@ const deleteActividad = async (id) => {
     });
 
     if (mensualesActivas > 0) {
-      throw httpError(409, "No se puede eliminar la actividad porque tiene clases con inscripciones mensuales activas");
+      throw httpError(409, "No se puede eliminar una actividad con clientes inscriptos");
     }
 
     const individualesFuturas = await InscripcionIndividual.count({
@@ -113,12 +113,12 @@ const deleteActividad = async (id) => {
     });
 
     if (individualesFuturas > 0) {
-      throw httpError(409, "No se puede eliminar la actividad porque tiene clases con inscripciones individuales futuras");
+      throw httpError(409, "No se puede eliminar una actividad con clientes inscriptos");
     }
   }
 
   await actividad.update({ activa: false });
-  return { message: "Actividad dada de baja exitosamente" };
+  return { message: "Actividad eliminada con éxito" };
 };
 
 const getProfesoresPorActividad = async (id) => {

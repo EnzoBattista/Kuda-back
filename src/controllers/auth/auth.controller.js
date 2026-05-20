@@ -81,7 +81,7 @@ const login = async (req, res, next) => {
 };
 
 const logout = (_req, res) => {
-  return res.status(200).json({ message: "Sesión cerrada correctamente" });
+  return res.status(200).json({ message: "Datos actualizados correctamente" });
 };
 
 const cambiarPassword = async (req, res, next) => {
