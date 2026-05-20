@@ -5,6 +5,10 @@ Esta skill proporciona las reglas de negocio relacionadas con el registro, gesti
 
 ## Reglas de Negocio
 
+### 0. REGLA CRÍTICA: Mensajes de Respuesta del Backend
+- **Toda respuesta del backend** (ya sea de éxito o errores arrojados mediante `httpError`) **debe coincidir EXACTAMENTE** (incluyendo mayúsculas, minúsculas, puntuación y espacios) con el string definido en la cláusula "Entonces el sistema informa..." del archivo maestro de historias de usuario (`docs/HISTORIAS DE USUARIO 20-5-2026.csv`). 
+- **NO se deben inventar ni modificar** los mensajes de error. Esta regla de paridad estricta es evaluada.
+
 ### 1. Roles del Sistema
 - **Administrador (Dueño)**: Tiene permisos totales sobre el sistema. Puede visualizar estadísticas, modificar cupos dinámicos, realizar bajas lógicas y gestionar cualquier perfil.
 - **Recepcionista**: Empleados administrativos (5 en total). Sus tareas incluyen iniciar sesión, registrar clientes manualmente, cobrar cuotas en mostrador, escanear códigos QR para validar ingresos, denegar accesos (siempre con motivo) y gestionar las listas de espera. Si un recepcionista decide tomar clases, debe tener **dos perfiles diferentes** (uno como recepcionista y otro como cliente).

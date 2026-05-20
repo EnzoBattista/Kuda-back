@@ -1,0 +1,2021 @@
+id,ref,subject,description,sprint_id,sprint,sprint_estimated_start,sprint_estimated_finish,owner,owner_full_name,assigned_to,assigned_to_full_name,assigned_users,assigned_users_full_name,status,is_closed,swimlane,back-points,design-points,front-points,ux-points,total-points,backlog_order,sprint_order,kanban_order,created_date,modified_date,finish_date,client_requirement,team_requirement,attachments,generated_from_issue,generated_from_task,from_task_ref,external_reference,tasks,tags,watchers,voters,due_date,due_date_reason,epics
+9156101,11,Iniciar sesión,"### ID: Iniciar sesión
+
+### Titulo
+
+**Como** usuario registrado **quiero** iniciar sesión **para** gestionar información
+
+### Reglas de negocio
+
+*   La cuenta debe estar confirmada
+
+### Criterios de aceptación
+
+Escenario 1: Inicio de sesión exitoso
+
+```gherkin
+Dado el email ""dobalfede@gmail.com"" el cual corresponde a un usuario registrado y confirmado y la contraseña ""fede1234"" la cual esta asociada al mail ""dobalfede@gmail.com"".
+Cuando se ingresa el email ""dobalfede@gmail.com"", la contraseña ""fede1234"", y se presiona ""Iniciar Sesión""...
+Entonces el sistema inicia la sesión del usuario y muestra la pantalla de inicio.
+```
+
+Escenario 2: Inicio de sesión fallido por email no existente
+
+```gherkin
+Dado el email ""alamargot@yahoo.com"" que no existe en el sistema...
+Cuando se ingresa el email ""alamargot@yahoo.com"" y la contraseña ""perro456"", y se presiona ""Iniciar Sesión""...
+Entonces el sistema informa ""Datos de inicio de sesión incorrectos"".
+```
+
+Escenario 3: Inicio de sesión fallido por contraseña errónea
+
+```gherkin
+Dado el email ""firulais5@outlook.com"" el cual corresponde a un usuario registrado y la contraseña ""gato7890"" la cual no coincide con la asociada al mail ""firulais5@outlook.com"".
+Cuando se ingresa el email ""firulais5@outlook.com"" y la contraseña ""gato7890"", y se presiona ""Iniciar Sesión""...
+Entonces el sistema informa ""Datos de inicio de sesión incorrectos"".
+```
+
+Escenario 4: Inicio de sesión fallido por cuenta sin confirmar
+
+```gherkin
+Dado el email ""ejemplo@gmail.com"" el cual corresponde a un usuario sin confirmar y la contraseña ""12345678"" la cual esta asociada al mail ""ejemplo@gmail.com"".
+Cuando se ingresa el email ""ejemplo@gmail.com"" y la contraseña “12345678”, y se presiona “Iniciar Sesión”...
+Entonces el sistema informa ""La cuenta aún no fue confirmada. Revisá tu casilla de email para activar el registro.""
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1776179905412567,1776179905412569,1776179905412570,2026-04-14 15:18:25.412575+00:00,2026-05-16 20:38:52.712413+00:00,,False,False,0,,,,,,,[],0,,,1
+9156102,12,Cerrar sesión,"### ID: Cerrar sesión
+
+### Titulo
+
+**Como** usuario **quiero** cerrar mi sesión **para** salir de mi cuenta
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Cierre de sesión exitoso
+
+```plaintext
+Dado que el usuario tiene la sesión iniciada...
+Cuando presiona “Cerrar sesión”...
+Entonces se termina la sesión y se muestra al usuario a la página de inicio de sesión.
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,1.0,,,1.0,1776179929182280,1776179929182282,1776179929182284,2026-04-14 15:18:49.182290+00:00,2026-05-11 17:56:50.653084+00:00,,False,False,0,,,,,,,[],0,,,1
+9156106,13,Registrar Cliente,"### **ID: Registrar cliente**
+
+### **Titulo**
+
+**Como** cliente **quiero** registrarme **para** solicitar clases.
+
+### **Reglas de negocio**
+
+*   El email no debe repetirse en el sistema
+*   La edad calculada a partir de la fecha de nacimiento debe ser mayor estricto a 14 años
+*   La contraseña debe tener 8 caracteres o más
+
+### **Criterios de aceptación**
+
+Escenario 1: Registro exitoso
+
+```gherkin
+Dado el email “ferperez@yahoo.com” que no se encuentra registrado, la contraseña “abc123456” que tiene 8 caracteres o más y que coincide con su confirmación “abc123456”, y la fecha de nacimiento “1/1/2010” que implica que, siendo el 18/4/2026 la fecha actual, la edad del cliente es 16...
+Cuando se ingresa el nombre “Fernando”, el apellido “Perez”, el DNI “50585695”, el email “ferperez@yahoo.com”, el género “Masculino”, la fecha de nacimiento “1/1/2010”, el número de teléfono “2215634857”, una ficha médica, la contraseña “abc123456” y su confirmación “abc123456”, y se presiona “Registrarse”...
+Entonces el sistema envía un correo con un enlace de confirmación que expira en 48hs e informa “Se ha enviado un enlace de confirmación a su casilla de email. Tiene 48hs para confirmar su registro.”.
+```
+
+Escenario 2: Registro fallido por email ya registrado
+
+```gherkin
+Dado el email “rociotomason@gmail.com” que ya se encuentra registrado en el sistema...
+Cuando se ingresa el nombre “Rocío”, el apellido “Tomason”, el DNI “47585969”, el email “rociotomason@gmail.com”, el género “Femenino”, la fecha de nacimiento “1/1/2006”, el número de teléfono “2216659873”, una ficha médica, la contraseña “abc123456” y su confirmación “abc123456”, y se presiona “Registrarse”...
+Entonces el sistema informa “Registro fallido - El email ya se encuentra registrado.”
+```
+
+Escenario 3: Registro fallido por edad menor o igual a 14 años
+
+```gherkin
+Dado la fecha de nacimiento “15/05/2012” que implica que, siendo el 18/04/2026 la fecha actual, la edad del cliente es 13...
+Cuando se ingresa el nombre “Juan”, el apellido “Gonzalez”, el DNI “54223698”, el email “juangonzalez@gmail.com”, el género “Masculino”, la fecha de nacimiento “15/05/2012”, el número de teléfono “2215859696”, una ficha médica, la contraseña “abc123456” y su confirmación “abc123456”, y se presiona “Registrarse”...
+Entonces el sistema informa “Registro fallido - Se debe ser mayor de 14 años.”
+```
+
+Escenario 4: Registro fallido por contraseña menor a 8 caracteres
+
+```gherkin
+Dada la contraseña “kuda123” que tiene 7 caracteres...
+Cuando se ingresa el nombre “Alvaro”, el apellido “Gomez”, el DNI “48555666”, el email “alvarogomez@gmail.com”, el género “Masculino”, la fecha de nacimiento “10/10/2004”, el número de teléfono “2214445555”, una ficha médica, la contraseña “kuda123” y su confirmación “kuda123”, y se presiona “Registrarse”...
+Entonces el sistema informa “Registro fallido - La contraseña debe tener al menos 8 caracteres.”
+```
+
+Escenario 5: Registro fallido porque las contraseñas no coinciden
+
+```gherkin
+Dada la contraseña “gugol2026” cuya confirmación ingresada es “gugol2025” y por lo tanto no coinciden...
+Cuando se ingresa el nombre “Facu”, el apellido “Martínez”, el DNI “49123456”, el email “facumartinez@hotmail.com”, el género “Masculino”, la fecha de nacimiento “20/08/2005”, el número de teléfono “2213337777”, una ficha médica, la contraseña “gugol2026” y su confirmación “gugol2025”, y se presiona “Registrarse”...
+Entonces el sistema informa “Registro fallido - Las contraseñas no coinciden.”
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,5.0,,,5.0,1776179976146942,1776179976146946,1776179976146948,2026-04-14 15:19:36.146954+00:00,2026-05-20 11:52:21.665401+00:00,,False,False,0,,,,,,,[],0,,,1
+9156108,14,Ver detalle de cliente,"### ID: Ver detalle de cliente
+
+### Titulo
+
+**Como** cliente **quiero** ver mis detalles **para** conocer información personal
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Vista exitosa
+
+```gherkin
+Dado un cliente con email ""ejemplo1@gmail.com""
+Cuando se presiona ""Mi información""
+Entonces el sistema lista los datos personales del cliente y muestra los botones ""Modificar datos personales"" y ""Cambiar contraseña"".
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,1.0,,,1.0,1776179993472553,1776179993472555,1776179993472556,2026-04-14 15:19:53.472561+00:00,2026-05-20 12:03:03.635636+00:00,,False,False,0,,,,,,,[926512],0,,,1
+9156113,15,Listar reservas actuales,"### ID: Listar reservas actuales
+
+### Titulo
+
+**Como** cliente **quiero** ver mis reservas actuales **para** estar al tanto de las mismas.
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Listado exitoso
+
+```plaintext
+Dado la existencia de reservas vigentes a la fecha actual “13/4/2026”...
+Cuando se presiona “Ver mis reservas actuales”...
+Entonces el sistema muestra un listado de las reservas actuales junto al botón “Ver detalle”.
+```
+
+Escenario 2: Listado vacío
+
+```plaintext
+Dado que no existen reservas vigentes a la fecha actual “13/4/2026”...
+Cuando se presiona “Ver mis reservas actuales”...
+Entonces el sistema informa “No posee reservas”.
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1776180015315235,1776180015315238,1776180015315239,2026-04-14 15:20:15.315245+00:00,2026-05-11 17:58:04.075702+00:00,,False,False,0,,,,,,,[],0,,,1
+9156115,16,Modificar cliente,"### **ID: Modificar cliente**
+
+### **Titulo**
+
+**Como** cliente **quiero** modificar mi información **para** mantenerla actualizada.
+
+### **Reglas de negocio**
+
+*   La edad calculada a partir de la fecha de nacimiento debe ser mayor estricto a 14 años.
+
+### **Criterios de aceptación**
+
+Escenario 1: Modificación exitosa
+
+```plaintext
+Dado un cliente con el DNI “50656323”, y la fecha de nacimiento “15/07/2010” que implica que, siendo el 18/04/2026 la fecha actual, la edad del cliente es 15...
+Cuando se ingresa el nombre “Juan”, el apellido “Alonso”, el género “Masculino”, la fecha de nacimiento “15/07/2010” y el número de teléfono “221525636”, y se presiona “Guardar cambios”...
+Entonces el sistema informa “Se ha modificado su información personal”.
+```
+
+Escenario 2: Modificación fallida por edad menor o igual a 14 años
+
+```plaintext
+Dado un cliente con el DNI “53654525” y la fecha de nacimiento “10/05/2013” que implica que, siendo el 18/04/2026 la fecha actual, la edad del cliente es 12...
+Cuando se ingresa el nombre “Juana”, el apellido “Juarez”, el género “Femenino”, la fecha de nacimiento “10/05/2013” y el número de teléfono “221554858”, y se presiona “Guardar cambios”...
+Entonces el sistema informa “Modificación fallida - Debe ser mayor de 14 años”.
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,3.0,,,3.0,1776180026594516,1776180026594519,1776180026594520,2026-04-14 15:20:26.594525+00:00,2026-05-11 17:58:23.451302+00:00,,False,False,0,,,,,,,[],0,,,1
+9156117,17,Cambiar contraseña,"### ID: Cambiar contraseña
+
+### Titulo
+
+**Como** cliente **quiero** cambiar mi contraseña **para** mantener la seguridad de mi cuenta
+
+### Reglas de negocio
+
+*   Las contraseña nueva no puede ser igual a la actual
+*   La nueva contraseña debe tener 8 caracteres o mas
+
+### Criterios de aceptación
+
+Escenario 1: Cambio de contraseña exitoso
+
+```gherkin
+Dado un cliente con email ""ejemplo1@gmail.com"", la contraseña ""vieja123"" asociada al mail ""ejemplo1@gmail.com"", la contraseña nueva “nueva456” la cual posee 8 caracteres o mas y es distinta de la contraseña anterior ""vieja123"" y coincide con su confirmación “nueva456”
+Cuando se ingresa la contraseña actual ""vieja123"", la nueva contraseña ""nueva456"" y la confirmación ""nueva456"", y se presiona ""Cambiar contraseña""
+Entonces el sistema actualiza la contraseña e informa ""Contraseña modificada con éxito"".
+```
+
+Escenario 2: Cambio de contraseña fallido por contraseña actual incorrecta
+
+```gherkin
+Dado un cliente con email ""ejemplo2@gmail.com"", la contraseña ""mal12345"" la cual no esta asociada al mail ""ejemplo2@gmail.com""
+Cuando se ingresa la contraseña actual ""mal12345"", la nueva contraseña ""nueva123"" y la confirmación ""nueva123"", y se presiona ""Cambiar contraseña""
+Entonces el sistema informa ""La contraseña actual es incorrecta"".
+```
+
+Escenario 3: Cambio de contraseña fallido por contraseña nueva igual a la anterior
+
+```gherkin
+Dado un cliente con email ""ejemplo3@gmail.com"", la contraseña ""igualess"" la cual esta asociada al mail ""ejemplo3@gmail.com"", la contraseña nueva “igualess” la cual es igual a la contraseña anterior ""igualess""
+Cuando se ingresa la contraseña actual ""igualess"", la nueva contraseña ""igualess"" y la confirmación ""igualess"", y se presiona ""Cambiar contraseña""
+Entonces el sistema informa ""La nueva contraseña debe ser distinta a la actual"".
+```
+
+Escenario 4: Cambio de contraseña fallido por contraseñas nuevas que no coinciden
+
+```gherkin
+Dado un cliente con email ""ejemplo4@gmail.com"", la contraseña ""vieja456"" la cual esta asociada al mail ""ejemplo4@gmail.com"", la contraseña nueva “nueva456” la cual no coincide con su confirmación “nocoincido”
+Cuando se ingresa la contraseña actual ""mal12345"", la nueva contraseña ""nueva123"" y la confirmación ""nocoincido"", y se presiona ""Cambiar contraseña""
+Entonces el sistema informa ""Las contraseñas no coinciden"".
+```
+
+Escenario 5: Cambio de contraseña fallido por contraseña nueva menor a 8 caracteres
+
+```gherkin
+Dado un cliente con email ""ejemplo5@gmail.com"", la contraseña ""actual123"" la cual esta asociada al mail ""ejemplo5@gmail.com"", la contraseña nueva “12345” la cual posee menos de 8 caracteres
+Cuando se ingresa la contraseña actual ""igualess"", la nueva contraseña ""12345"" y la confirmación ""12345"", y se presiona ""Cambiar contraseña""
+Entonces el sistema informa ""La contraseña debe tener al menos 8 caracteres."".
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1776180039055837,1776180039055842,1776180039055843,2026-04-14 15:20:39.055849+00:00,2026-05-20 11:58:53.732266+00:00,,False,False,0,,,,,,,[],0,,,1
+9156119,18,Envío de enlace vía email para recuperar contraseña,"### **ID: Envío de enlace vía email para recuperar contraseña**
+
+### **Titulo**
+
+**Como** cliente **quiero** recibir un enlace por email **para** recuperar el acceso a mi cuenta.
+
+### **Reglas de negocio**
+
+\-
+
+### **Criterios de aceptación**
+
+Escenario 1: Envío de enlace exitoso
+
+```plaintext
+Dado el email ""federico.dev@gmail.com"" que se encuentra registrado...
+Cuando se ingresa el email ""federico.dev@gmail.com"" y se presiona ""Recuperar contraseña""...
+Entonces el sistema envía un correo automático con un enlace de recuperación que expira en 48hs e informa ""Se ha enviado un enlace de recuperación a su email"".
+```
+
+Escenario 2: Envío fallido por email no registrado
+
+```plaintext
+Dado el email ""noexiste@yahoo.com"" que no se encuentra registrado...
+Cuando se ingresa el email ""noexiste@yahoo.com"" y se presiona ""Recuperar contraseña""...
+Entonces el sistema informa ""El email ingresado no pertenece a ninguna cuenta registrada"".
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,3.0,,,3.0,1776180055428310,1776180055428312,1776180055428314,2026-04-14 15:20:55.428319+00:00,2026-05-11 17:59:04.508230+00:00,,False,False,0,,,,,,,[],0,,,1
+9156120,19,Editar usuario,"### **ID: Editar usuario**
+
+### **Titulo**
+
+**Como** administrativo **quiero** editar los datos de un usuario **para** poder mantener su información actualizada
+
+### **Reglas de negocio**
+
+*   La edad calculada a partir de la fecha de nacimiento debe ser mayor estricto a 14 años.
+
+### **Criterios de aceptación**
+
+Escenario 1: Edición de usuario exitosa
+
+```plaintext
+Dado un cliente a modificar con DNI ""50656323"" y la fecha de nacimiento ""15/07/2010"" que implica que, siendo el 18/04/2026 la fecha actual, la edad del cliente es 15...
+Cuando se ingresa el nombre ""Juan"", el apellido ""Alonso"", el DNI ""50656323"", el género ""Masculino"", la fecha de nacimiento ""15/07/2010"" y el número de teléfono ""2219998888"", y presiona ""Guardar cambios""...
+Entonces el sistema efectúa la modificación e informa ""Usuario editado con éxito"".
+```
+
+Escenario 2: Edición de usuario fallida por DNI ya registrado
+
+```plaintext
+Dado un cliente a editar con DNI ""50656323"", y un usuario con el DNI ""45987321""...
+Cuando se ingresa el nombre ""Juan"", el apellido ""Alonso"", el DNI ""45987321"", el género ""Masculino"", la fecha de nacimiento ""15/07/2010"" y el número de teléfono ""221525636"", y presiona ""Guardar cambios""...
+Entonces el sistema informa ""El DNI ingresado ya pertenece a otro usuario registrado"".
+```
+
+Escenario 3: Edición de usuario fallida por edad menor o igual a 14 años
+
+```plaintext
+Dado un cliente a editar con DNI “50656323” y la fecha de nacimiento ""10/05/2013"" que implica que, siendo el 18/04/2026 la fecha actual, la edad del cliente es 12...
+Cuando se ingresa el nombre ""Juan"", el apellido ""Alonso"", el DNI ""50656323"", el género ""Masculino"", la fecha de nacimiento ""10/05/2013"" y el número de teléfono ""221525636"", y presiona ""Guardar cambios""...
+Entonces el sistema informa ""El usuario debe ser mayor de 14 años"".
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,3.0,,,3.0,1776180065165346,1776180065165347,1776180065165348,2026-04-14 15:21:05.165353+00:00,2026-05-11 17:59:33.674660+00:00,,False,False,0,,,,,,,[],0,,,1
+9156122,20,Listar Usuarios,"### ID: Listar usuarios
+
+### Titulo
+
+**Como** administrativo **quiero** listar los usuarios **para** estar al tanto de quienes integran mi centro
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Listado exitoso
+
+```plaintext
+Dado la existencia de usuarios...
+Cuando se presiona “Ver usuarios”...
+Entonces el sistema muestra un listado de los usuarios junto al botón “Editar usuario”.
+```
+
+Escenario 2: Listado vacío
+
+```plaintext
+Dado que no existen usuarios...
+Cuando se presiona “Ver usuarios”...
+Entonces el sistema informa “No se han encontrado usuarios”.
+```",,,,,alvaroauth,Alvaro,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1776180073385661,1776180073385664,1776180073385666,2026-04-14 15:21:13.385673+00:00,2026-05-11 17:59:48.007097+00:00,,False,False,0,,,,,,,[],0,,,1
+9156138,21,Agregar Sala,"### ID: Agregar Sala
+
+### Titulo
+
+**Como** recepcionista       
+**quiero** agregar una sala       
+**para** asignarla a una clase
+
+### Reglas de negocio
+
+*   El identificador de la sala debe ser unico
+*   El cupo debe ser mayor o igual a 10
+
+### Criterios de aceptación
+
+Escenario 1: Agregado Exitoso
+
+```gherkin
+Dado un identificador de sala ""A-08"" que no se encuentra registrado en el sistema y el cupo máximo ""50"" el cual es mayor o igual a 10.
+Cuando se ingresa el identificador ""A-08"", el cupo ""50"" y se presiona agregar.
+Entonces el sistema registra la sala e informa que la sala se agregó correctamente.
+```
+
+Escenario 2: Agregado de sala fallido por identificador ya existente.
+
+```gherkin
+Dado un identificador de sala ""A-01"" que ya se encuentra registrado en el sistema.
+Cuando se ingresa el identificador ""A-01"", el cupo ""50"" y se presiona agregar.
+Entonces el sistema informa que la sala ""A-01"" ya se encuentra registrada en el sistema.
+```
+
+Escenario 3: Agregado de sala fallido por cupo invalido.
+
+```gherkin
+Dado un identificador de sala ""A-08"" que no se encuentra registrado en el sistema y un cupo ""5"" el cual no es mayor o igual a 10.
+Cuando se ingresa el identificador ""A-01"", el cupo ""5"" y se presiona agregar.
+Entonces el sistema informa que el cupo debe ser mayor a 0.
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,2.0,,,2.0,1776180321100157,1776180321100160,1776180321100161,2026-04-14 15:25:21.100166+00:00,2026-05-20 12:08:06.529471+00:00,,False,False,0,,,,,,,[],0,,,9
+9156141,22,Deshabilitar Sala,"### ID: Deshabilitar Sala
+
+### Titulo
+
+**Como** recepcionista    
+**quiero** deshabilitar una sala    
+**para** que no se le asignen clases
+
+### Reglas de negocio
+
+*   No se pueden deshabilitar salas con clases asignadas
+
+### Criterios de aceptación
+
+Escenario 1: Deshabilitacion exitosa
+
+```gherkin
+Dado una sala ""A-01"" sin clases asignadas proximas.
+Cuando se selecciona la sala ""A-01"" y se presiona ""Deshabilitar"".
+Entonces el sistema deshabilita la sala e informa que la sala fue deshabilitada exitosamente.
+```
+
+Escenario 2: Deshabilitacion fallida por clases asignadas
+
+```gherkin
+Dado una sala ""A-02"" con clases asignadas proximas.
+Cuando se selecciona la sala ""A-02"" y se presiona ""Deshabilitar"".
+Entonces el sistema informa que la sala aun tiene clases proximas.
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,2.0,,,2.0,1776180379893811,1776180379893814,1776180379893815,2026-04-14 15:26:19.893819+00:00,2026-05-11 18:00:30.230129+00:00,,False,False,0,,,,,,,[],0,,,9
+9156143,23,Modificar Sala,"### ID: Modificar Sala
+
+### Titulo
+
+**Como** recepcionista   
+**quiero** modificar una sala   
+**para** actualizar sus datos
+
+### Reglas de negocio
+
+*   El identificador de la sala no puede repetirse
+*   El nuevo cupo de la sala debe ser mayor o igual al cupo de cualquier clase ya asignada.
+
+### Criterios de aceptación
+
+Escenario 1: Modificacion exitosa
+
+```gherkin
+Dado la sala ""A-01"" con cupo ""50"" sin clases con cupo maximo mayor a ""35"", el identificador ""A-10"" el cual no se encuentra registrado en el sistema y el cupo ""35"" el cual es mayor a 0. 
+Cuando se ingresa ""A-10"", el cupo ""35"" y se presiona ""Aplicar cambios."".
+Entonces el sistema modifica la sala e informa que la sala se modifico con exito.
+```
+
+Escenario 2: Modificacion fallida por identificador repetido.
+
+```gherkin
+Dado la sala ""A-02"" con cupo ""50"" sin clases con cupo maximo mayor a ""35"" y el identificador ""A-12"" el cual ya se encuentra registrado en el sistema.
+Cuando se ingresa ""A-12"", el cupo ""35"" y se presiona ""Aplicar cambios."".
+Entonces el sistema informa que ya existe una sala con ese nombre.
+```
+
+Escenario 3: Modificacion fallida por cupo menor a una clase registrada
+
+```gherkin
+Dado la sala ""A-03"" con cupo ""50"" la cual posee clases con cupo maximo mayor a ""35"", el identificador ""A-13"" el cual no se encuentra registrado en el sistema y el cupo ""35"" el cual es mayor a 0.
+Cuando se ingresa ""A-13"", el cupo ""35"" y se presiona ""Aplicar cambios."".
+Entonces el sistema informa que aun existen clases asignadas a la sala con cupo mayor a 35.
+```
+
+Escenario 4: Modificacion fallida por cupo invalido
+
+```gherkin
+Dado la sala ""A-04"" con cupo ""50"", el identificador ""A-14"" el cual no se encuentra registrado en el sistema y el cupo ""-1"" el cual es menor a 0.
+Cuando se ingresa ""A-14"", el cupo ""35"" y se presiona ""Aplicar cambios."".
+Entonces el sistema informa que el cupo debe ser mayor a 0.
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,3.0,,,3.0,1776180420740030,1776180420740032,1776180420740033,2026-04-14 15:27:00.740038+00:00,2026-05-11 18:00:46.750276+00:00,,False,False,0,,,,,,,[],0,,,9
+9156145,24,Listar salas,"### ID: Listar Salas
+
+### Titulo
+
+**Como** recepcionista   
+**quiero** listar las salas   
+**para** ver la informacion de las mismas
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Listado de salas
+
+```gherkin
+Dado que existen salas para mostrar.
+Cuando se presiona el boton ""Listar salas""
+Entonces se muestran todas las salas junto a su estado.
+```
+
+Escenario 3: Listado vacio
+
+```gherkin
+Dado que no existen salas para mostrar.
+Cuando se presiona el boton ""Listar salas""
+Entonces se informa que no aun no hay salas para mostrar.
+```
+
+_Nota: El estado es Habilitada y Deshabilitada_",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,1.0,,,1.0,1776180446034100,1776180446034103,1776180446034104,2026-04-14 15:27:26.034110+00:00,2026-05-11 18:01:12.780590+00:00,,False,False,0,,,,,,,[],0,,,9
+9156146,25,Ver sala,"### ID: Ver Sala
+
+### Titulo
+
+**Como** recepcionista  
+**quiero** ver el detalle de una sala  
+**para** ver la informacion y opciones de la misma
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Vista exitosa con clases asignadas
+
+```gherkin
+Dado una sala ""A-01"" con clases asignadas proximas.
+Cuando se presiona sobre el identificador ""A-01"".
+Entonces el sistema muestra la informacion de la sala ""A-01"" junto a sus clases asignadas proximas y los botones ""Modificar Sala"", ""Deshabilitar Sala"" y ""Eliminar Sala"".
+```
+
+Escenario 2: Vista exitosa sin clases asignadas
+
+```gherkin
+Dado una sala ""A-02"" con clases asignadas proximas.
+Cuando se presiona sobre el identificador ""A-02"".
+Entonces el sistema muestra la informacion de la sala ""A-02"" junto a los botones ""Modificar Sala"", ""Deshabilitar Sala"" y ""Eliminar Sala"".
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,2.0,,,2.0,1776180475988175,1776180475988177,1776180475988178,2026-04-14 15:27:55.988183+00:00,2026-05-11 18:01:30.185783+00:00,,False,False,0,,,,,,,[],0,,,9
+9159538,26,Generar QR,"### ID: Generar QR
+
+### Titulo: **Como** cliente **quiero** generar mi código QR personal desde la aplicación **para** poder acreditar mi asistencia al ingresar a la clase
+
+### Reglas de negocio
+
+El código QR debe ser único por usuario y permitir al recepcionista validar la identidad.
+
+Para generar el QR, el cliente debe poseer una reserva activa para el día y horario en el que se encuentra.
+
+La cuenta del usuario no debe estar suspendida por falta de pago (haber superado los 10 días de gracia)
+
+### Criterios de aceptación
+
+Escenario 1: Generación de QR exitosa:
+
+```gherkin
+Dado que el cliente “Js@gmail.com” tiene una reserva para la clase de hoy jueves 23/4 Yoga a las 19:00, tiene su cuota paga y su ficha médica cargada
+
+Cuando presiona el botón “Generar QR” dentro de la aplicación móvil.
+
+Entonces el sistema genera y muestra en pantalla un código QR para ser escaneado en recepción.
+```
+
+Escenario 2: Generación fallida por falta de pago:
+
+```gherkin
+Dado que el cliente “PedroPerez@gmail.com” se encuentra en el undécimo día posterior a su fecha de facturación y no ha registrado el pago.
+
+Cuando presiona el botón “Generar QR” dentro de la aplicación móvil.
+
+Entonces el sistema muestra en pantalla un mensaje indicando que su mensualidad se encuentra suspendida por falta de pago.
+```
+
+Escenario 3: Generación fallida por falta de reserva:
+
+```gherkin
+Dado que el cliente “Js@gmail.com” tiene una reserva para la clase de hoy jueves 23/4 Yoga a las 19:00
+
+Cuando presiona el botón “Generar QR” dentro de la aplicación móvil.
+
+Entonces el sistema informa en pantalla que no posee reserva activa para el turno actual y no muestra el código
+
+```",,,,,juansegobia,Juan Segobia,juansegobia,Juan Segobia,juansegobia,Juan Segobia,New,False,,,5.0,,,5.0,1776257121011217,1776257121011220,1776257121011221,2026-04-15 12:45:21.011227+00:00,2026-05-11 18:03:50.085887+00:00,,False,False,0,,,,,,,[],0,,,4
+9159539,27,Escanear QR,"### ID:  Escanear QR
+
+### Titulo:
+
+**Como** recepcionista
+**quiero** escanear el código QR del cliente
+**para** validar visualmente su identidad mediante su foto y registrar automáticamente su asistencia a la clase.
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Registro de asistencia exitoso
+
+```gherkin
+Dado que el recepcionista ha iniciado sesión y que el recepcionista se encuentra en la pantalla de control de acceso
+Cuando escanea el código QR y presiona el botón ""Confirmar Ingreso""
+Entonces el sistema registra la asistencia en el historial del cliente, actualiza el cupo de la clase y muestra un mensaje de éxito
+```
+
+Escenario 2:  Validación visual fallida
+
+```gherkin
+Dado que el recepcionista se encuentra en la pantalla de control de accesos
+Cuando el recepcionista escanea el QR, la foto mostrada en el sistema no coincide con la persona física y presiona el botón ""Denegar Acceso"" e ingresa el motivo ""Identidad no coincide""
+Entonces el sistema cancela la operación, no registra la asistencia y guarda el registro del intento denegado con su respectivo motivo
+```
+
+Escenario 3:  Registro de asistencia fallido por QR invalido.
+
+```gherkin
+Dado que el recepcionista se encuentra en la pantalla de control de accesos
+escanea un código QR que no es reconocido por el sistema o se encuentra vencido,
+Entonces el sistema informa que el QR no es valido y cancela la operación sin registrar la asistencia
+```",,,,,juansegobia,Juan Segobia,juansegobia,Juan Segobia,juansegobia,Juan Segobia,New,False,,,5.0,,,5.0,1776257134104521,1776257134104523,1776257134104524,2026-04-15 12:45:34.104528+00:00,2026-05-11 18:04:20.359108+00:00,,False,False,0,,,,,,,[],0,,,4
+9159541,28,Anotar asistencia manual,"### ID: Anotar asistencia manual
+
+### Titulo:
+
+**Como** administrativo
+**quiero** buscar a un cliente en el sistema
+**para** registrar su asistencia manualmente y se descuente su pase en situaciones donde no pueda utilizar su código QR
+
+### Reglas de negocio
+
+* El cliente debe poseer una reserva activa para la clase y horario actual.
+* No se puede registrar asistencia si el cliente tiene más de 10 días de mora (a partir del día 11 la cuenta se considera suspendida).
+* El cliente debe tener su ficha médica cargada en el perfil para poder ingresar.
+
+### Criterios de aceptación
+
+Escenario 1: Registro manual exitoso
+
+```gherkin
+Dado que el recepcionista ha iniciado sesión y el cliente Carlos Perez con DNI 44332211 posee una reserva para la clase de las 18.00hs de Yoga, tiene su cuota al dia y su ficha médica cargada.
+Cuando el recepcionista busca el DNI ¨44332211¨ en el listado de la clase y presiona ""Confirmar Asistencia""
+Entonces el sistema genera un registro de asistencia en el historial, descuenta el pase del cliente y actualiza el cupo de la sala.
+```
+
+Escenario 2: Intento de registro con cliente en mora
+
+```gherkin
+Dado que el cliente Carlos Gonzales con DNI 44332210 se encuentra a más de diez días de mora respecto a su fecha de pago.
+Cuando el recepcionista ingresa el DNI 44332210
+Entonces el sistema muestra el mensaje “El cliente no se encuentra al dia con el pago” y muestra un botón que redirige a la sección de pago
+```
+
+  
+Escenario 3: Registro fallido por falta de ficha médica
+
+```gherkin
+Dado que el cliente “Lucia Rodriguez” con DNI “43434343” tiene reserva y pago al día, pero no ha cargado su ficha médica.
+Cuando el recepcionista ingrese 43434343
+Entonces el sistema informa que falta el documento obligatorio y no permite completar el registro de ingreso.
+```
+
+  
+Escenario 4: Registro fallido por falta de reserva activa
+
+```gherkin
+Dado que el cliente “Carlos Gonzales” de DNI 44332210, no tiene una reserva para el dia y horario que se dicta actualmente.
+Cuando el recepcionista ingrese el DNI 44332210
+Entonces el sistema informa que el cliente no cuenta con reserva activa y no genera registro ni descuenta pases.
+```
+
+** Notar que recepcionista y dueño son administrativos **",,,,,juansegobia,Juan Segobia,juansegobia,Juan Segobia,juansegobia,Juan Segobia,New,False,,,3.0,,,3.0,1776257155591996,1776257155591999,1776257155592001,2026-04-15 12:45:55.592006+00:00,2026-05-11 18:05:00.722332+00:00,,False,False,0,,,,,,,[],0,,,4
+9159543,29,Ver historial de asistencia,"### ID: Listar historial de asistencia 
+
+### Título
+
+**Como** cliente
+
+**quiero** listar mi historial
+
+**para** ver a a las clases que asistí
+
+### Reglas de negocio
+
+\* 
+
+### Criterios de aceptación
+
+Escenario 1: Muestra de listado exitoso
+
+```gherkin
+Dado que el usuario se encuentra en su perfil
+
+Cuando presione “Ver historial de asistencia”
+
+Entonces el sistema muestra el listado de asistencia del cliente
+```
+
+Escenario 2: Aviso de listado vacío
+
+```gherkin
+Dado que el usuario se encuentra en su perfil y aun no asistió a ninguna clase
+
+Cuando presione “Ver historial de asistencia”
+
+Entonces el sistema informa que aún no asistió a ninguna clase.
+```",,,,,juansegobia,Juan Segobia,juansegobia,Juan Segobia,juansegobia,Juan Segobia,New,False,,,2.0,,,2.0,1776257175859951,1776257175859954,1776257175859955,2026-04-15 12:46:15.859959+00:00,2026-05-11 18:05:19.108352+00:00,,False,False,0,,,,,,,[],0,,,4
+9160901,30,Reservar Clase abonado,"### ID: Reservar Clase abonado
+
+### Titulo
+
+\-**Como** Cliente abonado **quiero** reservar un día y horario fijo al pagar mi mensualidad **para** asegurar mi lugar en la actividad durante todo el mes
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Reserva exitosa
+
+```plaintext
+Dado el cliente con email “cliente@gmail.com”, la clase “Yoga - Sede A - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19” que tiene cupo disponible y el pago efectuado
+Cuando el cliente selecciona la clase “Yoga - Sala A-01 - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19”
+Entonces el sistema inscribe al cliente e informa ""Reserva confirmada. Tu pago fue registrado exitosamente."".
+```
+
+Escenario 2: Reserva fallida por pago rechazado o cancelado
+
+```plaintext
+Dado el cliente con email “cliente@gmail.com”, la clase “Yoga - Sede A - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19” que tiene cupo disponible y el pago rechazado o cancelado
+Cuando el cliente selecciona la clase “Yoga - Sede A - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19”
+Entonces el sistema informa ""Tu pago ha sido rechazado o cancelado."".
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,New,False,,,3.0,,,3.0,1776280358394824,1776280358394827,1776280358394828,2026-04-15 19:12:38.394834+00:00,2026-05-20 17:58:38.425427+00:00,,False,False,0,,,,,,,[],0,,,3
+9160905,31,Cancelar Reserva abonados,"### ID: Cancelar reserva abonados
+
+### Titulo
+
+\-**Como** Cliente abonado **quiero** cancelar mi reserva de un día particular **para** liberar el cupo.
+
+### Reglas de negocio
+
+*   Si la cancelación se realiza con más de 24 horas de antelación, el sistema devuelve un crédito del 20-25% de la actividad para usar el próximo mes (dependiendo de la cantidad de clases del mes)
+
+### Criterios de aceptación
+
+Escenario 1: Cancelación exitosa con más de 24hs de antelación
+
+```plaintext
+Dado el cliente con email “cliente@mail.com” que posee una reserva para la clase ""Yoga - Sala A-01 - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19"" que tiene comienzo en 30 horas
+Cuando el cliente selecciona “Cancelar Reserva” y confirma la acción
+Entonces el sistema libera el cupo, notifica a los clientes en cola de espera sobre la disponibilidad de la clase, acredita un bono de descuento equivalente al valor de una clase para el mes siguiente al cliente, notifica al cliente sobre la existencia de su crédito e informa que la cancelación se realizó con éxito.
+```
+
+Escenario 2: Cancelación exitosa con menos de 24hs de antelación
+
+```plaintext
+Dado el cliente con email “cliente@mail.com” que posee una reserva para la clase ""Yoga - Sala A-01 - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19"" que tiene comienzo en 23 horas
+Cuando el cliente selecciona “Cancelar Reserva” y confirma la acción
+Entonces el sistema libera el cupo, notifica a los clientes en cola de espera sobre la disponibilidad de la clase e informa que la cancelación se realizó con éxito.
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,New,False,,,5.0,,,5.0,1776280523893880,1776280523893883,1776280523893884,2026-04-15 19:15:23.893889+00:00,2026-05-20 18:01:08.346314+00:00,,False,False,0,,,,,,,[],0,,,3
+9160906,32,Listar Clases,"### ID:  Listar clases 
+
+### Titulo
+
+*   Como usuario quiero visualizar las clases disponibles para conocer las actividades y horarios disponibles
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Visualización del listado exitosa
+
+```plaintext
+Dado que existen clases para mostrar
+Cuando presiona el boton “Ver Clases”
+Entonces el sistema muestra una lista con todas las clases activas, detallando actividad, día, horario y profesor a cargo.
+```
+
+Escenario 2: Visualización del listado vacio
+
+```plaintext
+Dado que no existen clases para mostrar
+Cuando presiona el boton “Ver Clases”
+Entonces el sistema informa que no existen clases para mostrar
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,New,False,,,2.0,,,2.0,1776280535325224,1776280535325227,1776280535325228,2026-04-15 19:15:35.325232+00:00,2026-05-11 18:09:57.249463+00:00,,False,False,0,,,,,,,[],0,,,5
+9160911,33,Ver Historial de Reservas,"### ID: Ver historial de reservas
+
+### Titulo
+
+**Como** cliente **quiero** visualizar mi historial de reservas **para** llevar un control de mis asistencias.
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Visualización exitosa con reservas pasadas
+
+```gherkin
+Dado el cliente con email ""ejemplo1@gmail.com"" que ha asistido a clases previas
+Cuando selecciona ""Mis reservas""
+Entonces el sistema lista todas las clases reservadas anteriormente en orden cronologico ascendente.
+```
+
+Escenario 2: Visualización de historial sin reservas
+
+```gherkin
+Dado el cliente con email ""ejemplo1@gmail.com"" que no ha asistido a clases previas
+Cuando selecciona ""Mis reservas""
+Entonces el sistema notifica al cliente que no posee reservas registradas en el historial.
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,Done,False,,,2.0,,,2.0,1776280630972269,1776280630972271,1779300074079770,2026-04-15 19:17:10.972278+00:00,2026-05-20 18:01:14.081832+00:00,,False,False,0,,,,,,,[],0,,,3
+9160913,34,Filtrar Reserva,"### ID: Filtrar Reserva por sede
+
+### Titulo
+
+*   **Como** cliente **quiero** filtrar mis reservas por sede **para** encontrar una rápidamente.
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Filtrado con éxito
+
+```plaintext
+Dado que el cliente se encuentra visualizando sus reservas y existe una sede en Chacabuco donde realizó reservas
+Cuando selecciona el filtro de sede y elige “Chacabuco”
+Entonces el sistema actualiza la lista y muestra únicamente las reservas con sede en Chacabuco.
+```
+
+Escenario 2: Filtrado con éxito sin resultados
+
+```plaintext
+Dado que el cliente se encuentra visualizando sus reservas y existe una sede en Chacabuco donde no realizó reservas
+Cuando selecciona el filtro de sede y elige “Chacabuco”
+Entonces el sistema informa “No se encontraron reservas”.
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,Rejected,False,,,2.0,,,2.0,1776280661076836,1776280661076838,1778523221110692,2026-04-15 19:17:41.076843+00:00,2026-05-11 18:13:41.112476+00:00,,False,False,0,,,,,,,[],0,,,3
+9172771,36,Eliminar Sala,"### ID: Eliminar Sala
+
+### Titulo
+
+**Como** recepcionista   
+**quiero** eliminar una sala   
+**para** prescindir de esta
+
+### Reglas de negocio
+
+*   No se pueden eliminar salas con clases asignadas
+
+### Criterios de aceptación
+
+Escenario 1: Eliminacion exitosa
+
+```gherkin
+Dado una sala ""A-01"" sin clases asignadas proximas.
+Cuando se selecciona la sala ""A-01"" y se presiona ""Eliminar"".
+Entonces el sistema elimina la sala e informa que la sala fue eliminada exitosamente.
+```
+
+Escenario 2: Eliminacion fallida por clases asignadas
+
+```gherkin
+Dado una sala ""A-02"" con clases asignadas proximas.
+Cuando se selecciona la sala ""A-02"" y se presiona ""Eliminar"".
+Entonces el sistema informa que la sala aun tiene clases proximas.
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,2.0,,,2.0,1776632682728256,1776632682728258,1776632682728259,2026-04-19 21:04:42.728262+00:00,2026-05-11 18:14:06.161466+00:00,,False,False,0,,,,,,,[],0,,,9
+9176748,37,Visualizar Reporte de Horarios más Seleccionados,"### ID: Visualizar Reporte de Horarios más Seleccionados
+
+### Titulo
+
+**Como** dueño    
+**quiero** filtrar los horarios mas seleccionados     
+**para** evaluar la demanda de horas pico
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Vista exitosa
+
+```gherkin
+Dado que existe un historial registrado de clases para el año ""2026"" para la categoria ""Todas las clases"".
+Cuando se presiona ""Generar reporte."", se selecciona ""Horarios mas seleccionados."", se selecciona el año ""2026"" y se presiona ""Visualizar reporte"".
+Entonces el sistema lista los horarios de las clases junto con la cantidad de asistencias totales a ese horario.
+```
+
+Escenario 2: Vista vacia
+
+```gherkin
+Dado que no existe un historial registrado de clases para el año ""2024"" para la categoria ""Todas las clases"".
+Cuando se presiona ""Generar reporte."", se selecciona ""Horarios mas seleccionados."", se selecciona el año ""2024"" y se presiona ""Visualizar reporte"".
+Entonces el sistema informa que no hubo inscripciones a la categoria ""Todas las clases"" durante el ""2024""
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,3.0,,,3.0,1776720359360525,1776720359360527,1776720359360528,2026-04-20 21:25:59.360532+00:00,2026-05-11 18:14:30.103930+00:00,,False,False,0,,,,,,,[],0,,,10
+9176821,38,Visualizar Reporte de Dinero Ingresado,"### ID: Visualizar Reporte de Dinero Ingresado
+
+### Titulo
+
+**Como** administrador   
+**quiero** filtrar el dinero ingresado   
+**para** evaluar la rentabilidad del negocio
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Vista exitosa
+
+```gherkin
+Dado que existen ingresos registrados para el año ""2026"" para la categoria ""Todas las clases"".
+Cuando se presiona ""Generar reporte."", se selecciona ""Ingresos Mensuales."", se selecciona el año ""2026"" y se presiona ""Visualizar reporte"".
+Entonces el sistema lista todos los ingresos agrupados por mes del año ""2026"" de todas las categorias ordenados de mayor a menor por cantidad de ingresos mensuales.
+```
+
+Escenario 2: Vista vacia
+
+```gherkin
+Dado que no existen ingresos registrados para el año ""2024"" para la categoria ""Todas las clases"".
+Cuando se presiona ""Generar reporte."", se selecciona ""Ingresos Mensuales."", se selecciona el año ""2024"" y se presiona ""Visualizar reporte"".
+Entonces el sistema informa que no hay ingresos registrados en el año ""2024"".
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,3.0,,,3.0,1776721642202986,1776721642202988,1776721642202989,2026-04-20 21:47:22.202992+00:00,2026-05-11 18:14:50.154100+00:00,,False,False,0,,,,,,,[],0,,,10
+9180131,39,Visualizar Reporte de Usuarios Nuevos,"### ID: Visualizar Reporte de Usuarios Nuevos
+
+### Titulo
+
+**Como** administrador  
+**quiero** ver la cantidad de usuarios nuevos  
+**para** evaluar el crecimiento del negocio
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Vista exitosa
+
+```gherkin
+Dado que existen usuarios registrados para el año ""2026"" para la categoria ""Todas las clases"".
+Cuando se presiona ""Generar reporte."", se selecciona ""Usuarios nuevos."", se selecciona el año ""2026"" y se presiona ""Visualizar reporte"".
+Entonces el sistema muestra la cantidad de usuarios nuevos durante 2026 y debajo la cantidad por cada mes del año ordenados de mayor a menor por cantidad de usuarios nuevos.
+```
+
+Escenario 2: Vista vacia
+
+```gherkin
+Dado que no existen usuarios registrados para el año ""2023"" para la categoria ""Todas las clases"".
+Cuando se presiona ""Generar reporte."", se selecciona ""Usuarios nuevos."", se selecciona el año ""2023"" y se presiona ""Visualizar reporte"".
+Entonces el sistema informa que no existen usuarios nuevos en el año ""2023"".
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,3.0,,,3.0,1776790727117807,1776790727117810,1776790727117811,2026-04-21 16:58:47.117815+00:00,2026-05-11 18:15:05.127700+00:00,,False,False,0,,,,,,,[],0,,,10
+9183383,40,Recuperar contraseña vía enlace,"### **ID: Recuperar contraseña vía enlace**
+
+### **Titulo**
+
+**Como** cliente **quiero** ingresar una nueva contraseña mediante el link recibido por mail **para** recuperar el acceso a mi cuenta
+
+### **Reglas de negocio**
+
+*   El enlace de recuperación tiene una vigencia de 48hs desde que se envía.
+
+### **Criterios de aceptación**
+
+Escenario 1: Recuperación de contraseña exitosa
+
+```plaintext
+Dado un cliente con email “usuario@gmail.com”, el enlace de recuperación que todavía no expiró y es válido, y la nueva contraseña “nueva789” que coincide con su confirmación “nueva789”...
+Cuando se ingresa vía el enlace de recuperación, se ingresa la nueva contraseña ""nueva789"" y la confirmación ""nueva789"", y se presiona ""Confirmar""...
+Entonces el sistema actualiza la contraseña, hace expirar el enlace de recuperación e informa ""Su contraseña ha sido restablecida con éxito"".
+```
+
+Escenario 2: Recuperación de contraseña fallida por enlace expirado
+
+```plaintext
+Dado un cliente con email “usuario@gmail.com” y el enlace de recuperación que ya expiró...
+Cuando se ingresa vía el enlace de recuperación...
+Entonces el sistema informa ""El enlace de recuperación ha expirado"".
+```
+
+Escenario 3: Recuperación de contraseña fallida por contraseñas que no coinciden
+
+```plaintext
+Dado un cliente con email ""usuario@gmail.com"", el enlace de recuperación que todavía no expiró, y la nueva contraseña ""nueva789"" que no coincide con su confirmación ""distinta123""...
+Cuando se ingresa vía el enlace de recuperación, se ingresa la nueva contraseña ""nueva789"" y su confirmación ""distinta123"", y se presiona ""Confirmar""...
+Entonces el sistema informa ""Las contraseñas no coinciden"".
+```
+
+Escenario 4: Recuperación de contraseña fallida por enlace inexistente
+
+```plaintext
+Dado un cliente con email ""usuario@gmail.com"" y el enlace de recuperación que es inexistente…
+Cuando se ingresa vía el enlace de recuperación…
+Entonces el sistema informa ""El enlace de recuperación es inválido"".
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,3.0,,,3.0,1776866436365136,1776866436365139,1776866436365141,2026-04-22 14:00:36.365147+00:00,2026-05-11 18:15:22.531749+00:00,,False,False,0,,,,,,,[],0,,,1
+9183422,41,Listar pagos,"### ID: Listar pagos
+
+### Titulo
+
+**Como** administrativo **quiero** listar los pagos efectuados al centro **para** estar al tanto de su estado contable.
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Listado exitoso
+
+```plaintext
+Dado la existencia de pagos
+Cuando se presiona “Ver pagos”...
+Entonces el sistema muestra un listado de los pagos junto al botón “Generar comprobante”.
+```
+
+Escenario 2: Listado vacío
+
+```plaintext
+Dado que no existen pagos
+Cuando se presiona “Ver pagos”...
+Entonces el sistema informa “No se han encontrado pagos”.
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1776866833387218,1776866833387221,1776866833387223,2026-04-22 14:07:13.387230+00:00,2026-05-11 18:15:36.474492+00:00,,False,False,0,,,,,,,[],0,,,2
+9183427,42,Modificar clase,"### ID: Modificar clase
+
+### Titulo
+
+**Como** administrativo **quiero** modificar una clase **para** actualizar su información
+
+### Reglas de negocio
+
+*   El cupo máximo por sala es de 50
+*   El cupo mínimo por sala es de 10
+
+### Criterios de aceptación
+
+Escenario 1: Modificación exitosa sin lista de espera activa
+
+```plaintext
+Dado el cupo “30” que es menor al cupo máximo “50” y mayor al cupo mínimo “10”...
+Cuando se ingresa el cupo “30”, y se seleccionan la actividad “Pilates”, el profesor “Tomás Rodriguez”, la sala “A-01”, el día “12/6/2026”, la hora “14:00”, y se presiona “Guardar cambios”...
+Entonces el sistema actualiza la información de la clase e informa “Clase modificada con éxito”.
+```
+
+Escenario 2: Modificación exitosa con lista de espera activa y cupo nuevo mayor al actual
+
+```plaintext
+Dado el cupo “30” que es menor al cupo máximo “50”, mayor al cupo mínimo “10” y mayor al cupo actual “20”...
+Cuando se ingresa el cupo “30”, y se seleccionan la actividad “Pilates”, el profesor “Tomás Rodriguez”, la sala “A-01”, el día “12/6/2026”, la hora “14:00”, y se presiona “Guardar cambios”...
+Entonces el sistema actualiza la información de la clase, notifica a las últimas 10 personas de la lista de espera e informa “Clase modificada con éxito. Se ha notificado a 10 personas nuevas desde la lista de espera”.
+```
+
+Escenario 3: Modificación fallida por cupo menor al cupo mínimo
+
+```plaintext
+Dado el cupo “5” que es menor al cupo mínimo “10”...
+Cuando se ingresa el cupo “5”, y se seleccionan la actividad “Funcional”, el profesor “Alvaro Andes”, la sala “A-02”, el día “12/6/2026”, la hora “14:00”, y se presiona “Guardar cambios”...
+Entonces el sistema informa “El cupo mínimo es de 10 personas”.
+```
+
+Escenario 4: Modificación fallida por cupo mayor al cupo máximo
+
+```plaintext
+Dado el cupo “60” que es mayor al cupo mínimo “50”...
+Cuando se ingresa el cupo “60”, y se seleccionan la actividad “Yoga”, el profesor “Natalia Gomez”, la sala “A-03”, el día “12/6/2026”, la hora “14:00”, y se presiona “Guardar cambios”...
+Entonces el sistema informa “El cupo máximo es de 50 personas”.
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,5.0,,,5.0,1776866898275973,1776866898275976,1776866898275977,2026-04-22 14:08:18.275982+00:00,2026-05-11 18:15:53.665806+00:00,,False,False,0,,,,,,,[],0,,,5
+9185055,44,Eliminar Clase,"### ID: Eliminar Clase
+
+### Titulo
+
+**Como** administrativo        
+**quiero** eliminar una clase        
+**para** ocultarla en las opciones de inscripcion
+
+### Reglas de negocio
+
+*   Si hay inscriptos en la clase se les reintegra la misma
+
+### Criterios de aceptación
+
+Escenario 1: Eliminacion exitosa sin inscriptos
+
+```gherkin
+Dado una clase ""Yoga - Martes de 17:00 a 18:30 - Sala A-01"" la cual no posee alumnos inscriptos.
+Cuando se selecciona la clase ""Yoga - Martes de 17:00 a 18:30 - Sala A-01"", se presiona ""Eliminar"" y luego ""Confirmar""
+Entonces el sistema elimina la clase e informa que la clase fue eliminada exitosamente.
+```
+
+Escenario 2: Eliminacion exitosa con inscriptos
+
+```gherkin
+Dado una clase ""Yoga - Martes de 17:00 a 18:30 - Sala A-01"" la cual posee alumnos inscriptos.
+Cuando se selecciona la clase ""Yoga - Martes de 17:00 a 18:30 - Sala A-01"", se presiona ""Eliminar"" y luego ""Confirmar""
+Entonces el sistema elimina la clase, informa que la clase fue cancelada exitosamente y que se le reintegrara a cada cliente afectado la clase correspondiente.
+```
+
+Escenario 3: Eliminacion fallida por operacion cancelada
+
+```gherkin
+Dado una clase ""Yoga - Martes de 17:00 a 18:30 - Sala A-01"".
+Cuando se selecciona la clase ""Yoga - Martes de 17:00 a 18:30 - Sala A-01"", se presiona ""Eliminar"" y luego ""Cancelar""
+Entonces el sistema vuelve a mostrar el listado de la actividad.
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,5.0,,,5.0,1776896697935597,1776896697935599,1776896697935601,2026-04-22 22:24:57.935605+00:00,2026-05-11 18:16:12.910934+00:00,,False,False,0,,,,,,,[],0,,,5
+9185567,45,Generar Comprobante,"### ID: Generar Comprobante
+
+### Titulo
+
+**Como** usuario  
+**quiero** generar un comprobante  
+**para** ver el detalle de un pago
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Generacion exitosa
+
+```gherkin
+Dado una conexion exitosa con el sistema con el gestor de informacion de pagos
+Cuando se presiona ""Generar comprobante""
+Entonces el sistema muestra el comprobante generado con toda su informacion
+```
+
+Escenario 2: Generacion fallida por falla de conexion
+
+```gherkin
+Dado una conexion fallida con el sistema con el gestor de informacion de pagos
+Cuando se presiona ""Generar comprobante""
+Entonces el sistema informa que hubo un error al recuperar la informacion del pago
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,3.0,,,3.0,1776898642661054,1776898642661056,1776898642661057,2026-04-22 22:57:22.661061+00:00,2026-05-11 18:16:29.309242+00:00,,False,False,0,,,,,,,[],0,,,2
+9185924,46,Activar notificaciones,"### ID: Activar notificaciones
+
+### Titulo
+
+**Como** cliente        
+**quiero** que me notifiquen     
+**para** recordar eventos importantes
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Activacion de notificacion exitosa
+
+```gherkin
+Dado un cliente con DNI ""12345678""
+Cuando se presiona sobre el boton de la campana desactivada y se presiona ""Aceptar"".
+Entonces el sistema activa las notificaiones, informa ""Notificaciones activadas"" y muestra la campana activada.
+```
+
+Escenario 2: Activacion de notificacion fallido por operacion cancelada
+
+```gherkin
+Dado un cliente con DNI ""12345678""
+Cuando se presiona sobre el boton de la campana desactivada y se presiona ""Cancelar"".
+Entonces el sistema muestra al usuario el panel de notificaciones.
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,1.0,,,1.0,1776899085453920,1776899085453921,1776899085453922,2026-04-22 23:04:45.453927+00:00,2026-05-11 18:16:43.793434+00:00,,False,False,0,,,,,,,[],0,,,8
+9186839,47,Reservar Clase No Abonado,"### ID: Reservar Clase No Abonados
+
+### Titulo
+
+\-**Como** Cliente no abonado **quiero** reservar una clase con pago completo **para** poder asegurar mi lugar en la actividad
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Reserva exitosa con pago completo
+
+```gherkin
+Dado el cliente con email ""ejemplo1@gmail.com"", una clase ""Yoga - Miercoles 18:00 - 19:00 - Sala A-01"" y las condiciones dadas para un pago exitoso
+Cuando el cliente selecciona la clase ""Yoga - Miercoles 18:00 - 19:00 - Sala A-01"", selecciona ""Clase individual"" y ""Pago completo"".
+Entonces el sistema redirige al cliente al pago de la reserva, espera respuesta, inscribe al cliente e informa ""Reserva confirmada. Tu pago fue registrado exitosamente.""
+```
+
+Escenario 2: Reserva exitosa con seña
+
+```gherkin
+Dado el cliente con email ""ejemplo1@gmail.com"", una clase ""Yoga - Miercoles 18:00 - 19:00 - Sala A-01"" y las condiciones dadas para un pago exitoso
+Cuando el cliente selecciona la clase ""Yoga - Miercoles 18:00 - 19:00 - Sala A-01"" y selecciona ""Clase Individual"" y ""Señar"".
+Entonces el sistema redirige al cliente al pago de la seña, espera respuesta, reserva un lugar para el cliente e informa ""Reserva confirmada. Tu seña fue registrada exitosamente"".
+```
+
+Escenario 3: Reserva fallida por pago incompleto
+
+```gherkin
+Dado el cliente con email ""ejemplo2@gmail.com"", una clase ""Yoga - Miercoles 18:00 - 19:00 - Sala A-01"" y las condiciones dadas para un pago fallido
+Cuando el cliente selecciona la clase ""Yoga - Miercoles 18:00 - 19:00 - Sala A-01"", selecciona ""Clase individual"" y ""Pago completo"".
+Entonces el sistema redirige al cliente al pago de la reserva, espera respuesta, e informa ""Reserva incompleta. Hubo un problema con el pago.""
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,New,False,,,8.0,,,8.0,1776909516391052,1776909516391056,1776909516391058,2026-04-23 01:58:36.391063+00:00,2026-05-20 18:57:54.363362+00:00,,False,False,0,,,,,,,[],0,,,3
+9189850,49,Registrar Recepcionista,"### **ID:** Registrar Recepcionista
+
+### Titulo
+
+Como administrador quiero registrar a un recepcionista para que pueda gestionar el sistema y la atención al cliente
+
+### Reglas de negocio
+
+El correo electrónico debe ser único en el sistema.
+
+### Criterios de aceptación
+
+Escenario 1: Registro exitoso
+
+```plaintext
+Dado el email ""recepcion1@cef.com"" que no se encuentran registrado
+Cuando el administrador ingresa el nombre ""María"", apellido ""Gómez"", DNI ""35123456"" y el email ""recepcion1@cef.com"", y presiona ""Registrar Empleado""
+Entonces el sistema efectúa el registro e informa ""Recepcionista registrado con éxito""
+
+```
+
+Escenario 2: Registro fallido por Email existente
+
+```plaintext
+Dado el email ""recepcion1@cef.com"" que ya pertenece a una cuenta existente
+Cuando el administrador intenta registrar un nuevo recepcionista ingresando el nombre ""María"", apellido ""Gómez"", DNI ""35123456"" y el email ""recepcion1@cef.com"", y presiona ""Registrar Empleado""
+Entonces el sistema informa ""El correo electrónico ya está en uso por otro usuario"" 
+```",,,,,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,New,False,,,2.0,,,2.0,1776978079016750,1776978079016766,1776978079030442,2026-04-23 21:01:19.030447+00:00,2026-05-11 18:17:59.362451+00:00,,False,False,0,,,,,,,[],0,,,6
+9189853,50,Ver Total de Usuarios,"### ID: Ver Total de Usuarios
+
+### Titulo
+
+**Como** administrador  
+**quiero** ver el total de usuarios  
+**para** analizar el estado actual del negocio
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Vista exitosa
+
+```gherkin
+Dado que existen clientes en el sistema
+Cuando se presiona ""Generar reporte."", se selecciona ""Total de usuarios."", categoria ""Clientes"" y se presiona ""Visualizar reporte"".
+Entonces el sistema muestra la cantidad de clientes totales del sistema.
+```
+
+Escenario 2: Vista vacia
+
+```gherkin
+Dado que no existen clientes en el sistema
+Cuando se presiona ""Generar reporte."", se selecciona ""Total de usuarios."", categoria ""Clientes"" y se presiona ""Visualizar reporte"".
+Entonces el sistema informa que no existen clientes registrados.
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,1.0,,,1.0,1776978111052711,1776978111052713,1776978111052714,2026-04-23 21:01:51.052718+00:00,2026-05-11 18:18:37.638705+00:00,,False,False,0,,,,,,,[],0,,,10
+9189875,51,Listar historial de asistencia total,"### ID: Listar historial de asistencia total
+
+### Título
+
+**Como** administrador
+
+**quiero** listar el historial de un cliente registrado
+
+**para** ver a su historial de asistencia
+
+### Reglas de negocio
+
+\* 
+
+### Criterios de aceptacion
+
+Escenario 1: Muestra de listado exitoso
+
+```gherkin
+Dado que el usuario con rol de administrador ingresa el dni “44332211” de un usuario registrado
+Cuando ingrese “44332211”
+Entonces Se va a mostrar el listado de asistencia del cliente
+```
+
+Escenario 2: Muestra de listado fallido
+
+```gherkin
+Dado que el usuario con rol de administrador ingresa el dni “44332222” de un usuario no registrado
+Cuando ingrese “44332222”
+Entonces se va a mostrar un mensaje que informe que el usuario con ese DNI no pertenece a un usuario registrado.
+```
+
+\*\* Notar que recepcionista y dueño son administrativos \*\*",,,,,juansegobia,Juan Segobia,juansegobia,Juan Segobia,juansegobia,Juan Segobia,New,False,,,2.0,,,2.0,1776978609723589,1776978609723591,1776978609723592,2026-04-23 21:10:09.723597+00:00,2026-05-11 18:20:19.027342+00:00,,False,False,0,,,,,,,[],0,,,4
+9189914,53,Remover cliente de lista de espera,"### ID: Remover cliente de lista de espera
+
+### Titulo
+
+**Como** administrativo **quiero** suprimir a un cliente no confirmado en la lista de espera **para** que la misma avance.
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Remoción exitosa
+
+```plaintext
+Dado un administrativo con DNI “12345678”...
+Cuando se selecciona el DNI ""22555666"" de la lista de espera y se presiona ""Eliminar""...
+Entonces el sistema lo suprime de la lista y se le envía un WhatsApp notificándole.
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,3.0,,,3.0,1776979536417081,1776979536417082,1776979536417084,2026-04-23 21:25:36.417087+00:00,2026-05-11 18:21:07.604850+00:00,,False,False,0,,,,,,,[],0,,,7
+9190063,57,Agregar actividad,"### **ID: Agregar actividad**
+
+### **Titulo**
+
+**Como** administrativo **quiero** agregar una actividad **para** que se puedan dictar clases
+
+### **Reglas de negocio**
+
+*   El nombre de la actividad debe ser único
+
+### **Criterios de aceptación**
+
+Escenario 1: Agregado exitoso
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y la actividad “Yoga” que no existe...
+Cuando se ingresa el nombre de actividad “Yoga” y la descripción “Disciplina enfocada en el equilibrio integral”, y se presiona “Agregar actividad""...
+Entonces el sistema agrega la actividad e informa “Actividad agregada con éxito”.
+```
+
+Escenario 2: Agregado fallido por actividad existente
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y la actividad “Pilates” que ya existe...
+Cuando se ingresa el nombre de actividad “Pilates” y la descripción “Método de entrenamiento que prioriza el control corporal, la alineación y el fortalecimiento”, y se presiona “Agregar actividad""...
+Entonces el sistema informa “Ya existe una actividad con ese nombre”.
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1776985447282245,1776985447282247,1776985447282248,2026-04-23 23:04:07.282252+00:00,2026-05-11 18:21:27.651567+00:00,,False,False,0,,,,,,,[],0,,,56
+9190064,58,Modificar actividad,"### **ID: Modificar actividad**
+
+### **Titulo**
+
+**Como** administrativo **quiero** modificar una actividad **para** que se mantenga actualizada
+
+### **Reglas de negocio**
+
+*   El nombre de la actividad debe ser único
+
+### **Criterios de aceptación**
+
+Escenario 1: Modificación exitosa
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y la actividad “Entrenamiento Funcional” que no existe...
+Cuando se ingresa el nombre de actividad “Entrenamiento Funcional” y la descripción “Disciplina enfocada en el equilibrio integral”, y se presiona “Modificar actividad""...
+Entonces el sistema agrega la actividad e informa “Actividad modificada con éxito”.
+```
+
+Escenario 2: Modificación fallida por actividad existente
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y la actividad “Pilates” que ya existe...
+Cuando se ingresa el nombre de actividad “Pilates” y la descripción “Método de entrenamiento que prioriza el control corporal, la alineación y el fortalecimiento”, y se presiona “Modificar actividad""...
+Entonces el sistema informa “Ya existe una actividad con ese nombre”.
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1776985456043010,1776985456043012,1776985456043013,2026-04-23 23:04:16.043018+00:00,2026-05-11 18:21:43.211331+00:00,,False,False,0,,,,,,,[],0,,,56
+9190066,59,Eliminar actividad,"### **ID: Eliminar actividad**
+
+### **Titulo**
+
+**Como** administrativo **quiero** eliminar una actividad **para** que se dejen de dictar clases
+
+### **Reglas de negocio**
+
+*   Para poder eliminarse, la actividad no debe tener clases con clientes inscriptos
+
+### **Criterios de aceptación**
+
+Escenario 1: Eliminación exitosa
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y la actividad “Yoga” que no tiene clases asociadas con clientes inscriptos...
+Cuando se selecciona la actividad ""Yoga"" y se presiona ""Eliminar actividad""...
+Entonces el sistema elimina la actividad e informa “Actividad eliminada con éxito”.
+```
+
+Escenario 2: Eliminación fallida por clientes inscriptos
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y la actividad “Pilates” que tiene dos clases asociadas con clientes inscriptos...
+Cuando se selecciona la actividad ""Pilates"" y se presiona ""Eliminar actividad""...
+Entonces el sistema informa “No se puede eliminar una actividad con clientes inscriptos”.
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1776985464089095,1776985464089097,1776985464089098,2026-04-23 23:04:24.089101+00:00,2026-05-11 18:22:00.163070+00:00,,False,False,0,,,,,,,[],0,,,56
+9190067,60,Listar profesores en actividad,"### **ID: Listar profesores en actividad**
+
+### **Titulo**
+
+**Como** administrativo **quiero** ver los profesores anotados en una actividad **para** estar al tanto del estado laboral
+
+### **Reglas de negocio**
+
+\-
+
+### **Criterios de aceptación**
+
+Escenario 1: Listado exitoso
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y que la actividad ""Yoga"" tiene profesores asociados...
+Cuando se selecciona la actividad “Yoga” y se presiona “Ver profesores asociados""...
+Entonces el sistema lista los profesores asociados a la actividad.
+```
+
+Escenario 2: Listado vacío
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y que la actividad ""Pilates"" no tiene profesores asociados...
+Cuando se selecciona la actividad “Pilates” y se presiona “Ver profesores asociados""...
+Entonces el sistema informa ""No existen profesores asociados a esta actividad"".
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1776985489119569,1776985489119571,1776985489119572,2026-04-23 23:04:49.119576+00:00,2026-05-11 18:22:49.763791+00:00,,False,False,0,,,,,,,[],0,,,56
+9190070,61,Listar actividades,"### **ID: Listar actividades**
+
+### **Titulo**
+
+**Como** administrativo **quiero** listar las actividades **para** estar al tanto
+
+### **Reglas de negocio**
+
+\-
+
+### **Criterios de aceptación**
+
+Escenario 1: Listado exitoso
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y la existencia de actividades...
+Cuando se presiona “Listar actividades""...
+Entonces el sistema lista las actividades disponibles junto con los botones ""Modificar actividad"", ""Ver profesores"" y ""Eliminar actividad"".
+```
+
+Escenario 2: Listado vacío
+
+```plaintext
+Dado un administrativo con DNI ""12345678"" y que no existen actividades...
+Cuando se presiona “Listar actividades""...
+Entonces el sistema informa ""No hay actividades""
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,1.0,,,1.0,1776985522232093,1776985522232096,1776985522232097,2026-04-23 23:05:22.232101+00:00,2026-05-11 18:22:59.012741+00:00,,False,False,0,,,,,,,[],0,,,56
+9190072,62,Agregar Clase,"### ID: Agregar Clase
+
+### Titulo
+
+**Como** administrativo    
+**quiero** agregar una clase    
+**para** que los clientes puedan anotarse
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Agregado exitoso
+
+```gherkin
+Dado que no existe una clase en la sala ""A-02"" los martes en el rango horario de ""19:00"" a ""20:30"" y el DNI del profesor ""40123456"" el cual no tiene clases asignadas los martes en el rango horario de ""19:00"" a ""20:30""
+Cuando se selecciona la actividad ""Yoga"", se selecciona el dia ""Martes"", el horario de entrada ""19:00"", el horario de salida ""20:30"", la sala ""A-02"", el profesor ""40123456"" y se presiona el boton agregar 
+Entonces el sistema registra la clase e informa que la clase fue agendada exitosamente.
+```
+
+Escenario 2: Agregado fallido por sala ocupada
+
+```gherkin
+Dado que ya existe una clase en la sala ""A-02"" los martes en el rango horario de ""19:00"" a ""20:30"".
+Cuando se selecciona la actividad ""Yoga"", se selecciona el dia ""Martes"", el horario de entrada ""19:00"", el horario de salida ""20:30"", la sala ""A-02"", el profesor ""40123456"" y se presiona el boton agregar 
+Entonces el sistema informa que ya hay una clase agendada en la sala, dia y horario seleccionados.
+```
+
+Escenario 3: Agregado fallido por profesor ocupado
+
+```gherkin
+Dado que no existe una clase en la sala ""A-02"" los martes en el rango horario de ""19:00"" a ""20:30"" y el DNI del profesor ""40123456"" el cual tiene clases asignadas los martes en el rango horario de ""19:00"" a ""20:30""
+Cuando se selecciona la actividad ""Yoga"", se selecciona el dia ""Martes"", el horario de entrada ""19:00"", el horario de salida ""20:30"", la sala ""A-02"", el profesor ""40123456"" y se presiona el boton agregar 
+Entonces el sistema informa que el profesor seleccionado ya tiene una clase asignada el dia y horario seleccionado.
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,3.0,,,3.0,1776985876155549,1776985876155551,1776985876155552,2026-04-23 23:11:16.155556+00:00,2026-05-11 18:23:24.782772+00:00,,False,False,0,,,,,,,[],0,,,5
+9190161,63,Cancelar Clase,"### ID: Cancelar Clase
+
+### Titulo
+
+**Como** administrativo   
+**quiero** cancelar una clase   
+**para** que no se puedan anotar 
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Cancelacion exitosa sin inscriptos
+
+```gherkin
+Dada una clase ""Yoga - Martes de 20:00 a 21:00"" - Sala A-01"" la cual no posee inscriptos
+Cuando se selecciona la clase ""Yoga - Martes de 20:00 a 21:00"" - Sala A-01"" y se presiona ""Cancelar"".
+Entonces el sistema cancela la clase e informa que la clase fue cancelada exitosamente.
+```
+
+Escenario 2: Cancelacion exitosa con inscriptos
+
+```gherkin
+Dada una clase ""Yoga - Martes de 20:00 a 21:00"" - Sala A-01"" la cual posee inscriptos
+Cuando se selecciona la clase ""Yoga - Martes de 20:00 a 21:00"" - Sala A-01"" y se presiona ""Cancelar"".
+Entonces el sistema cancela la clase, informa que la clase fue cancelada exitosamente y que se le reintegrara a cada cliente afectado la clase correspondiente.
+```",,,,,alvaroauth,Alvaro,alvaroauth,Alvaro,alvaroauth,Alvaro,New,False,,,5.0,,,5.0,1776987124569249,1776987124569251,1776987124569253,2026-04-23 23:32:04.569257+00:00,2026-05-11 18:27:32.943577+00:00,,False,False,0,,,,,,,[],0,,,5
+9190235,64,Desactivar notificaciones,"### ID: Desactivar notificaciones
+
+### Titulo
+
+**Como** cliente        
+**quiero** que me dejen de notificar    
+**para** dejar de recordar eventos
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Desactivacion de notificacion exitosa
+
+```gherkin
+Dado un cliente con DNI ""12345678"" y la confirmación aceptada...
+Cuando se presiona sobre el boton de la campana activada y se presiona ""Aceptar"".
+Entonces el sistema informa ""Notificaciones desactivadas"" y pone la campana desactivada.
+```
+
+Escenario 2: Desactivacion de notificaciones fallido por operacion cancelada
+
+```gherkin
+Dado un cliente con DNI ""12345678"" y la confirmación cancelada...
+Cuando se presiona sobre el boton de la campana activada y se presiona ""Cancelar"".
+Entonces el sistema muestra al usuario el panel de notificaciones.
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,1.0,,,1.0,1776988054425903,1776988054425906,1776988054425907,2026-04-23 23:47:34.425911+00:00,2026-05-11 18:27:55.361635+00:00,,False,False,0,,,,,,,[],0,,,8
+9190240,65,Modificar notificación,"### ID: Modificar notificación
+
+### Titulo
+
+**Como** administrativo  
+**quiero** modificar una notificación  
+**para** variar en los recordatorios de falta de pago
+
+### Reglas de negocio
+
+*   La notificación debe estar dentro de los 10 días de gracia
+
+### Criterios de aceptación
+
+Escenario 1: Modificación de notificacion exitosa
+
+```gherkin
+Dado un administrativo con DNI ""12345678"" y el día ""5"" para recordar la falta de pago...
+Cuando se selecciona el cliente ""Juan Perez"" con DNI ""12345678"", se ingresa el día ""5"" y se presiona ""Modificar recordatorio""...
+Entonces el sistema modifica el recordatorio e informa ""Recordatorio modificado"".
+```
+
+Escenario 2: Modificacion de notificacion fallida por día fuera de los días de gracia
+
+```gherkin
+Dado un administrativo con DNI ""12345678"" y el día ""15"" para recordar la falta de pago...
+Cuando se selecciona el cliente ""Juan Perez"" con DNI ""12345678"", se ingresa el día ""15"" y se presiona ""Modificar recordatorio""...
+Entonces el sistema informa ""El recordatorio debe estar dentro de los 10 días de gracia para pagar"".
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,3.0,,,3.0,1776988413082735,1776988413082737,1776988413082739,2026-04-23 23:53:33.082742+00:00,2026-05-11 18:28:14.732124+00:00,,False,False,0,,,,,,,[],0,,,8
+9190301,67,Cancelar Reserva no abonados,"### ID: Cancelar reserva no abonados
+
+### Titulo
+
+\-**Como** Cliente no abonado **quiero** cancelar mi reserva **para** liberar el cupo.
+
+### Reglas de negocio
+
+*   Si la cancelación se realiza con más de 24 horas de antelación, el sistema realiza un reemboloso sobre el pago de la clase
+
+### Criterios de aceptación
+
+Escenario 1: Cancelación exitosa con más de 24hs de antelación
+
+```plaintext
+Dado el cliente con email “cliente@mail.com” que posee una reserva para la clase ""Yoga - Sala A-01 - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19"" que tiene comienzo en 30 horas
+Cuando el cliente selecciona “Cancelar Reserva” y confirma la acción
+Entonces el sistema libera el cupo, notifica a los clientes en cola de espera sobre la disponibilidad de la clase, acredita el reembolso correspondiente al 33.3% del valor de la actividad, notifica al cliente sobre la existencia de su crédito e informa que la cancelación se realizó con éxito.
+```
+
+Escenario 2: Cancelación exitosa con menos de 24hs de antelación
+
+```plaintext
+Dado el cliente con email “cliente@mail.com” que posee una reserva para la clase ""Yoga - Sala A-01 - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19"" que tiene comienzo en 23 horas
+Cuando el cliente selecciona “Cancelar Reserva” y confirma la acción
+Entonces el sistema libera el cupo, notifica a los clientes en cola de espera sobre la disponibilidad de la clase e informa que la cancelación se realizó con éxito.
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,New,False,,,8.0,,,8.0,1776992518197432,1776992518197435,1776992518197436,2026-04-24 01:01:58.197440+00:00,2026-05-20 18:37:09.188030+00:00,,False,False,0,,,,,,,[],0,,,3
+9190323,69,Registrar profesor,"### **ID:** Registrar Profesor
+
+### Titulo
+
+Como administrador quiero registrar a un profesor para tenerlo en la nómina del centro
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Registro exitoso
+
+```plaintext
+Dado el DNI ""32654987"" que no se encuentra registrado
+Cuando el administrador ingresa el nombre ""Carlos"", apellido ""López"", DNI ""32654987"" y presiona ""Registrar Profesor""
+Entonces el sistema guarda los datos del profesor e informa ""Profesor registrado con éxito""
+```
+
+Escenario 2: Registro fallido por profesor ya existente
+
+```plaintext
+Dado un profesor que ya fue cargado previamente con el DNI ""32654987""
+Cuando el administrador intenta registrarlo nuevamente con ese mismo documento
+Entonces el sistema informa ""El profesor con este número de documento ya se encuentra registrado""
+
+```",,,,,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,New,False,,,2.0,,,2.0,1776993106866011,1776993106866027,1776993106878000,2026-04-24 01:11:46.878004+00:00,2026-05-11 18:30:44.913891+00:00,,False,False,0,,,,,,,[],0,,,6
+9190324,70,Modificar Empleado,"### **ID:** Modificar Empleado
+
+### Titulo
+
+Como administrador quiero modificar los datos de un empleado para mantener su información actualizada
+
+### Reglas de negocio
+
+El DNI del empleado no puede ser modificado una vez registrado.
+
+### Criterios de aceptación
+
+Escenario 1: Modificación exitosa
+
+```plaintext
+Dado un empleado registrado con el teléfono ""2211112222""
+Cuando el administrador modifica el número de teléfono a ""2214567890"" y presiona ""Guardar cambios""
+Entonces el sistema actualiza la información del empleado e informa ""Datos actualizados correctamente""
+```
+
+Escenario 2: Modificación fallida por formato de datos inválido
+
+```plaintext
+Dado un empleado registrado
+Cuando el administrador intenta modificar el número de teléfono ingresando letras y presiona ""Guardar cambios""
+Entonces el sistema impide la acción e informa ""El formato del teléfono es inválido. Ingrese solo números""
+```",,,,,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,New,False,,,2.0,,,2.0,1776993123003403,1776993123003439,1776993123016878,2026-04-24 01:12:03.016885+00:00,2026-05-11 18:31:02.457342+00:00,,False,False,0,,,,,,,[],0,,,6
+9190325,71,Eliminar Empleado,"### **ID:** Eliminar Empleado
+
+### Titulo
+
+Como administrador quiero eliminar a un empleado para desvincularlo del sistema 
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Eliminación exitosa
+
+```plaintext
+Dado un empleado registrado en el sistema
+Cuando el administrador selecciona al empleado y presiona ""Eliminar""
+Entonces el sistema da de baja al empleado, revoca su acceso e informa ""Empleado eliminado con éxito""
+```",,,,,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,New,False,,,2.0,,,2.0,1776993145202248,1776993145202264,1776993145213106,2026-04-24 01:12:25.213111+00:00,2026-05-11 18:31:33.221123+00:00,,False,False,0,,,,,,,[],0,,,6
+9190326,72,Listar Profesores,"### **ID:** Listar Profesores
+
+### Titulo
+
+Como administrador quiero listar a los profesores para visualizar el plantel 
+
+### Reglas de negocio
+
+\-
+
+### Criterios de aceptación
+
+Escenario 1: Listado exitoso
+
+```plaintext
+Dado que existen profesores registrados en el sistema
+Cuando el administrador presiona la opción ""Ver Profesores""
+Entonces el sistema muestra una lista con los nombres, apellidos y actividades de todos los profesores registrados
+```
+
+Escenario 2: Listado vacío por falta de registros
+
+```plaintext
+Dado que no se han cargado profesores en la base de datos
+Cuando el administrador presiona la opción ""Ver Profesores""
+Entonces el sistema muestra la tabla vacía con el mensaje ""No hay profesores registrados actualmente en el sistema""
+```",,,,,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,New,False,,,1.0,,,1.0,1776993161609203,1776993161609220,1776993161619833,2026-04-24 01:12:41.619838+00:00,2026-05-11 18:31:47.670900+00:00,,False,False,0,,,,,,,[],0,,,6
+9190328,74,Ver detalle de empleado,"### **ID:** Ver Detalle de Empleado
+
+### Titulo
+
+Como administrador quiero ver el detalle de un empleado para consultar toda su información personal y laboral
+
+### Reglas de negocio
+
+Solo se muestran los recepcionistas activos
+
+### Criterios de aceptación
+
+Escenario 1: Vista de detalle exitosa
+
+```plaintext
+Dado un empleado registrado en el sistema
+Cuando el administrador selecciona al empleado y presiona ""Ver detalle""
+Entonces el sistema despliega una vista con el nombre, apellido, DNI, rol y datos de contacto del empleado.
+```",,,,,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,New,False,,,1.0,,,1.0,1776993187842428,1776993187842455,1776993187854274,2026-04-24 01:13:07.854279+00:00,2026-05-11 18:32:50.236873+00:00,,False,False,0,,,,,,,[],0,,,6
+9190329,75,Registrar Pago,"### **ID:** Registrar Pago
+
+### Titulo
+
+Como recepcionista quiero registrar un pago para asentar la facturación de una cuota o clase
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Registro de pago por transferencia exitoso
+
+```plaintext
+Dado un cliente que realizó una transferencia por su mensualidad
+Cuando el recepcionista selecciona al cliente, ingresa el monto, marca el medio de pago como ""Transferencia"" y presiona ""Registrar Pago""
+Entonces el sistema asienta el cobro, guarda los datos e informa ""Pago registrado correctamente""
+```
+
+Escenario 2: Registro de pago por QR exitoso
+
+```plaintext
+Dado un cliente que abonó escaneando el código QR
+Cuando el recepcionista selecciona al cliente, ingresa el monto, marca el medio de pago como ""QR Mercado Pago"" y presiona ""Registrar Pago""
+Entonces el sistema asienta el cobro e informa ""Pago registrado correctamente""
+```
+
+Escenario 3: Registro fallido por monto inválido
+
+```plaintext
+Dado un intento de registro de pago
+Cuando el recepcionista ingresa un monto igual o menor a cero y presiona ""Registrar Pago""
+Entonces el sistema detiene la operación e informa ""El monto del pago debe ser mayor a cero""
+```",,,,,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,New,False,,,2.0,,,2.0,1776993204589611,1776993204589629,1776993204602774,2026-04-24 01:13:24.602779+00:00,2026-05-11 18:33:12.828422+00:00,,False,False,0,,,,,,,[],0,,,2
+9190331,77,Decidir asistencia,"### **ID:** Decidir asistencia
+
+### Titulo
+
+Como cliente en lista de espera quiero decidir mi asistencia cuando se me notifique un cupo para confirmar o rechazar mi lugar en la clase
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Confirmación exitosa
+
+```plaintext
+Dado un cliente que fue notificado sobre un cupo disponible
+Cuando el cliente ingresa al sistema y presiona ""Confirmar asistencia""
+Entonces el sistema lo inscribe en la clase e informa ""Reserva confirmada con éxito""
+```
+
+Escenario 2: Rechazo del cupo
+
+```plaintext
+Dado un cliente notificado sobre un cupo disponible
+Cuando el cliente ingresa al sistema y presiona ""Rechazar lugar""
+Entonces el sistema lo remueve de la espera, informa ""Has rechazado el cupo"" y notifica automáticamente al siguiente cliente de la lista.
+```",,,,,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,battistaenzo,Enzo Battista,New,False,,,5.0,,,5.0,1776993237868536,1776993237868556,1776993237880030,2026-04-24 01:13:57.880036+00:00,2026-05-11 18:33:42.356515+00:00,,False,False,0,,,,,,,[],0,,,7
+9190349,79,Ver Clase,"### ID: Reservar Clase abonado
+
+### Titulo
+
+*   **Como** cliente **quiero** ver el detalle de una clase **para** conocer la información completa y su disponibilidad antes de reservar.
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Visualización de clase con disponibilidad
+
+```plaintext
+Dado el cliente con DNI “22.222.222” ingresa a la lista de clases y la clase “Gym” con el horario y fecha “22/04/26 17:00” existe y tiene cupo
+
+Cuando el cliente selecciona la clase
+
+Entonces se muestra la información de la actividad, el nombre del profesor, cantidad de cupos disponibles y se habilita el botón “Reservar”.
+```
+
+Escenario 2: Visualización de clase sin disponibilidad
+
+```plaintext
+Dado el cliente con DNI “22.222.222” ingresa a la lista de clases y la clase Gym con el horario y fecha “22/04/26 17:00” existe y no tiene cupo, Cuando el cliente selecciona la clase
+
+Entonces se muestra la información de la actividad, el nombre del profesor, cantidad de cupos disponibles y se habilita el botón “Anotarse en lista de espera”.
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,New,False,,,1.0,,,1.0,1776993496094342,1776993496094344,1776993496094346,2026-04-24 01:18:16.094350+00:00,2026-05-11 18:34:06.650715+00:00,,False,False,0,,,,,,,[],0,,,5
+9190369,80,Agregar Cliente a lista de espera,"### ID: Agregar Cliente a lista de espera
+
+### Titulo
+
+*   **Como** cliente **quiero** agregarme a la lista de espera de una clase fija (mensual) **para** asegurar mi mensualidad en caso de que se libere un lugar
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Inscripción exitosa a la lista de espera de abonados
+
+```gherkin
+Dado un cliente con email ""cliente@mail.com"" y la clase ""Yoga - Sala A-01 - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19"" que no tiene cupo disponible
+Cuando selecciona la opción ""Anotarse en lista de espera"" de la clase ""Yoga - Sala A-01 - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19"" y selecciona la lista de espera de abonados
+Entonces el sistema lo inscribe al final de la lista de espera de abonados para esa clase, bloquea la posibilidad de poder volver a anotarse en la misma lista de espera e informa que se lo ha agregado a la lista de espera de abonados
+```
+
+Escenario 2: Inscripción exitosa a la lista de espera de no abonados
+
+```gherkin
+Dado un cliente con email ""cliente@mail.com"" y la clase ""Yoga - Sala A-01 - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19"" que no tiene cupo disponible
+Cuando selecciona la opción ""Anotarse en lista de espera"" de la clase ""Yoga - Sala A-01 - Día Lunes - Horario 09:00 – 10:00 - Próxima fecha 2026-05-19"" y selecciona la lista de espera de no abonados
+Entonces el sistema lo inscribe al final de la lista de espera de no abonados para esa clase, bloquea la posibilidad de poder volver a anotarse en la misma lista de espera e informa que se lo ha agregado a la lista de espera de no abonados
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,New,False,,,2.0,,,2.0,1776993792607530,1776993792607532,1776993792607534,2026-04-24 01:23:12.607538+00:00,2026-05-20 18:57:53.962209+00:00,,False,False,0,,,,,,,[],0,,,3
+9190392,82,Pagar con Mercado Pago,"### ID: Pagar con Mercado Pago
+
+### Titulo
+
+*   **Como** cliente **quiero** pagar mi cuota o clase utilizando Mercado Pago **para** confirmar mi reserva.
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Pago exitoso
+
+```plaintext
+Dado que el cliente con DNI “12.123.123” se encuentra en la pantalla de pago de su reserva, la conexión con el servidor es exitosa y la transacción es aprobada
+Cuando selecciona pagar con Mercado Pago 
+Entonces el sistema recibe el pago y lo notifica.
+```
+
+Escenario 2: Pago fallido por pago incompleto
+
+```plaintext
+Dado que el cliente con DNI “12.123.123”  se encuentra en la pantalla de pago de su reserva, la conexión con el servidor es exitosa y la transacción no es aprobada
+Cuando selecciona pagar con Mercado Pago 
+Entonces el sistema recibe que ocurrió un error al pagar y notifica al usuario
+```
+
+Escenario 3: -Pago fallido por error en la conexión con el servidor de Mercado Pago
+
+```plaintext
+Dado que el cliente con DNI “12.123.123”  se encuentra en la pantalla de pago de su reserva y la conexión con el servidor es fallida
+Cuando selecciona pagar con Mercado Pago 
+Entonces el sistema notifica que hubo un error en la conexión
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,New,False,,,8.0,,,8.0,1776994120885100,1776994120885102,1776994120885103,2026-04-24 01:28:40.885107+00:00,2026-05-11 18:34:58.019693+00:00,,False,False,0,,,,,,,[],0,,,2
+9190503,83,Pagar con QR,"### ID: Pagar con QR
+
+### Titulo
+
+*   **Como** recepcionista **quiero** generar un código QR de cobro **para** que el cliente escanee y pague presencialmente
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Generación exitosa del código QR
+
+```plaintext
+
+Dado un recepcionista que se encuentra en la pantalla de cobro del cliente
+
+Cuando ingresa el monto a cobrar y selecciona la opción “Generar QR”
+
+Entonces el sistema genera y muestra en pantalla un código QR.
+```",,,,,facundogerli,Facundo Gerli,juansegobia,Juan Segobia,juansegobia,Juan Segobia,New,False,,,5.0,,,5.0,1776994316846419,1776994316846422,1776994316846423,2026-04-24 01:31:56.846427+00:00,2026-05-11 18:35:12.292183+00:00,,False,False,0,,,,,,,[],0,,,2
+9190505,84,Notificar cliente manual,"### ID: Notificar cliente manual
+
+### Titulo
+
+*   **Como** dueño **quiero** notificar manualmente a un cliente **para** avisarle de su falta de pago.
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Notificación manual exitosa
+
+```plaintext
+Dado que el dueño visualiza en el sistema a un cliente cuya cuota está próxima a vencer
+
+Cuando selecciona el cliente y se presiona “Notificar falta de pago”
+
+Entonces el sistema envía una notificación vía mail al cliente informando su falta de pago
+```",,,,,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,facundogerli,Facundo Gerli,New,False,,,2.0,,,2.0,1776994425740974,1776994425740976,1776994425740977,2026-04-24 01:33:45.740981+00:00,2026-05-11 18:35:39.230174+00:00,,False,False,0,,,,,,,[],0,,,8
+9192477,85,Confirmar registro,"### **ID: Confirmar registro** 
+
+### **Titulo**
+
+**Como** cliente **quiero** confirmar mi registro **para** empezar a reservar clases
+
+### **Reglas de negocio**
+
+*   El enlace de confirmación tiene una vigencia de 48hs desde que se genera
+
+### **Criterios de aceptación**
+
+Escenario 1: Confirmación exitosa
+
+```plaintext
+Dado un cliente con email “aaa@gmail.com” y que el enlace de confirmación sigue vigente...
+Cuando se ingresa vía el enlace de confirmación y se presiona “Confirmar registro”
+Entonces el sistema registra al cliente e informa “Usted ha sido registrado correctamente”.
+```
+
+Escenario 2: Confirmación fallida por enlace expirado
+
+```plaintext
+Dado un cliente con email “usuario@gmail.com” y el enlace de confirmación que ya expiró...
+Cuando se ingresa vía el enlace de confirmación...
+Entonces el sistema informa ""El enlace de confirmación ha expirado"".
+```
+
+Escenario 3:  Confirmación fallida por enlace inexistente
+
+```plaintext
+Dado un cliente con email ""usuario@gmail.com"" y el enlace de confirmación que es inexistente…
+Cuando se ingresa vía el enlace de confirmación…
+Entonces el sistema informa ""El enlace de confirmación es inválido"".
+```",,,,,fededobal,Federico Dobal,,,,,New,False,,,3.0,,,3.0,1777041088798859,1777041088798861,1777041088798863,2026-04-24 14:31:28.798866+00:00,2026-05-11 18:36:16.301097+00:00,,False,False,0,,,,,,,[],0,,,1
+9242545,86,Filtrar Usuarios,"### ID: Filtrar usuarios
+
+### Titulo
+
+**Como** administrativo   
+**quiero** filtrar usuarios segun un criterio   
+**para** encontrar coincidencias
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Filtrado exitoso por coincidencia de nombre y apellido
+
+```gherkin
+Dado que existen coincidencias para el nombre y apellido ""Juan P""
+Cuando se ingresa ""Juan P"" y se presiona ""Buscar""
+Entonces el sistema lista los usuarios que coinciden.
+```
+
+Escenario 2: Filtrado exitoso por coincidencia de DNI
+
+```gherkin
+Dado que existen coincidencias para el DNI ""40123456""
+Cuando se ingresa ""40123456"" y se presiona ""Buscar""
+Entonces el sistema lista los usuarios que coinciden.
+```
+
+Escenario 3: Filtrado exitoso por estado
+
+```gherkin
+Dado que existen coincidencias para el estado ""Activo""
+Cuando se presiona el boton desactivado junto a la palabra ""Activo""
+Entonces el sistema activa el boton y lista los usuarios activos
+```
+
+Escenario 4: Filtrado exitoso por inscripciones
+
+```gherkin
+Dado que existen coincidencias para el tipo de inscripcion ""Abonado""
+Cuando se presiona el boton ""Tipo de inscripcion"" y se selecciona ""Abonado""
+Entonces el sistema muestra todos los usuarios abonados.
+```
+
+Escenario 5: Filtrado exitoso por Rol
+
+```gherkin
+Dado que existen coincidencias para el rol ""Cliente""
+Cuando se presiona el boton ""Rol"" y se selecciona ""Cliente""
+Entonces el sistema muestra todos los clientes.
+```",,,,,alvaroauth,Alvaro,,,,,New,False,,,2.0,,,2.0,1778520229356161,1778520229356164,1778520229356165,2026-05-11 17:23:49.356169+00:00,2026-05-11 18:36:40.105037+00:00,,False,False,0,,,,,,,[],0,,,1
+9242563,87,Filtrar clases,"### ID: Filtrar clases
+
+### Titulo
+
+**Como** usuario   
+**quiero** filtrar clases segun un criterio     
+**para** encontrar coincidencias
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Filtrado exitoso por actividad
+
+```gherkin
+Dado que existen coincidencias para la actividad ""Yoga""
+Cuando se presiona el botón ""Actividad"" y se selecciona ""Yoga""
+Entonces el sistema lista las clases que coinciden.
+```
+
+Escenario 2: Filtrado exitoso por día de la semana
+
+```gherkin
+Dado que existen coincidencias para el día de la semana ""Viernes""
+Cuando se presiona el botón ""Día"" y se selecciona ""Viernes""
+Entonces el sistema lista las clases que coinciden.
+```
+
+Escenario 3: Filtrado exitoso por hora de inicio
+
+```gherkin
+Dado que existen coincidencias para la hora de inicio ""13:00""
+Cuando se selecciona la hora ""13:00""
+Entonces el sistema lista las clases que coinciden.
+```
+
+Escenario 4: Filtrado exitoso por hora de fin
+
+```gherkin
+Dado que existen coincidencias para la hora de fin ""19:00""
+Cuando se selecciona la hora ""19:00""
+Entonces el sistema lista las clases que coinciden.
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1778520489151309,1778520489151312,1778520489151313,2026-05-11 17:28:09.151318+00:00,2026-05-11 18:37:01.118811+00:00,,False,False,0,,,,,,,[],0,,,5
+9242603,88,Filtrar profesores,"### ID: Filtrar profesores
+
+### Titulo
+
+**Como** administrativo  
+**quiero** filtrar profesores segun un criterio      
+**para** encontrar coincidencias
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Filtrado exitoso por actividad
+
+```gherkin
+Dado que existen coincidencias para la actividad ""Yoga""
+Cuando se presiona el botón ""Actividad"" y se selecciona ""Yoga""
+Entonces el sistema lista los profesores que coinciden.
+```
+
+Escenario 2: Filtrado exitoso por nombre y apellido
+
+```gherkin
+Dado que existen coincidencias para el nombre y apellido ""Pablo""
+Cuando se ingresa ""Pablo"" y se presiona ""Buscar""
+Entonces el sistema lista los profesores que coinciden.
+```
+
+Escenario 3: Filtrado exitoso por DNI
+
+```gherkin
+Dado que existen coincidencias para el DNI ""45787852""
+Cuando se ingresa el DNI ""45787852"" y se presiona ""Buscar""
+Entonces el sistema lista los profesores que coinciden
+```",,,,,fededobal,Federico Dobal,fededobal,Federico Dobal,fededobal,Federico Dobal,New,False,,,2.0,,,2.0,1778521276251678,1778521276251682,1778521276251684,2026-05-11 17:41:16.251690+00:00,2026-05-11 18:37:16.056034+00:00,,False,False,0,,,,,,,[],0,,,6
+9242768,89,Modificar precio de la actividad,"### ID: Modificar precio de actividad
+
+### Titulo
+
+**Como** dueño   
+**quiero** modificar el precio de una actividad   
+**para** actualizar su valor
+
+### Reglas de negocio
+
+### Criterios de aceptación
+
+Escenario 1: Modificación exitosa
+
+```gherkin
+Dado la actividad ""Yoga"" con un valor de ""10000""
+Cuando se selecciona ""Yoga"", se presiona ""Modificar precio"", se ingresa ""15000"" y se presiona ""Guardar cambios""
+Entonces el sistema actualiza el precio e informa que el precio fue actualizado correctamente
+```
+
+Escenario 2: Modificación fallida por valor menor a cero
+
+```gherkin
+Dado la actividad ""Yoga"" con un valor de ""10000""
+Cuando se selecciona ""Yoga"", se presiona ""Modificar precio"", se ingresa ""-1"" y se presiona ""Guardar cambios""
+Entonces el sistema informa que el precio debe ser mayor a cero
+```",,,,,alvaroauth,Alvaro,,,,,New,False,,1.0,1.0,1.0,1.0,4.0,1778524777546397,1778524777546400,1778524777546401,2026-05-11 18:39:37.546405+00:00,2026-05-11 18:48:46.285383+00:00,,False,False,0,,,,,,,[],0,,,56
