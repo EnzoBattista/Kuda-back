@@ -215,10 +215,10 @@ const cambiarPassword = async (email, { passwordActual, passwordNueva, confirmPa
     throw httpError(400, "Debe indicar contraseña actual y nueva");
   }
   if (passwordNueva !== confirmPassword) {
-    throw httpError(400, "La nueva contraseña y su confirmación no coinciden");
+    throw httpError(400, "Las contraseñas no coinciden");
   }
   if (passwordNueva.length < 8) {
-    throw httpError(400, "La nueva contraseña debe tener al menos 8 caracteres");
+    throw httpError(400, "La contraseña debe tener al menos 8 caracteres.");
   }
   if (passwordActual === passwordNueva) {
     throw httpError(400, "La nueva contraseña debe ser distinta a la actual");
@@ -238,7 +238,7 @@ const cambiarPassword = async (email, { passwordActual, passwordNueva, confirmPa
     usuario.password = passwordNueva;
     await usuario.save({ transaction });
 
-    return { message: "Contraseña actualizada correctamente" };
+    return { message: "Contraseña modificada con éxito" };
   });
 };
 
@@ -247,7 +247,7 @@ const solicitarRecuperacionPassword = async (email) => {
 
   const usuario = await Usuario.findByPk(email);
   if (!usuario) {
-    throw httpError(404, "Si el email existe en el sistema, recibirás un enlace de recuperación");
+    throw httpError(404, "El email ingresado no pertenece a ninguna cuenta registrada");
   }
 
   if (!usuario.activo) {
@@ -266,7 +266,7 @@ const solicitarRecuperacionPassword = async (email) => {
     throw httpError(503, "No se pudo enviar el correo de recuperación. Intenta más tarde.");
   }
 
-  return { message: "Se ha enviado un enlace de recuperación a tu casilla de email" };
+  return { message: "Se ha enviado un enlace de recuperación a su email. Tiene 48hs para restablecerla." };
 };
 
 const resetearPassword = async (token, passwordNueva, confirmPassword) => {
@@ -274,22 +274,22 @@ const resetearPassword = async (token, passwordNueva, confirmPassword) => {
     throw httpError(400, "Faltan datos requeridos (token, nueva contraseña, confirmación)");
   }
   if (passwordNueva !== confirmPassword) {
-    throw httpError(400, "La nueva contraseña y su confirmación no coinciden");
+    throw httpError(400, "Las contraseñas no coinciden");
   }
   if (passwordNueva.length < 8) {
-    throw httpError(400, "La nueva contraseña debe tener al menos 8 caracteres");
+    throw httpError(400, "La contraseña debe tener al menos 8 caracteres.");
   }
 
   // Decodificar sin verificar para obtener el email
   const payloadDecodificado = jwt.decode(token);
   if (!payloadDecodificado || !payloadDecodificado.email) {
-    throw httpError(400, "El enlace de recuperación es inválido o incorrecto");
+    throw httpError(400, "El enlace de recuperación es inválido");
   }
 
   return conn.transaction(async (transaction) => {
     const usuario = await Usuario.findByPk(payloadDecodificado.email, { transaction });
     if (!usuario) {
-      throw httpError(400, "El enlace de recuperación es inválido o incorrecto");
+      throw httpError(400, "El enlace de recuperación es inválido");
     }
 
     // Verificar la firma asegurando que la contraseña no haya cambiado desde que se generó el token
@@ -298,15 +298,15 @@ const resetearPassword = async (token, passwordNueva, confirmPassword) => {
       jwt.verify(token, secret);
     } catch (error) {
       if (error.name === "TokenExpiredError") {
-        throw httpError(400, "El enlace de recuperación ha expirado. Solicita uno nuevo.");
+        throw httpError(400, "El enlace de recuperación ha expirado");
       }
-      throw httpError(400, "El enlace de recuperación es inválido o ya ha sido utilizado.");
+      throw httpError(400, "El enlace de recuperación es inválido");
     }
 
     usuario.password = passwordNueva;
     await usuario.save({ transaction });
 
-    return { message: "Contraseña restablecida correctamente. Ya puedes iniciar sesión." };
+    return { message: "Su contraseña ha sido restablecida con éxito" };
   });
 };
 

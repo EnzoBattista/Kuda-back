@@ -57,7 +57,7 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => 
   }
 
   if (cupo !== undefined && cupo < 10) {
-    throw httpError(400, "El cupo dinámico de la clase debe ser de al menos 10 personas");
+    throw httpError(400, "El cupo máximo debe ser mayor o igual al cupo mínimo (10)");
   }
 
   if (actividad_id) {
@@ -68,10 +68,7 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => 
   if (sala_id) {
     const sala = await Sala.findByPk(sala_id);
     if (!sala) throw httpError(400, "La sala indicada no existe");
-    if (!sala.estado_activo) throw httpError(400, "La sala se encuentra deshabilitada");
-    if (cupo !== undefined && cupo > sala.cupo) {
-      throw httpError(400, `El cupo de la clase no puede superar el cupo máximo de la sala (${sala.cupo})`);
-    }
+    if (!sala.estado_activo) throw httpError(400, "la sala fue deshabilitada exitosamente");
   }
 
   if (profesor_id) {
@@ -91,7 +88,7 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => 
 
     const solapada = await Clase.findOne({ where: whereSolapada });
     if (solapada) {
-      throw httpError(409, "Ya hay una clase agendada en la sala, día y horario seleccionados");
+      throw httpError(409, "La sala se encuentra ocupada para ese día y horario");
     }
   }
 
@@ -107,7 +104,7 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => 
 
     const claseProfesor = await Clase.findOne({ where: whereProfesor });
     if (claseProfesor) {
-      throw httpError(409, "El profesor seleccionado ya tiene una clase asignada el dia y horario seleccionado.");
+      throw httpError(409, "El profesor se encuentra ocupado para ese día y horario");
     }
   }
 };
@@ -207,7 +204,7 @@ const deleteClase = async (id) => {
   }
 
   await clase.update({ activa: false });
-  return { message: "Clase eliminada exitosamente" };
+  return { message: "La clase fue cancelada exitosamente. Se le reintegrará a cada cliente afectado la clase correspondiente." };
 };
 
 const cancelarFechaClase = async (claseId, data) => {

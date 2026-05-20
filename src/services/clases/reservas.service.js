@@ -98,7 +98,7 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction }) =>
     transaction,
   });
   if (existente) {
-    throw httpError(400, "Ya tienes una reserva activa para esta clase en esta fecha");
+    throw httpError(400, "Ya se cuenta con una reserva activa para esta clase");
   }
 
   await verificarCupo(clase, fecha, transaction);
@@ -222,7 +222,7 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
       include: [{ model: Clase, as: "clase" }],
       transaction,
     });
-    if (!reserva) throw httpError(404, "Reserva no encontrada");
+    if (!reserva) throw httpError(404, "No se encontraron reservas");
     if (reserva.cliente_email !== emailUsuario) {
       throw httpError(403, "No tenés permiso para cancelar esta reserva");
     }
@@ -252,9 +252,9 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
         if (inscripcion) {
           vale = await generarVale(emailUsuario, inscripcion.monto, { transaction });
         }
-        mensaje = "Cancelación exitosa con reembolso";
+        mensaje = "la cancelación se realizó con éxito";
       } else {
-        mensaje = "Cancelación exitosa sin reembolso";
+        mensaje = "la cancelación se realizó con éxito";
       }
     } else if (reserva.inscripcion_individual_id) {
       const inscripcion = await InscripcionIndividual.findByPk(reserva.inscripcion_individual_id, { transaction });
@@ -275,9 +275,9 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
           }, { transaction });
         }
         reembolso = true;
-        mensaje = "Cancelación exitosa con reembolso";
+        mensaje = "la cancelación se realizó con éxito";
       } else {
-        mensaje = "Cancelación exitosa sin reembolso";
+        mensaje = "la cancelación se realizó con éxito";
       }
     }
 

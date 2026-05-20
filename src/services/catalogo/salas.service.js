@@ -5,8 +5,8 @@ const validarSala = (data) => {
   if (data.identificador !== undefined && !data.identificador.trim()) {
     throw httpError(400, "El identificador de la sala no puede estar vacío");
   }
-  if (data.cupo !== undefined && data.cupo < 10) {
-    throw httpError(400, "El cupo de la sala debe ser de al menos 10 personas");
+  if (data.cupo !== undefined && data.cupo <= 0) {
+    throw httpError(400, "el cupo debe ser mayor a 0");
   }
 };
 
