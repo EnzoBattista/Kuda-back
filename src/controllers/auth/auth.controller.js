@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { Usuario, Rol } = require("../../../db");
+const { Usuario, Rol, Cliente } = require("../../../db");
 const authService = require("../../services/auth/auth.service");
 
 const generarToken = (usuario) => {
@@ -44,7 +44,10 @@ const login = async (req, res, next) => {
 
     const usuario = await Usuario.findOne({
       where: { email },
-      include: [{ model: Rol, as: "rol" }],
+      include: [
+        { model: Rol, as: "rol" },
+        { model: Cliente, as: "cliente", required: false },
+      ],
     });
 
     if (!usuario) {
@@ -64,7 +67,14 @@ const login = async (req, res, next) => {
     }
 
     const token = generarToken(usuario);
-    return res.status(200).json({ usuario, token });
+    const usuarioJson = usuario.toJSON();
+    const payload = {
+      ...usuarioJson,
+      genero: usuarioJson.cliente?.genero ?? null,
+      fechaNacimiento: usuarioJson.cliente?.fechaNacimiento ?? null,
+    };
+    delete payload.cliente;
+    return res.status(200).json({ usuario: payload, token });
   } catch (error) {
     return next(error);
   }
