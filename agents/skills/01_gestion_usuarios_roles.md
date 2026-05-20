@@ -10,8 +10,9 @@ Esta skill proporciona las reglas de negocio relacionadas con el registro, gesti
 - **NO se deben inventar ni modificar** los mensajes de error. Esta regla de paridad estricta es evaluada.
 
 ### 1. Roles del Sistema
-- **Administrador (Dueño)**: Tiene permisos totales sobre el sistema. Puede visualizar estadísticas, modificar cupos dinámicos, realizar bajas lógicas y gestionar cualquier perfil.
-- **Recepcionista**: Empleados administrativos (5 en total). Sus tareas incluyen iniciar sesión, registrar clientes manualmente, cobrar cuotas en mostrador, escanear códigos QR para validar ingresos, denegar accesos (siempre con motivo) y gestionar las listas de espera. Si un recepcionista decide tomar clases, debe tener **dos perfiles diferentes** (uno como recepcionista y otro como cliente).
+- **Administrativos**: Es una categoría que agrupa tanto a Administradores (Dueños) como a Recepcionistas para ciertas operaciones de gestión y listados en el sistema.
+- **Administrador (Dueño)**: Tiene permisos totales sobre el sistema. Puede visualizar estadísticas, registrar recepcionistas, modificar cupos dinámicos, realizar bajas lógicas y gestionar cualquier perfil.
+- **Recepcionista**: Empleados administrativos. Sus tareas incluyen iniciar sesión, registrar clientes manualmente, cobrar cuotas en mostrador, escanear códigos QR para validar ingresos, denegar accesos (siempre con motivo) y gestionar las listas de espera. Si un recepcionista decide tomar clases, debe tener **dos perfiles diferentes** (uno como recepcionista y otro como cliente).
 - **Cliente**: Usuario final. Busca clases, reserva, paga online y autogestiona su código QR de ingreso.
 - **Profesor**: Entidad del sistema (no son usuarios con inicio de sesión). Su interacción es únicamente física con el cliente. No tienen perfil en el sistema, pero sí se los registra en la base de datos (nombre, apellido, DNI, actividades) para asociarlos a las clases que dictan.
 
