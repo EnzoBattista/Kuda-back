@@ -19,7 +19,8 @@ const enviarEmailConfirmacion = async (email, nombre, token) => {
 
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-  const urlConfirmacion = `${process.env.APP_URL}/api/auth/confirmar/${token}`;
+  const baseUrl = process.env.FRONTEND_URL || process.env.APP_URL;
+  const urlConfirmacion = `${baseUrl}/confirmar/${token}`;
 
 
   await sgMail.send({
