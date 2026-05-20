@@ -39,6 +39,9 @@ const getAllUsuarios = async (req, res, next) => {
       include: [includeRol],
       order: [["apellido", "ASC"], ["nombre", "ASC"]],
     });
+    if (usuarios.length === 0) {
+      return res.status(200).json({ message: "No se han encontrado usuarios", data: [] });
+    }
     return res.status(200).json(usuarios);
   } catch (error) {
     return next(error);
@@ -76,7 +79,7 @@ const updateUsuario = async (req, res, next) => {
     const usuario = await Usuario.findByPk(req.params.email);
     if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
     await actualizarUsuario(usuario, pickCampos(req.body));
-    return res.status(200).json(usuario);
+    return res.status(200).json({ message: "Usuario editado con éxito", usuario });
   } catch (error) {
     return next(error);
   }

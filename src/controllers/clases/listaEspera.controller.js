@@ -19,8 +19,11 @@ const anotarse = async (req, res, next) => {
     }
 
     const entrada = await anotarseEnLista(clienteEmail, clase_id, tipo, fecha_exacta ?? null);
+    const msg = tipo === "MENSUAL" 
+      ? "se lo ha agregado a la lista de espera de abonados" 
+      : "se lo ha agregado a la lista de espera de no abonados";
     return res.status(201).json({
-      message: "Te anotaste en la lista de espera correctamente",
+      message: msg,
       posicion: entrada.posicion,
       entrada,
     });
@@ -41,6 +44,9 @@ const getLista = async (req, res, next) => {
     const { tipo, fecha_exacta } = req.query;
 
     const lista = await getListaEspera(claseId, tipo, fecha_exacta ?? null);
+    if (lista.length === 0) {
+      return res.status(200).json({ message: "No hay clientes en la lista de espera", data: [] });
+    }
     return res.status(200).json(lista);
   } catch (error) {
     return next(error);

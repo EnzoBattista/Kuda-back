@@ -35,6 +35,9 @@ const getReservasActivas = async (req, res, next) => {
       order: [["fecha_exacta", "ASC"]],
     });
 
+    if (reservas.length === 0) {
+      return res.status(200).json({ message: "No se han encontrado reservas", data: [] });
+    }
     return res.status(200).json(reservas.map(toReservaDTO));
   } catch (error) {
     return next(error);
@@ -79,6 +82,9 @@ const getHistorialReservas = async (req, res, next) => {
       offset,
     });
 
+    if (count === 0) {
+      return res.status(200).json({ message: "No se han encontrado reservas", data: [] });
+    }
     return res.status(200).json({
       total: count,
       pagina: Number(page),

@@ -29,7 +29,7 @@ const getClienteById = async (req, res, next) => {
         },
       ],
     });
-    if (!cliente) return res.status(404).json({ message: "Cliente no encontrado" });
+    if (!cliente) return res.status(404).json({ message: "no existen clientes registrados" });
     return res.status(200).json(cliente);
   } catch (error) {
     return next(error);
@@ -63,7 +63,7 @@ const createCliente = async (req, res, next) => {
 const updateCliente = async (req, res, next) => {
   try {
     const cliente = await Cliente.findByPk(req.params.email);
-    if (!cliente) return res.status(404).json({ message: "Cliente no encontrado" });
+    if (!cliente) return res.status(404).json({ message: "no existen clientes registrados" });
 
     const usuario = await Usuario.findByPk(req.params.email);
     if (!usuario) return res.status(404).json({ message: "Usuario asociado no encontrado" });
