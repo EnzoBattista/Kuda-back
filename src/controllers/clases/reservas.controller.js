@@ -36,7 +36,7 @@ const getReservasActivas = async (req, res, next) => {
     });
 
     if (reservas.length === 0) {
-      return res.status(200).json({ message: "No se han encontrado reservas", data: [] });
+      return res.status(200).json({ message: "No posee reservas", data: [] });
     }
     return res.status(200).json(reservas.map(toReservaDTO));
   } catch (error) {

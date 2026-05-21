@@ -58,7 +58,7 @@ const updateProfesor = async (req, res, next) => {
     }
 
     return res.status(200).json({
-      message: "Profesor actualizado con éxito",
+      message: "Datos actualizados correctamente",
       profesor,
     });
   } catch (error) {
@@ -115,7 +115,7 @@ const getAllProfesores = async (req, res, next) => {
     });
 
     if (profesores.length === 0) {
-      return res.status(200).json({ message: "No se han encontrado profesores", data: [] });
+      return res.status(200).json({ message: "No hay profesores registrados actualmente en el sistema", data: [] });
     }
     return res.status(200).json(profesores);
   } catch (error) {

@@ -69,7 +69,20 @@ const updateUsuario = async (req, res, next) => {
   try {
     const usuario = await Usuario.findByPk(req.params.email);
     if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
-    await actualizarUsuario(usuario, pickCampos(req.body));
+
+    const data = pickCampos(req.body);
+
+
+
+    // Validar edad si se incluye fecha de nacimiento en el body (a través del cliente asociado)
+    if (req.body.fechaNacimiento) {
+      const { calcularEdad } = require("../../utils/fechas");
+      if (calcularEdad(req.body.fechaNacimiento) <= 14) {
+        return res.status(400).json({ message: "El usuario debe ser mayor de 14 años" });
+      }
+    }
+
+    await actualizarUsuario(usuario, data);
     return res.status(200).json({ message: "Usuario editado con éxito", usuario });
   } catch (error) {
     return next(error);

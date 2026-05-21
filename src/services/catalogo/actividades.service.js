@@ -66,8 +66,8 @@ const updateActividad = async (id, data) => {
 };
 
 const updatePrecio = async (id, nuevoPrecio) => {
-  if (nuevoPrecio === undefined || nuevoPrecio < 0) {
-    throw httpError(400, "El precio es inválido o negativo");
+  if (nuevoPrecio === undefined || nuevoPrecio <= 0) {
+    throw httpError(400, "El precio debe ser mayor a cero");
   }
 
   const actividad = await Actividad.findByPk(id);
