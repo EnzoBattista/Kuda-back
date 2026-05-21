@@ -1,5 +1,7 @@
 const { Cliente, Usuario, Rol } = require("../../../db");
+const { ROLES } = require("../../constants/roles");
 const { crearUsuario, actualizarUsuario } = require("../../services/acceso/usuarios.service");
+const httpError = require("../../utils/httpError");
 
 const getAllClientes = async (_req, res, next) => {
   try {
@@ -36,7 +38,8 @@ const getClienteById = async (req, res, next) => {
   }
 };
 
-const CAMPOS_USUARIO = ["email", "dni", "nombre", "apellido", "telefono", "password", "rol_id"];
+const CAMPOS_USUARIO_CREATE = ["email", "dni", "nombre", "apellido", "telefono", "password"];
+const CAMPOS_USUARIO_UPDATE = ["dni", "nombre", "apellido", "telefono", "password"];
 const CAMPOS_CLIENTE = ["genero", "fechaNacimiento", "fichaMedica", "direccion"];
 
 const pickCampos = (body, campos) =>
@@ -44,18 +47,30 @@ const pickCampos = (body, campos) =>
 
 const createCliente = async (req, res, next) => {
   try {
-    const usuarioData = { ...pickCampos(req.body, CAMPOS_USUARIO), activo: true };
+    const rolCliente = await Rol.findOne({ where: { nombre: ROLES.CLIENTE } });
+    if (!rolCliente) {
+      throw httpError(500, "Rol CLIENTE no existe. Ejecutar seeders.");
+    }
+
+    const usuarioData = {
+      ...pickCampos(req.body, CAMPOS_USUARIO_CREATE),
+      activo: true,
+      rol_id: rolCliente.id,
+    };
     const clienteData = pickCampos(req.body, CAMPOS_CLIENTE);
-    
+
     const usuario = await crearUsuario(usuarioData);
-    
+
     const cliente = await Cliente.create({
       usuario_email: usuario.email,
       ...clienteData,
     });
-    
+
     return res.status(201).json({ ...usuario.toJSON(), ...cliente.toJSON() });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     return next(error);
   }
 };
@@ -68,7 +83,7 @@ const updateCliente = async (req, res, next) => {
     const usuario = await Usuario.findByPk(req.params.email);
     if (!usuario) return res.status(404).json({ message: "Usuario asociado no encontrado" });
 
-    const usuarioData = pickCampos(req.body, CAMPOS_USUARIO);
+    const usuarioData = pickCampos(req.body, CAMPOS_USUARIO_UPDATE);
     const clienteData = pickCampos(req.body, CAMPOS_CLIENTE);
 
     if (Object.keys(usuarioData).length > 0) {

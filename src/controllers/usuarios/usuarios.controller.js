@@ -1,6 +1,6 @@
 const { Op } = require("sequelize");
 const { Usuario, Rol } = require("../../../db");
-const { crearUsuario, actualizarUsuario, darDeBajaUsuario } = require("../../services/acceso/usuarios.service");
+const { actualizarUsuario, darDeBajaUsuario } = require("../../services/acceso/usuarios.service");
 
 const parseBool = (valor) => {
   if (valor === undefined) return undefined;
@@ -60,19 +60,10 @@ const getUsuarioByEmail = async (req, res, next) => {
   }
 };
 
-const CAMPOS_USUARIO = ["email", "dni", "nombre", "apellido", "telefono", "password", "rol_id"];
+const CAMPOS_USUARIO = ["dni", "nombre", "apellido", "telefono", "password"];
 
 const pickCampos = (body) =>
   Object.fromEntries(CAMPOS_USUARIO.filter((k) => body[k] !== undefined).map((k) => [k, body[k]]));
-
-const createUsuario = async (req, res, next) => {
-  try {
-    const usuario = await crearUsuario({ ...pickCampos(req.body), activo: true });
-    return res.status(201).json(usuario);
-  } catch (error) {
-    return next(error);
-  }
-};
 
 const updateUsuario = async (req, res, next) => {
   try {
@@ -100,7 +91,6 @@ const deleteUsuario = async (req, res, next) => {
 module.exports = {
   getAllUsuarios,
   getUsuarioByEmail,
-  createUsuario,
   updateUsuario,
   deleteUsuario,
 };
