@@ -257,6 +257,17 @@ const cancelarFechaClase = async (claseId, data) => {
     motivo,
   });
 
+  // RUTINA DE REINTEGRO
+  // Verificar si hay inscriptos para este día específico
+  const individualesAfectadas = await InscripcionIndividual.findAll({
+    where: { clase_id: claseId, fecha }
+  });
+
+  if (individualesAfectadas.length > 0) {
+    // TODO: Ejecutar rutina automática de reintegro a cada afectado
+    console.log(`[Reintegro] Se debe reintegrar a ${individualesAfectadas.length} inscriptos por la cancelación de la clase ${claseId} el ${fecha}`);
+  }
+
   return cancelacion;
 };
 

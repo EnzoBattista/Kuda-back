@@ -65,7 +65,19 @@ const anotarseEnLista = async (clienteEmail, claseId, tipo, fechaExacta = null) 
       throw httpError(400, "La clase todavía tiene cupos disponibles. No es necesario anotarse en la lista de espera.");
     }
 
-    // Verificar que el cliente no esté ya en la lista
+    // Validar tipo de cliente
+    if (tipo === "MENSUAL") {
+      const esAbonado = await InscripcionMensual.findOne({
+        where: {
+          cliente_email: clienteEmail,
+          estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] }
+        },
+        transaction
+      });
+      if (!esAbonado) {
+        throw httpError(403, "Debe tener una suscripción mensual activa para anotarse como abonado");
+      }
+    }
     const whereExistente = { clase_id: claseId, cliente_email: clienteEmail, tipo, estado: "ESPERANDO" };
     if (tipo === "INDIVIDUAL" && fechaExacta) whereExistente.fecha_exacta = fechaExacta;
     const existente = await ListaEspera.findOne({ where: whereExistente, transaction });
