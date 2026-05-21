@@ -31,7 +31,7 @@ const getClienteById = async (req, res, next) => {
         },
       ],
     });
-    if (!cliente) return res.status(404).json({ message: "no existen clientes registrados" });
+    if (!cliente) return res.status(404).json({ message: "No existen clientes registrados" });
     return res.status(200).json(cliente);
   } catch (error) {
     return next(error);
@@ -78,13 +78,21 @@ const createCliente = async (req, res, next) => {
 const updateCliente = async (req, res, next) => {
   try {
     const cliente = await Cliente.findByPk(req.params.email);
-    if (!cliente) return res.status(404).json({ message: "no existen clientes registrados" });
+    if (!cliente) return res.status(404).json({ message: "No existen clientes registrados" });
 
     const usuario = await Usuario.findByPk(req.params.email);
     if (!usuario) return res.status(404).json({ message: "Usuario asociado no encontrado" });
 
     const usuarioData = pickCampos(req.body, CAMPOS_USUARIO_UPDATE);
     const clienteData = pickCampos(req.body, CAMPOS_CLIENTE);
+
+    // Validar edad si se está modificando la fecha de nacimiento
+    if (clienteData.fechaNacimiento) {
+      const { calcularEdad } = require("../../utils/fechas");
+      if (calcularEdad(clienteData.fechaNacimiento) <= 14) {
+        return res.status(400).json({ message: "Modificación fallida - Debe ser mayor de 14 años" });
+      }
+    }
 
     if (Object.keys(usuarioData).length > 0) {
       await actualizarUsuario(usuario, usuarioData);
@@ -93,7 +101,10 @@ const updateCliente = async (req, res, next) => {
       await cliente.update(clienteData);
     }
 
-    return res.status(200).json({ ...usuario.toJSON(), ...cliente.toJSON() });
+    return res.status(200).json({
+      message: "Se ha modificado su información personal",
+      cliente: { ...usuario.toJSON(), ...cliente.toJSON() }
+    });
   } catch (error) {
     return next(error);
   }

@@ -1,6 +1,6 @@
 const { Usuario, Rol, Permiso } = require("../../db");
 
-const requirePermiso = (permisoRequerido) => {
+const requirePermiso = (permisoRequerido, opciones = { allowSelf: false }) => {
   return async (req, res, next) => {
     try {
       if (!req.usuario || !req.usuario.email) {
@@ -17,6 +17,12 @@ const requirePermiso = (permisoRequerido) => {
         return res.status(403).json({ message: "Sin rol asignado" });
       }
 
+      req.rol = usuario.rol;
+
+      if (opciones.allowSelf && req.params.email === email) {
+        return next();
+      }
+
       const tiene = await usuario.rol.tienePermiso(permisoRequerido);
       if (!tiene) {
         return res.status(403).json({
@@ -24,7 +30,6 @@ const requirePermiso = (permisoRequerido) => {
         });
       }
 
-      req.rol = usuario.rol;
       next();
     } catch (error) {
       return next(error);

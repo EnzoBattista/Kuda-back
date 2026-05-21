@@ -20,8 +20,8 @@ const anotarse = async (req, res, next) => {
 
     const entrada = await anotarseEnLista(clienteEmail, clase_id, tipo, fecha_exacta ?? null);
     const msg = tipo === "MENSUAL" 
-      ? "se lo ha agregado a la lista de espera de abonados" 
-      : "se lo ha agregado a la lista de espera de no abonados";
+      ? `Se lo ha agregado a la lista de espera de abonados en el puesto ${entrada.posicion}. Si se libera un cupo, se le notificara de inmediato.` 
+      : `Se lo ha agregado a la lista de espera de no abonados en el puesto ${entrada.posicion}. Si se libera un cupo, se le notificara de inmediato.`;
     return res.status(201).json({
       message: msg,
       posicion: entrada.posicion,

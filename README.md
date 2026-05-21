@@ -27,7 +27,7 @@ DB_HOST=localhost
 DB_NAME=gimnasio_kuda
 PORT=3001
 MP_ACCESS_TOKEN=tu_token
-FRONTEND_URL=http://127.0.0.1:4200
+FRONTEND_URL=http://localhost:4200
 ```
 
 ## 🚀 Arranque

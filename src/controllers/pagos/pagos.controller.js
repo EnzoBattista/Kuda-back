@@ -98,9 +98,9 @@ const createPreference = async (req, res, next) => {
         },
       ],
       back_urls: {
-        success: "http://127.0.0.1:4200",
-        failure: "http://127.0.0.1:4200",
-        pending: "http://127.0.0.1:4200",
+        success: "http://localhost:4200",
+        failure: "http://localhost:4200",
+        pending: "http://localhost:4200",
       },
     };
 
@@ -120,7 +120,7 @@ const generarComprobante = async (req, res, next) => {
     const { id } = req.params;
     // Mock
     if (id === 'error') {
-      return res.status(500).json({ message: "hubo un error al recuperar la informacion del pago" });
+      return res.status(500).json({ message: "Hubo un error al recuperar la informacion del pago." });
     }
     return res.status(200).json({ message: "Generar comprobante", id });
   } catch (error) {

@@ -46,7 +46,7 @@ const updatePrecio = async (req, res, next) => {
     const { precio } = req.body;
     const actividad = await actividadesService.updatePrecio(id, precio);
     return res.status(200).json({
-      message: "el precio fue actualizado correctamente",
+      message: "El precio fue actualizado correctamente",
       actividad,
     });
   } catch (error) {

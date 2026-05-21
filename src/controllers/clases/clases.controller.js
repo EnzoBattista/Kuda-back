@@ -17,7 +17,7 @@ const getAllClases = async (_req, res, next) => {
       ],
     });
     if (clases.length === 0) {
-      return res.status(200).json({ message: "no existen clases para mostrar", data: [] });
+      return res.status(200).json({ message: "No existen clases para mostrar.", data: [] });
     }
     return res.status(200).json(clases);
   } catch (error) {
@@ -31,7 +31,7 @@ const createClase = async (req, res, next) => {
     const clase = await clasesService.crearClase(data);
 
     return res.status(201).json({
-      message: "la clase fue agendada exitosamente",
+      message: "Clase agregada con éxito",
       clase,
     });
   } catch (error) {
@@ -50,7 +50,7 @@ const updateClase = async (req, res, next) => {
     const clase = await clasesService.modificarClase(id, data);
 
     return res.status(200).json({
-      message: "la clase se modifico exitosamente",
+      message: "Clase modificada con éxito",
       clase,
     });
   } catch (error) {
@@ -89,7 +89,7 @@ const cancelarFechaClase = async (req, res, next) => {
     const cancelacion = await clasesService.cancelarFechaClase(id, data);
     
     return res.status(201).json({
-      message: "la clase fue cancelada exitosamente",
+      message: "La clase fue cancelada exitosamente",
       cancelacion,
     });
   } catch (error) {

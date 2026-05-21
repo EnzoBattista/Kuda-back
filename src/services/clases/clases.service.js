@@ -22,7 +22,7 @@ const DIAS_SEMANA = [
   "Domingo",
 ];
 
-const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => {
+const validarExistenciasYSolapamientos = async (data, excludeClaseId = null, { isModify = false } = {}) => {
   const { nombre, dia_semana, hora_inicio, hora_fin, cupo, actividad_id, sala_id, profesor_id } = data;
 
   if (nombre !== undefined && !nombre.trim()) {
@@ -57,7 +57,9 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => 
   }
 
   if (cupo !== undefined && cupo < 10) {
-    throw httpError(400, "El cupo máximo debe ser mayor o igual al cupo mínimo (10)");
+    throw httpError(400, isModify
+      ? "No se pudo modificar la clase. El cupo debe ser mayor o igual a 10"
+      : "El cupo máximo debe ser mayor o igual al cupo mínimo (10)");
   }
 
   if (actividad_id) {
@@ -68,7 +70,7 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => 
   if (sala_id) {
     const sala = await Sala.findByPk(sala_id);
     if (!sala) throw httpError(400, "La sala indicada no existe");
-    if (!sala.estado_activo) throw httpError(400, "la sala fue deshabilitada exitosamente");
+    if (!sala.estado_activo) throw httpError(400, "La sala se encuentra deshabilitada");
   }
 
   if (profesor_id) {
@@ -88,7 +90,9 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => 
 
     const solapada = await Clase.findOne({ where: whereSolapada });
     if (solapada) {
-      throw httpError(409, "La sala se encuentra ocupada para ese día y horario");
+      throw httpError(409, isModify
+        ? "No se pudo modificar la clase. La sala esta ocupada en el dia y horario seleccionado"
+        : "La sala se encuentra ocupada para ese día y horario");
     }
   }
 
@@ -104,7 +108,9 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null) => 
 
     const claseProfesor = await Clase.findOne({ where: whereProfesor });
     if (claseProfesor) {
-      throw httpError(409, "El profesor se encuentra ocupado para ese día y horario");
+      throw httpError(409, isModify
+        ? "No se pudo modificar la clase. El profesor ya tiene una clase en el dia y horario seleccionado"
+        : "El profesor se encuentra ocupado para ese día y horario");
     }
   }
 };
@@ -128,7 +134,20 @@ const modificarClase = async (id, data) => {
     profesor_id: data.profesor_id || clase.profesor_id,
   };
 
-  await validarExistenciasYSolapamientos(merged, id);
+  // Validar que el cupo no sea menor a la cantidad de inscriptos activos
+  if (data.cupo !== undefined) {
+    const inscriptosActivos = await InscripcionMensual.count({
+      where: {
+        clase_id: id,
+        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
+      },
+    });
+    if (data.cupo < inscriptosActivos) {
+      throw httpError(409, "No se pudo modificar la clase. El cupo debe ser mayor o igual a la cantidad de inscriptos");
+    }
+  }
+
+  await validarExistenciasYSolapamientos(merged, id, { isModify: true });
   await clase.update(data);
   return clase;
 };
@@ -204,7 +223,7 @@ const deleteClase = async (id) => {
   }
 
   await clase.update({ activa: false });
-  return { message: "La clase fue cancelada exitosamente. Se le reintegrará a cada cliente afectado la clase correspondiente." };
+  return { message: "La clase fue eliminada exitosamente" };
 };
 
 const cancelarFechaClase = async (claseId, data) => {
