@@ -26,7 +26,7 @@ Este archivo contiene las directrices principales para cualquier asistente de in
 
 ### Arquitectura y Convenciones
 - El proyecto sigue un patrón MVC orientado a controladores y rutas, contenido íntegramente dentro de la carpeta `src/`.
-- **Organización por dominio:** dentro de cada capa (`models/`, `controllers/`, `services/`, `routes/`) los archivos se agrupan en subcarpetas por dominio: `acceso/` (usuario, rol, permisos, auth), `catalogo/` (actividad, sala, sucursal, profesor, plan), `clases/` (clase, mensualidad, claseIndividual), `pagos/`.
+- **Organización por dominio:** dentro de cada capa (`models/`, `controllers/`, `services/`, `routes/`) los archivos se agrupan en subcarpetas por dominio: `acceso/` (usuario, rol, permisos, auth), `catalogo/` (actividad, sala, profesor, plan), `clases/` (clase, mensualidad, claseIndividual), `pagos/`.
 - **Rutas (`src/routes/`):** Define los endpoints y asocia los controladores correspondientes. Siempre usa el router de Express (`express.Router()`). Exponer todo mediante `src/routes/index.js`.
 - **Controladores (`src/controllers/`):** Manejan la petición (`req`), respuesta (`res`). **Importante:** No deben interactuar directamente con `Modelo.create` o `Modelo.update`. Toda creación o actualización debe pasar por los **Servicios**. Usa SIEMPRE bloques `try/catch` y pasa los errores al middleware global usando `next(error)`.
 - **Servicios (`src/services/`):** Capa intermedia obligatoria. Contienen **todas** las validaciones y reglas de negocio (`validarX`, `crearX`, `actualizarX`). Lanzan `httpError` ante datos inválidos.
@@ -75,7 +75,7 @@ Asegúrate de consultar el archivo apropiado según la tarea:
 │   ├── middleware/     # Middlewares (auth.middleware, requirePermiso)
 │   ├── models/         # Modelos Sequelize agrupados por dominio (Sin bloques validate)
 │   │   ├── acceso/     # usuario, rol, rolPermiso, permiso, cliente
-│   │   ├── catalogo/   # actividad, sala, sucursal, profesor, plan
+│   │   ├── catalogo/   # actividad, sala, profesor, plan
 │   │   ├── clases/     # clase, mensualidad, pagoClaseIndividual
 │   │   └── pagos/      # pago
 │   ├── routes/         # Endpoints (subcarpetas espejo de controllers)
