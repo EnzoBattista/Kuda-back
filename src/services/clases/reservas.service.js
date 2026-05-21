@@ -141,11 +141,36 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
     canceladas.map((c) => String(c.fecha).slice(0, 10))
   );
 
-  const fechasValidas = fechas.filter((f) => !setCanceladas.has(f));
-  if (fechasValidas.length === 0) {
+  const fechasSinCancelar = fechas.filter((f) => !setCanceladas.has(f));
+  if (fechasSinCancelar.length === 0) {
     throw httpError(
       409,
       "No hay fechas disponibles para la clase en el período (todas canceladas o período sin ocurrencias)"
+    );
+  }
+
+  // Saltea fechas donde el mismo cliente ya tiene una reserva activa
+  // (típicamente una individual previa): mantiene esa reserva y agrega
+  // solo las restantes como mensuales.
+  const yaReservadas = await ReservaClase.findAll({
+    where: {
+      cliente_email: inscripcion.cliente_email,
+      clase_id: clase.id,
+      fecha_exacta: { [Op.in]: fechasSinCancelar },
+      estado: "ACTIVA",
+    },
+    attributes: ["fecha_exacta"],
+    transaction,
+  });
+  const setYaReservadas = new Set(
+    yaReservadas.map((r) => String(r.fecha_exacta).slice(0, 10))
+  );
+  const fechasValidas = fechasSinCancelar.filter((f) => !setYaReservadas.has(f));
+
+  if (fechasValidas.length === 0) {
+    throw httpError(
+      409,
+      "Ya tenés reservas activas para todas las fechas de esta clase en el período"
     );
   }
 
