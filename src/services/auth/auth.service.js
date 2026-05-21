@@ -72,9 +72,8 @@ const enviarEmailRecuperacion = async (email, nombre, token) => {
 
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-  // La URL del frontend que armará el equipo en el futuro (usamos FRONTEND_URL o APP_URL como fallback)
   const baseUrl = process.env.FRONTEND_URL || process.env.APP_URL;
-  const urlRecuperacion = `${baseUrl}/recuperar-password/${token}`;
+  const urlRecuperacion = `${baseUrl}/nueva-password/${token}`;
 
   await sgMail.send({
     to: email,
@@ -83,7 +82,7 @@ const enviarEmailRecuperacion = async (email, nombre, token) => {
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd;">
         <div style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #003366;">
-            <img src=${urlLogo} alt="Kuda Logo" style="max-width: 150px;">
+            <img src="${urlLogo}" alt="Kuda Logo" style="max-width: 150px;">
         </div>
 
         <div style="padding: 30px; text-align: center;">
