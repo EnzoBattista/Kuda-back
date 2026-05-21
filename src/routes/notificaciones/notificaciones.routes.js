@@ -10,7 +10,13 @@ router.post("/desactivar", (req, res) => {
 });
 
 router.post("/recordatorio", (req, res) => {
-  res.status(200).json({ message: "Recordatorio enviado" });
+  const { diaRecordatorio } = req.body;
+  if (diaRecordatorio !== undefined) {
+    if (diaRecordatorio < 0 || diaRecordatorio > 10) {
+      return res.status(400).json({ message: "El día de recordatorio debe estar dentro de los 10 días de gracia" });
+    }
+  }
+  res.status(200).json({ message: "Recordatorio enviado/configurado" });
 });
 
 module.exports = router;

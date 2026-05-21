@@ -269,7 +269,7 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
 
           vale = await Vale.create({
             cliente_email: emailUsuario,
-            monto: Number(inscripcion.monto_pagado),
+            monto: Number((inscripcion.monto_pagado * PORCENTAJE_VALE).toFixed(2)),
             valido_desde: validoDesde.toISOString().slice(0, 10),
             valido_hasta: validoHasta.toISOString().slice(0, 10),
           }, { transaction });

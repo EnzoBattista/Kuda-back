@@ -43,12 +43,9 @@ const updateProfesor = async (req, res, next) => {
     }
 
     if (dni && dni !== profesor.dni) {
-      const existingProfesor = await Profesor.findOne({ where: { dni } });
-      if (existingProfesor) {
-        return res.status(409).json({
-          message: "El profesor con este número de documento ya se encuentra registrado",
-        });
-      }
+      return res.status(400).json({
+        message: "El DNI de los empleados no puede ser modificado",
+      });
     }
 
     await profesor.update({ nombre, apellido, dni, activo });

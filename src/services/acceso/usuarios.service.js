@@ -2,6 +2,8 @@ const { Op } = require("sequelize");
 const { Usuario, InscripcionMensual } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
+const { ROLES } = require("../../constants/roles");
+
 const validarUsuario = (data) => {
   if (data.email !== undefined) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -12,15 +14,41 @@ const validarUsuario = (data) => {
   if (data.nombre !== undefined && !data.nombre.trim()) throw httpError(400, "El nombre no puede estar vacío");
   if (data.apellido !== undefined && !data.apellido.trim()) throw httpError(400, "El apellido no puede estar vacío");
   if (data.password !== undefined && !data.password.trim()) throw httpError(400, "La contraseña no puede estar vacía");
+  if (data.telefono !== undefined) {
+    const telRegex = /^[0-9]+$/;
+    if (!telRegex.test(data.telefono)) throw httpError(400, "El teléfono debe contener únicamente números");
+  }
 };
 
 const crearUsuario = async (data) => {
   validarUsuario(data);
+  
+  if (data.email) {
+    const emailExistente = await Usuario.findOne({ where: { email: data.email } });
+    if (emailExistente) throw httpError(400, "El email ingresado ya se encuentra registrado");
+  }
+
+  if (data.dni) {
+    const dniExistente = await Usuario.findOne({ where: { dni: data.dni } });
+    if (dniExistente) throw httpError(400, "El DNI ingresado ya se encuentra registrado");
+  }
+
   return Usuario.create(data);
 };
 
 const actualizarUsuario = async (usuario, data) => {
   validarUsuario(data);
+  
+  if (data.dni && data.dni !== usuario.dni) {
+    // Si es empleado, el DNI es inmutable
+    const rol = await usuario.getRol();
+    if (rol && (rol.nombre === ROLES.RECEPCIONISTA || rol.nombre === ROLES.ADMIN)) {
+      throw httpError(400, "El DNI de los empleados no puede ser modificado");
+    }
+
+    const dniExistente = await Usuario.findOne({ where: { dni: data.dni } });
+    if (dniExistente) throw httpError(400, "El DNI ingresado ya se encuentra registrado");
+  }
   return usuario.update(data);
 };
 
