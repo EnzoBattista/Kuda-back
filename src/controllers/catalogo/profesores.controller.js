@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { Profesor, Actividad } = require("../../../db");
+const { Profesor, Actividad, Clase } = require("../../../db");
 const { crearProfesor } = require("../../services/catalogo/profesores.service");
 
 const createProfesor = async (req, res, next) => {
@@ -72,12 +72,21 @@ const deleteProfesor = async (req, res, next) => {
       return res.status(404).json({ message: "Profesor no encontrado" });
     }
 
-    // Baja lógica
+    const clasesActivas = await Clase.count({
+      where: { profesor_id: id, activa: true },
+    });
+
+    if (clasesActivas > 0) {
+      return res.status(409).json({
+        message: "No se pudo eliminar al profesor. Aun tiene clases pendientes",
+      });
+    }
+
     await profesor.update({ activo: false });
-    await profesor.destroy(); // Usa paranoid: true, establece deletedAt
+    await profesor.destroy();
 
     return res.status(200).json({
-      message: "Empleado eliminado con éxito",
+      message: "Profesor eliminado con éxito",
     });
   } catch (error) {
     return next(error);
