@@ -1,4 +1,5 @@
-const { InscripcionIndividual, Clase, ReservaClase, conn } = require("../../../db");
+const { Op } = require("sequelize");
+const { InscripcionIndividual, InscripcionMensual, Clase, ReservaClase, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { generarReservasIndividual } = require("./reservas.service");
 
@@ -39,6 +40,24 @@ const crearInscripcionIndividual = async (data) => {
     const clase = await Clase.findByPk(data.clase_id, { transaction });
     if (!clase) {
       throw httpError(404, "Clase no encontrada");
+    }
+
+    const fecha = String(data.fecha).slice(0, 10);
+    const abonoActivo = await InscripcionMensual.findOne({
+      where: {
+        cliente_email: data.cliente_email,
+        actividad_id: data.actividad_id,
+        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
+        periodo_inicio: { [Op.lte]: fecha },
+        periodo_fin: { [Op.gt]: fecha },
+      },
+      transaction,
+    });
+    if (abonoActivo) {
+      throw httpError(
+        409,
+        "Ya tenés un abono activo en esta actividad, no podés reservar individualmente esta clase",
+      );
     }
 
     const inscripcion = await InscripcionIndividual.create(data, { transaction });
