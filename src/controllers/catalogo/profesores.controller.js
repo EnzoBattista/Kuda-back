@@ -44,7 +44,7 @@ const updateProfesor = async (req, res, next) => {
 
     if (dni && dni !== profesor.dni) {
       return res.status(400).json({
-        message: "El DNI de los empleados no puede ser modificado",
+        message: "El DNI de los administrativos no puede ser modificado",
       });
     }
 
@@ -120,9 +120,7 @@ const getAllProfesores = async (req, res, next) => {
       ],
     });
 
-    if (profesores.length === 0) {
-      return res.status(200).json({ message: "No hay profesores registrados actualmente en el sistema", data: [] });
-    }
+
     return res.status(200).json(profesores);
   } catch (error) {
     return next(error);
@@ -147,12 +145,7 @@ const getProfesoresByActividad = async (req, res, next) => {
       return res.status(404).json({ message: "La actividad indicada no existe" });
     }
 
-    if (!actividad.profesores || actividad.profesores.length === 0) {
-      return res.status(200).json({
-        message: "No existen profesores asociados a esta actividad",
-        data: []
-      });
-    }
+
 
     return res.status(200).json(actividad.profesores);
   } catch (error) {

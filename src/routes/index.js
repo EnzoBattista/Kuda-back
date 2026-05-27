@@ -4,7 +4,7 @@ const router = express.Router();
 const authRouter = require("./auth/auth.routes");
 const usuariosRouter = require("./usuarios/usuarios.routes");
 const recepcionistasRouter = require("./usuarios/recepcionistas.routes");
-const empleadosRouter = require("./usuarios/empleados.routes");
+const administrativosRouter = require("./usuarios/administrativos.routes");
 const clientesRouter = require("./clientes/clientes.routes");
 const profesoresRouter = require("./catalogo/profesores.routes");
 const actividadesRouter = require("./catalogo/actividades.routes");
@@ -27,7 +27,7 @@ router.get("/", (_req, res) => {
       auth: "/api/auth",
       usuarios: "/api/usuarios",
       recepcionistas: "/api/recepcionistas",
-      empleados: "/api/empleados",
+      administrativos: "/api/administrativos",
       clientes: "/api/clientes",
       profesores: "/api/profesores",
       actividades: "/api/actividades",
@@ -44,7 +44,7 @@ router.get("/", (_req, res) => {
 router.use("/api/auth", authRouter);
 router.use("/api/usuarios", usuariosRouter);
 router.use("/api/recepcionistas", recepcionistasRouter);
-router.use("/api/empleados", empleadosRouter);
+router.use("/api/administrativos", administrativosRouter);
 router.use("/api/clientes", clientesRouter);
 router.use("/api/profesores", profesoresRouter);
 router.use("/api/actividades", actividadesRouter);

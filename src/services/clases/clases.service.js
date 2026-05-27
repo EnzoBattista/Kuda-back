@@ -124,6 +124,12 @@ const modificarClase = async (id, data) => {
   const clase = await Clase.findByPk(id);
   if (!clase) throw httpError(404, "La clase indicada no existe");
 
+  let huboEspera = false;
+  if (data.cupo !== undefined && data.cupo > clase.cupo) {
+    // MOCK: asumiendo que si se amplía el cupo, hay gente en lista de espera
+    huboEspera = true;
+  }
+
   const merged = {
     dia_semana: data.dia_semana || clase.dia_semana,
     hora_inicio: data.hora_inicio || clase.hora_inicio,
@@ -149,7 +155,7 @@ const modificarClase = async (id, data) => {
 
   await validarExistenciasYSolapamientos(merged, id, { isModify: true });
   await clase.update(data);
-  return clase;
+  return { clase, huboEspera };
 };
 
 const getClaseById = async (id) => {

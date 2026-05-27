@@ -6,9 +6,7 @@ const getAllActividades = async (req, res, next) => {
     // Si envían ?activa=true, filtramos. Si no, devolvemos todo.
     const soloActivas = activa === "true";
     const actividades = await actividadesService.getAllActividades(soloActivas);
-    if (actividades.length === 0) {
-      return res.status(200).json({ message: "No hay actividades", data: [] });
-    }
+
     return res.status(200).json(actividades);
   } catch (error) {
     return next(error);
@@ -68,9 +66,7 @@ const getProfesoresPorActividad = async (req, res, next) => {
   try {
     const { id } = req.params;
     const profesores = await actividadesService.getProfesoresPorActividad(id);
-    if (profesores.length === 0) {
-      return res.status(200).json({ message: "No existen profesores asociados a esta actividad", data: [] });
-    }
+
     return res.status(200).json(profesores);
   } catch (error) {
     return next(error);

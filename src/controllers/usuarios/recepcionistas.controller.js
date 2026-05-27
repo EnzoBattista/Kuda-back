@@ -18,7 +18,7 @@ const createRecepcionista = async (req, res, next) => {
 
     const existente = await Usuario.findOne({ where: { email: datos.email } });
     if (existente) {
-      throw httpError(409, "Ya existe un usuario registrado con ese email");
+      throw httpError(409, "El correo electrónico ya está en uso por otro usuario");
     }
 
     const rolRecepcionista = await Rol.findOne({ where: { nombre: ROLES.RECEPCIONISTA } });

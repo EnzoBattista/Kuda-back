@@ -40,10 +40,10 @@ const actualizarUsuario = async (usuario, data) => {
   validarUsuario(data);
   
   if (data.dni && data.dni !== usuario.dni) {
-    // Si es empleado, el DNI es inmutable
+    // Si es administrativo, el DNI es inmutable
     const rol = await usuario.getRol();
-    if (rol && (rol.nombre === ROLES.RECEPCIONISTA || rol.nombre === ROLES.ADMIN)) {
-      throw httpError(400, "El DNI de los empleados no puede ser modificado");
+    if (rol && (rol.nombre === ROLES.RECEPCIONISTA || rol.nombre === ROLES.DUEÑO)) {
+      throw httpError(400, "El DNI de los administrativos no puede ser modificado");
     }
 
     const dniExistente = await Usuario.findOne({ where: { dni: data.dni } });
