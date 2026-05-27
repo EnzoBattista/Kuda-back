@@ -77,11 +77,10 @@ const createCliente = async (req, res, next) => {
 
 const updateCliente = async (req, res, next) => {
   try {
-    const cliente = await Cliente.findByPk(req.params.email);
-    if (!cliente) return res.status(404).json({ message: "No existen clientes registrados" });
+    let cliente = await Cliente.findByPk(req.params.email);
 
     const usuario = await Usuario.findByPk(req.params.email);
-    if (!usuario) return res.status(404).json({ message: "Usuario asociado no encontrado" });
+    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
 
     const usuarioData = pickCampos(req.body, CAMPOS_USUARIO_UPDATE);
     const clienteData = pickCampos(req.body, CAMPOS_CLIENTE);
@@ -97,7 +96,13 @@ const updateCliente = async (req, res, next) => {
     if (Object.keys(usuarioData).length > 0) {
       await actualizarUsuario(usuario, usuarioData);
     }
-    if (Object.keys(clienteData).length > 0) {
+    
+    if (!cliente) {
+      cliente = await Cliente.create({
+        usuario_email: req.params.email,
+        ...clienteData,
+      });
+    } else if (Object.keys(clienteData).length > 0) {
       await cliente.update(clienteData);
     }
 

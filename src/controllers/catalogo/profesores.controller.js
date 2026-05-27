@@ -49,8 +49,17 @@ const updateProfesor = async (req, res, next) => {
     }
 
     if (dni && dni !== profesor.dni) {
+      const existingProfesor = await Profesor.findOne({ where: { dni } });
+      if (existingProfesor && existingProfesor.id !== parseInt(id)) {
+        return res.status(409).json({
+          message: "El profesor con este número de documento ya se encuentra registrado",
+        });
+      }
+    }
+
+    if (actividades !== undefined && actividades.length === 0) {
       return res.status(400).json({
-        message: "El DNI de los administrativos no puede ser modificado",
+        message: "El profesor debe dictar al menos una actividad",
       });
     }
 
