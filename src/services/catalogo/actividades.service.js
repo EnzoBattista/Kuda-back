@@ -92,29 +92,7 @@ const deleteActividad = async (id) => {
   });
 
   if (clasesActivas.length > 0) {
-    const clasesIds = clasesActivas.map((c) => c.id);
-
-    const mensualesActivas = await InscripcionMensual.count({
-      where: {
-        clase_id: { [Op.in]: clasesIds },
-        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
-      },
-    });
-
-    if (mensualesActivas > 0) {
-      throw httpError(409, "No se puede eliminar una actividad con clientes inscriptos");
-    }
-
-    const individualesFuturas = await InscripcionIndividual.count({
-      where: {
-        clase_id: { [Op.in]: clasesIds },
-        fecha: { [Op.gte]: new Date() },
-      },
-    });
-
-    if (individualesFuturas > 0) {
-      throw httpError(409, "No se puede eliminar una actividad con clientes inscriptos");
-    }
+    throw httpError(409, "No se puede eliminar una actividad con clases asociadas");
   }
 
   await actividad.update({ activa: false });

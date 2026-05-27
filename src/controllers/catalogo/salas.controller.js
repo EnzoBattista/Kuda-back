@@ -4,9 +4,7 @@ const salasService = require("../../services/catalogo/salas.service");
 const getAllSalas = async (req, res, next) => {
   try {
     const salas = await Sala.findAll();
-    if (salas.length === 0) {
-      return res.status(200).json({ message: "No aun no hay salas para mostrar.", data: [] });
-    }
+
     return res.status(200).json(salas);
   } catch (error) {
     return next(error);

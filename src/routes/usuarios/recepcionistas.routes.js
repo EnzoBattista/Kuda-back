@@ -6,6 +6,6 @@ const { createRecepcionista } = require("../../controllers/usuarios/recepcionist
 
 const router = express.Router();
 
-router.post("/", auth, requirePermiso(PERMISOS.EMPLEADO_GESTIONAR), createRecepcionista);
+router.post("/", auth, requirePermiso(PERMISOS.ADMINISTRATIVO_GESTIONAR), createRecepcionista);
 
 module.exports = router;

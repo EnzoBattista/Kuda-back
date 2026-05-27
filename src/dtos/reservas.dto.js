@@ -19,6 +19,7 @@ const toReservaDTO = (reserva) => {
       hora_fin: reserva.clase.hora_fin,
       cupo: reserva.clase.cupo,
       actividad: reserva.clase.actividad ? reserva.clase.actividad.nombre : null,
+      actividad_descripcion: reserva.clase.actividad ? reserva.clase.actividad.descripcion : null,
       profesor: reserva.clase.profesor
         ? `${reserva.clase.profesor.nombre} ${reserva.clase.profesor.apellido}`
         : null,

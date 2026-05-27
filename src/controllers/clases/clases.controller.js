@@ -47,11 +47,12 @@ const updateClase = async (req, res, next) => {
     const { id } = req.params;
     const data = req.body;
 
-    const clase = await clasesService.modificarClase(id, data);
+    const { clase, huboEspera } = await clasesService.modificarClase(id, data);
 
     return res.status(200).json({
       message: "Clase modificada con éxito",
       clase,
+      huboEspera,
     });
   } catch (error) {
     if (error.status) {
