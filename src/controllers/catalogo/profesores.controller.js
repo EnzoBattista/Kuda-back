@@ -120,7 +120,6 @@ const getAllProfesores = async (req, res, next) => {
       ],
     });
 
-
     return res.status(200).json(profesores);
   } catch (error) {
     return next(error);
