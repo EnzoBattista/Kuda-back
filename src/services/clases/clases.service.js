@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { Clase, Actividad, Sala, Profesor, CancelacionClase, InscripcionMensual, InscripcionIndividual } = require("../../../db");
+const { Clase, Actividad, Sala, Profesor, CancelacionClase, InscripcionMensual, InscripcionIndividual, ReservaClase } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
 const MAPA_DIAS = {
@@ -200,26 +200,18 @@ const deleteClase = async (id) => {
   const clase = await Clase.findByPk(id);
   if (!clase) throw httpError(404, "Clase no encontrada");
 
-  const mensualesActivas = await InscripcionMensual.count({
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const reservasActivasFuturas = await ReservaClase.count({
     where: {
       clase_id: id,
-      estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
+      estado: "ACTIVA",
+      fecha_exacta: { [Op.gte]: hoy },
     },
   });
 
-  if (mensualesActivas > 0) {
-    throw httpError(409, "No se puede eliminar la clase porque tiene inscripciones mensuales activas");
-  }
-
-  const individualesFuturas = await InscripcionIndividual.count({
-    where: {
-      clase_id: id,
-      fecha: { [Op.gte]: new Date() },
-    },
-  });
-
-  if (individualesFuturas > 0) {
-    throw httpError(409, "No se puede eliminar la clase porque tiene inscripciones individuales futuras");
+  if (reservasActivasFuturas > 0) {
+    throw httpError(409, "No se puede eliminar la clase porque tiene clientes inscriptos");
   }
 
   await clase.update({ activa: false });
