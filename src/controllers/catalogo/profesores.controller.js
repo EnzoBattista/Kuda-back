@@ -120,9 +120,6 @@ const getAllProfesores = async (req, res, next) => {
       ],
     });
 
-    if (profesores.length === 0) {
-      return res.status(200).json({ message: "No hay profesores registrados actualmente en el sistema", data: [] });
-    }
     return res.status(200).json(profesores);
   } catch (error) {
     return next(error);
