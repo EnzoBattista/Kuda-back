@@ -125,18 +125,18 @@ const registrarCliente = async ({
   confirmPassword,
 }) => {
   if (password !== confirmPassword) {
-    throw httpError(400, "Registro fallido - Las contraseñas no coinciden.");
+    throw httpError(400, "Las contraseñas no coinciden.");
   }
   if (password.length < 8) {
-    throw httpError(400, "Registro fallido - La contraseña debe tener al menos 8 caracteres.");
+    throw httpError(400, "La contraseña debe tener al menos 8 caracteres.");
   }
   if (calcularEdad(fechaNacimiento) <= 14) {
-    throw httpError(400, "Registro fallido - Se debe ser mayor de 14 años.");
+    throw httpError(400, "Se debe ser mayor de 14 años.");
   }
 
   const emailExistente = await Usuario.findOne({ where: { email } });
   if (emailExistente) {
-    throw httpError(400, "Registro fallido - El email ya se encuentra registrado.");
+    throw httpError(400, "El email ya se encuentra registrado.");
   }
 
   const rolCliente = await Rol.findOne({ where: { nombre: ROLES.CLIENTE } });

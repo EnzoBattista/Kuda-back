@@ -13,6 +13,12 @@ const createProfesor = async (req, res, next) => {
       });
     }
 
+    if (!actividades || actividades.length === 0) {
+      return res.status(400).json({
+        message: "El profesor debe dictar al menos una actividad",
+      });
+    }
+
     const nuevoProfesor = await crearProfesor({
       nombre,
       apellido,
