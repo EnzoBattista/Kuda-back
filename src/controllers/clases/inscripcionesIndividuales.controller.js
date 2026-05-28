@@ -38,7 +38,7 @@ const getInscripcionIndividualById = async (req, res, next) => {
 
 const createInscripcionIndividual = async (req, res, next) => {
   try {
-    const { cliente_email, actividad_id, clase_id, fecha, modalidad, vencimiento_seña } = req.body;
+    const { cliente_email, actividad_id, clase_id, fecha, modalidad, vencimiento_seña, vale_id } = req.body;
 
     const actividad = await Actividad.findByPk(actividad_id);
     if (!actividad) return res.status(404).json({ message: "Actividad no encontrada" });
@@ -59,6 +59,7 @@ const createInscripcionIndividual = async (req, res, next) => {
       fecha,
       modalidad,
       monto_total,
+      vale_id,
     };
 
     if (modalidad === "SEÑA") {

@@ -14,6 +14,20 @@ module.exports = (sequelize) => {
         allowNull: false,
         references: { model: "clientes", key: "usuario_email" },
       },
+      clase_id: {
+        // Clase a la que está atado el vale. Solo se puede aplicar al
+        // inscribirse en esa misma clase.
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: "clases", key: "id" },
+      },
+      tipo: {
+        // MENSUAL: aplicable solo al pago de mensualidad (mes siguiente).
+        // INDIVIDUAL: aplicable solo a próxima inscripción individual de la clase.
+        type: DataTypes.ENUM("MENSUAL", "INDIVIDUAL"),
+        allowNull: false,
+        defaultValue: "MENSUAL",
+      },
       monto: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
@@ -39,6 +53,7 @@ module.exports = (sequelize) => {
 
   Vale.associate = (models) => {
     Vale.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
+    Vale.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
   };
 
   return Vale;

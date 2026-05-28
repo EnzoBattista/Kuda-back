@@ -1,15 +1,43 @@
 const { Op } = require("sequelize");
-const { ReservaClase, Clase, Actividad, Profesor, Sala, Vale } = require("../../../db");
+const { ReservaClase, Clase, Actividad, Profesor, Sala, Vale, CancelacionClase } = require("../../../db");
 const { cancelarReserva } = require("../../services/clases/reservas.service");
 const { toReservaDTO } = require("../../dtos/reservas.dto");
 
+/**
+ * Para cada reserva CANCELADA, mira si hay una CancelacionClase para
+ * (clase_id, fecha). Si la hay, fue cancelada por el CEF; si no, por el cliente.
+ */
+const construirSetCanceladasPorCef = async (reservas) => {
+  const canceladas = reservas.filter((r) => r.estado === "CANCELADA");
+  if (canceladas.length === 0) return new Set();
+
+  const claseIds = [...new Set(canceladas.map((r) => r.clase_id))];
+  const fechas = [...new Set(canceladas.map((r) => String(r.fecha_exacta).slice(0, 10)))];
+
+  const cancelaciones = await CancelacionClase.findAll({
+    where: { clase_id: { [Op.in]: claseIds }, fecha: { [Op.in]: fechas } },
+    attributes: ["clase_id", "fecha"],
+  });
+
+  return new Set(
+    cancelaciones.map((c) => `${c.clase_id}|${String(c.fecha).slice(0, 10)}`)
+  );
+};
+
+const claveReserva = (r) =>
+  `${r.clase_id}|${String(r.fecha_exacta).slice(0, 10)}`;
+
 const getReservasActivas = async (req, res, next) => {
   try {
-    const { cliente_email, actividad_id, clase_id } = req.query;
+    const { cliente_email, actividad_id, clase_id, incluir_canceladas } = req.query;
     const hoy = new Date().toISOString().slice(0, 10);
 
+    const estadosVisibles = incluir_canceladas === "true"
+      ? ["ACTIVA", "CANCELADA"]
+      : ["ACTIVA"];
+
     const where = {
-      estado: "ACTIVA",
+      estado: { [Op.in]: estadosVisibles },
       fecha_exacta: { [Op.gte]: hoy },
     };
     if (cliente_email) where.cliente_email = cliente_email;
@@ -38,7 +66,12 @@ const getReservasActivas = async (req, res, next) => {
     if (reservas.length === 0) {
       return res.status(200).json({ message: "No posee reservas", data: [] });
     }
-    return res.status(200).json(reservas.map(toReservaDTO));
+    const setCef = await construirSetCanceladasPorCef(reservas);
+    return res.status(200).json(
+      reservas.map((r) =>
+        toReservaDTO(r, { canceladaPorCef: setCef.has(claveReserva(r)) })
+      )
+    );
   } catch (error) {
     return next(error);
   }
@@ -85,11 +118,14 @@ const getHistorialReservas = async (req, res, next) => {
     if (count === 0) {
       return res.status(200).json({ message: "No se han encontrado reservas", data: [] });
     }
+    const setCef = await construirSetCanceladasPorCef(rows);
     return res.status(200).json({
       total: count,
       pagina: Number(page),
       paginas: Math.ceil(count / Number(limit)),
-      reservas: rows.map(toReservaDTO),
+      reservas: rows.map((r) =>
+        toReservaDTO(r, { canceladaPorCef: setCef.has(claveReserva(r)) })
+      ),
     });
   } catch (error) {
     return next(error);
@@ -113,14 +149,33 @@ const cancelarReservaController = async (req, res, next) => {
 const getMisVales = async (req, res, next) => {
   try {
     const cliente_email = req.usuario.email;
+    const { clase_id, vigentes } = req.query;
     const hoy = new Date().toISOString().slice(0, 10);
 
+    const where = {
+      cliente_email,
+      usado_en_pago_id: null,
+    };
+    // Por defecto solo devuelve los vigentes (no vencidos). El front puede pedir
+    // todos pasando vigentes=false.
+    if (vigentes !== "false") {
+      where.valido_hasta = { [Op.gte]: hoy };
+    }
+    if (clase_id) {
+      where.clase_id = clase_id;
+      // Para aplicarlo además tiene que estar dentro del período de validez.
+      where.valido_desde = { [Op.lte]: hoy };
+    }
+
     const vales = await Vale.findAll({
-      where: {
-        cliente_email,
-        valido_hasta: { [Op.gte]: hoy },
-        usado_en_pago_id: null,
-      },
+      where,
+      include: [
+        {
+          model: Clase,
+          as: "clase",
+          include: [{ model: Actividad, as: "actividad" }],
+        },
+      ],
       order: [["valido_hasta", "ASC"]],
     });
 

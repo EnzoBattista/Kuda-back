@@ -1,4 +1,4 @@
-const { InscripcionMensual, Cliente, Actividad, Clase } = require("../../../db");
+const { InscripcionMensual, Cliente, Actividad, Clase, ReservaClase } = require("../../../db");
 const { sumarUnMes } = require("../../utils/fechas");
 const {
   crearInscripcionMensual,
@@ -9,6 +9,7 @@ const includes = [
   { model: Cliente, as: "cliente" },
   { model: Actividad, as: "actividad" },
   { model: Clase, as: "clase" },
+  { model: ReservaClase, as: "reservas", attributes: ["id", "fecha_exacta", "estado"] },
 ];
 
 const getAllInscripcionesMensuales = async (req, res, next) => {
@@ -41,7 +42,7 @@ const getInscripcionMensualById = async (req, res, next) => {
 
 const createInscripcionMensual = async (req, res, next) => {
   try {
-    const { cliente_email, actividad_id, clase_id, periodo_inicio } = req.body;
+    const { cliente_email, actividad_id, clase_id, periodo_inicio, vale_id } = req.body;
 
     const actividad = await Actividad.findByPk(actividad_id);
     if (!actividad) return res.status(404).json({ message: "Actividad no encontrada" });
@@ -65,6 +66,7 @@ const createInscripcionMensual = async (req, res, next) => {
       dia_vencimiento: periodo_fin,
       monto: actividad.precio,
       estado: "VIGENTE",
+      vale_id,
     });
     return res.status(201).json(inscripcion);
   } catch (error) {

@@ -5,14 +5,16 @@
  * @param {object} reserva - Instancia de Sequelize ReservaClase
  * @returns {object} DTO de la reserva
  */
-const toReservaDTO = (reserva) => {
+const toReservaDTO = (reserva, { canceladaPorCef = false } = {}) => {
   if (!reserva) return null;
 
-  return {
+  const dto = {
     id: reserva.id,
     fecha_exacta: reserva.fecha_exacta,
     estado: reserva.estado,
     asistio: reserva.asistio,
+    inscripcion_mensual_id: reserva.inscripcion_mensual_id ?? null,
+    inscripcion_individual_id: reserva.inscripcion_individual_id ?? null,
     clase: reserva.clase ? {
       id: reserva.clase.id,
       hora_inicio: reserva.clase.hora_inicio,
@@ -26,6 +28,12 @@ const toReservaDTO = (reserva) => {
       sala: reserva.clase.sala ? reserva.clase.sala.nombre : null,
     } : null,
   };
+
+  if (reserva.estado === "CANCELADA") {
+    dto.cancelada_por = canceladaPorCef ? "CEF" : "CLIENTE";
+  }
+
+  return dto;
 };
 
 module.exports = {
