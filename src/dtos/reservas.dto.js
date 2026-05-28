@@ -13,6 +13,8 @@ const toReservaDTO = (reserva, { canceladaPorCef = false } = {}) => {
     fecha_exacta: reserva.fecha_exacta,
     estado: reserva.estado,
     asistio: reserva.asistio,
+    inscripcion_mensual_id: reserva.inscripcion_mensual_id ?? null,
+    inscripcion_individual_id: reserva.inscripcion_individual_id ?? null,
     clase: reserva.clase ? {
       id: reserva.clase.id,
       hora_inicio: reserva.clase.hora_inicio,

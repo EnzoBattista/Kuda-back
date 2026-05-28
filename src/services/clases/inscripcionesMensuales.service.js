@@ -3,6 +3,7 @@ const { InscripcionMensual, Clase, ReservaClase, CancelacionClase, conn } = requ
 const httpError = require("../../utils/httpError");
 const { generarReservasMensual, fechasDeClaseEnPeriodo } = require("./reservas.service");
 const { notificarPrimero } = require("./listaEspera.service");
+const { aplicarVale } = require("../pagos/vales.service");
 
 const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA"];
 
@@ -22,11 +23,14 @@ const validarInscripcionMensual = async (data, inscripcionIdActual = null) => {
     throw httpError(400, "periodo_fin debe ser posterior a periodo_inicio");
   }
 
-  // 3. Detecta superposición de fechas (permite renovaciones anticipadas sin pisarse)
-  if (data.cliente_email && data.actividad_id && data.periodo_inicio && data.periodo_fin) {
+  // 3. Detecta superposición de fechas en la MISMA clase (permite renovaciones
+  // anticipadas sin pisarse). Un cliente puede tener mensualidades simultáneas
+  // en distintas clases aunque sean de la misma actividad. Si todas las
+  // reservas de la mensual existente están CANCELADA, se permite re-inscribirse.
+  if (data.cliente_email && data.clase_id && data.periodo_inicio && data.periodo_fin) {
     const whereInscripcion = {
       cliente_email: data.cliente_email,
-      actividad_id: data.actividad_id,
+      clase_id: data.clase_id,
       estado: ["VIGENTE", "EN_GRACIA"],
       periodo_inicio: { [Op.lt]: data.periodo_fin },
       periodo_fin: { [Op.gt]: data.periodo_inicio },
@@ -36,7 +40,15 @@ const validarInscripcionMensual = async (data, inscripcionIdActual = null) => {
     }
     const overlapping = await InscripcionMensual.findOne({ where: whereInscripcion });
     if (overlapping) {
-      throw httpError(400, "El cliente ya tiene una inscripción mensual que se superpone con las fechas indicadas");
+      const reservasActivas = await ReservaClase.count({
+        where: { inscripcion_mensual_id: overlapping.id, estado: "ACTIVA" },
+      });
+      if (reservasActivas > 0) {
+        throw httpError(
+          400,
+          "El cliente ya tiene una inscripción mensual vigente en esta clase para el período indicado"
+        );
+      }
     }
   }
 };
@@ -46,10 +58,11 @@ const validarInscripcionMensual = async (data, inscripcionIdActual = null) => {
  * ReservaClase concretas para cada fecha del período usando transacciones.
  */
 const crearInscripcionMensual = async (data) => {
-  await validarInscripcionMensual(data);
+  const { vale_id, ...datosInscripcion } = data;
+  await validarInscripcionMensual(datosInscripcion);
 
   return conn.transaction(async (transaction) => {
-    const clase = await Clase.findByPk(data.clase_id, { transaction });
+    const clase = await Clase.findByPk(datosInscripcion.clase_id, { transaction });
     if (!clase) {
       throw httpError(404, "La clase no existe");
     }
@@ -62,8 +75,8 @@ const crearInscripcionMensual = async (data) => {
     // ninguna fecha disponible, no se permite la inscripción.
     const fechasPeriodo = fechasDeClaseEnPeriodo(
       clase.dia_semana,
-      data.periodo_inicio,
-      data.periodo_fin
+      datosInscripcion.periodo_inicio,
+      datosInscripcion.periodo_fin
     );
     if (fechasPeriodo.length === 0) {
       throw httpError(409, "El período seleccionado no tiene ocurrencias de la clase");
@@ -82,14 +95,23 @@ const crearInscripcionMensual = async (data) => {
       );
     }
 
-    const montoBase = Number(data.monto);
+    const montoBase = Number(datosInscripcion.monto);
     const montoProrrateado =
       fechasEfectivas.length === fechasPeriodo.length
         ? montoBase
         : Number(((montoBase / fechasPeriodo.length) * fechasEfectivas.length).toFixed(2));
 
+    const { monto_final: montoFinal } = await aplicarVale({
+      vale_id,
+      cliente_email: datosInscripcion.cliente_email,
+      clase_id: clase.id,
+      monto_base: montoProrrateado,
+      tipo_inscripcion: "MENSUAL",
+      transaction,
+    });
+
     const inscripcion = await InscripcionMensual.create(
-      { ...data, monto: montoProrrateado },
+      { ...datosInscripcion, monto: montoFinal },
       { transaction }
     );
     await generarReservasMensual(inscripcion, clase, { transaction });

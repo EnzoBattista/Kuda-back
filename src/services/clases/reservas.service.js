@@ -6,6 +6,7 @@ const {
   CancelacionClase,
   Vale,
   Clase,
+  Actividad,
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
@@ -14,7 +15,6 @@ const { notificarPrimero } = require("./listaEspera.service");
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
 const HORAS_ANTICIPACION = 24;
-const PORCENTAJE_VALE = 0.33;
 
 // Clase.DIAS_SEMANA -> número de día JS en UTC (getUTCDay: domingo = 0).
 const DIA_SEMANA_A_NUMERO = {
@@ -216,19 +216,65 @@ const horasHastaClase = (fechaExacta, horaInicio) => {
 };
 
 /**
- * Genera el vale de descuento para un cliente abonado que cancela con +24hs.
- * El vale es válido durante el mes siguiente.
+ * Genera el cupón de descuento para un cliente abonado que cancela con +24hs.
+ * Reglas:
+ *  - Monto = monto pagado de la mensualidad / cantidad de clases del período.
+ *    Para un mes "normal" de 4 clases da 25%; de 5 clases da 20%.
+ *  - Validez: solo durante el mes siguiente (mes calendario).
+ *  - Atado a la misma clase (clase_id) y al cliente.
+ *
+ * Si el cliente no usa el cupón en el mes siguiente, vence y se pierde
+ * automáticamente al pasar la fecha valido_hasta.
  */
-const generarVale = async (clienteEmail, montoMensualidad, options = {}) => {
+const generarValeAbonado = async (clienteEmail, claseId, inscripcionMensual, options = {}) => {
+  const totalReservas = await ReservaClase.count({
+    where: { inscripcion_mensual_id: inscripcionMensual.id },
+    transaction: options.transaction,
+  });
+  if (totalReservas <= 0) return null;
+
+  const montoVale = Number(inscripcionMensual.monto) / totalReservas;
   const hoy = new Date();
   const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
   const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
 
   return Vale.create({
     cliente_email: clienteEmail,
-    monto: Number((montoMensualidad * PORCENTAJE_VALE).toFixed(2)),
+    clase_id: claseId,
+    tipo: "MENSUAL",
+    monto: Number(montoVale.toFixed(2)),
     valido_desde: validoDesde.toISOString().slice(0, 10),
     valido_hasta: validoHasta.toISOString().slice(0, 10),
+  }, options);
+};
+
+/**
+ * Cupón TIPO INDIVIDUAL: 33.3% del valor de la actividad. Atado a la misma
+ * clase; aplicable a la próxima inscripción INDIVIDUAL de esa clase. Validez
+ * por defecto: hasta el último día del mes siguiente.
+ */
+const generarValeIndividual = async (clienteEmail, claseId, options = {}) => {
+  const clase = await Clase.findByPk(claseId, {
+    include: [{ model: Actividad, as: "actividad" }],
+    transaction: options.transaction,
+  });
+  const precio = Number(clase?.actividad?.precio ?? 0);
+  if (precio <= 0) return null;
+
+  const montoVale = precio * 0.333;
+  const hoy = new Date();
+  const validoDesde = hoy.toISOString().slice(0, 10);
+  const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0)
+    .toISOString()
+    .slice(0, 10);
+
+  return Vale.create({
+    cliente_email: clienteEmail,
+    clase_id: claseId,
+    tipo: "INDIVIDUAL",
+    monto: Number(montoVale.toFixed(2)),
+    valido_desde: validoDesde,
+    valido_hasta: validoHasta,
   }, options);
 };
 
@@ -267,46 +313,38 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
     await reserva.save({ transaction });
 
     let vale = null;
-    let reembolso = false;
     let mensaje = "";
 
     // Determinar el origen usando las FKs
     if (reserva.inscripcion_mensual_id) {
+      // Abonado + cancelación con +24hs ⇒ cupón para mensualidad del mes siguiente.
       if (conAnticipacion) {
         const inscripcion = await InscripcionMensual.findByPk(reserva.inscripcion_mensual_id, { transaction });
         if (inscripcion) {
-          vale = await generarVale(emailUsuario, inscripcion.monto, { transaction });
+          vale = await generarValeAbonado(emailUsuario, reserva.clase_id, inscripcion, { transaction });
         }
-        mensaje = "la cancelación se realizó con éxito";
-      } else {
-        mensaje = "la cancelación se realizó con éxito";
       }
+      mensaje = "la cancelación se realizó con éxito";
     } else if (reserva.inscripcion_individual_id) {
+      // Individual + cancelación con +24hs ⇒ cupón TIPO INDIVIDUAL (33.3% del
+      // valor de la actividad) para la próxima reserva en esta clase.
+      // <24hs ⇒ sin cupón, el centro retiene lo abonado.
       const inscripcion = await InscripcionIndividual.findByPk(reserva.inscripcion_individual_id, { transaction });
-
       if (conAnticipacion) {
         if (inscripcion) {
           await inscripcion.update({ estado_seña: null }, { transaction });
-
-          const hoy = new Date();
-          const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
-          const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
-
-          vale = await Vale.create({
-            cliente_email: emailUsuario,
-            monto: Number((inscripcion.monto_pagado * PORCENTAJE_VALE).toFixed(2)),
-            valido_desde: validoDesde.toISOString().slice(0, 10),
-            valido_hasta: validoHasta.toISOString().slice(0, 10),
-          }, { transaction });
         }
-        reembolso = true;
-        mensaje = "la cancelación se realizó con éxito";
+        vale = await generarValeIndividual(emailUsuario, reserva.clase_id, { transaction });
+        mensaje = "Clase cancelada con exito. Se acredito un cupon disponible para la proxima reserva en esta clase";
       } else {
-        mensaje = "la cancelación se realizó con éxito";
+        mensaje = "Clase cancelada con exito.";
       }
+    } else {
+      mensaje = "Clase cancelada con exito.";
     }
 
-    const resultado = { reserva, vale, reembolso, mensaje };
+    // Mantengo reembolso=false por compatibilidad (la HU ahora usa cupones).
+    const resultado = { reserva, vale, reembolso: false, mensaje };
     return resultado;
   });
 };

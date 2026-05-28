@@ -149,14 +149,33 @@ const cancelarReservaController = async (req, res, next) => {
 const getMisVales = async (req, res, next) => {
   try {
     const cliente_email = req.usuario.email;
+    const { clase_id, vigentes } = req.query;
     const hoy = new Date().toISOString().slice(0, 10);
 
+    const where = {
+      cliente_email,
+      usado_en_pago_id: null,
+    };
+    // Por defecto solo devuelve los vigentes (no vencidos). El front puede pedir
+    // todos pasando vigentes=false.
+    if (vigentes !== "false") {
+      where.valido_hasta = { [Op.gte]: hoy };
+    }
+    if (clase_id) {
+      where.clase_id = clase_id;
+      // Para aplicarlo además tiene que estar dentro del período de validez.
+      where.valido_desde = { [Op.lte]: hoy };
+    }
+
     const vales = await Vale.findAll({
-      where: {
-        cliente_email,
-        valido_hasta: { [Op.gte]: hoy },
-        usado_en_pago_id: null,
-      },
+      where,
+      include: [
+        {
+          model: Clase,
+          as: "clase",
+          include: [{ model: Actividad, as: "actividad" }],
+        },
+      ],
       order: [["valido_hasta", "ASC"]],
     });
 

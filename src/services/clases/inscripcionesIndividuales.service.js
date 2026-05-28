@@ -2,6 +2,7 @@ const { Op } = require("sequelize");
 const { InscripcionIndividual, InscripcionMensual, Clase, ReservaClase, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { generarReservasIndividual } = require("./reservas.service");
+const { aplicarVale } = require("../pagos/vales.service");
 
 const MODALIDADES = ["COMPLETO", "SEÑA"];
 const ESTADOS_SEÑA = ["PENDIENTE", "COMPLETADA", "VENCIDA"];
@@ -34,19 +35,23 @@ const validarInscripcionIndividual = (data) => {
  * ReservaClase concreta para la fecha de la clase, usando transacciones.
  */
 const crearInscripcionIndividual = async (data) => {
-  validarInscripcionIndividual(data);
+  const { vale_id, ...datosInscripcion } = data;
+  validarInscripcionIndividual(datosInscripcion);
 
   return conn.transaction(async (transaction) => {
-    const clase = await Clase.findByPk(data.clase_id, { transaction });
+    const clase = await Clase.findByPk(datosInscripcion.clase_id, { transaction });
     if (!clase) {
       throw httpError(404, "Clase no encontrada");
     }
 
-    const fecha = String(data.fecha).slice(0, 10);
+    const fecha = String(datosInscripcion.fecha).slice(0, 10);
+    // Solo bloquea si el cliente ya está abonado a ESTA misma clase y la
+    // reserva de la mensual para esa fecha sigue activa. Si la reserva fue
+    // cancelada (por cualquier motivo), se permite la inscripción individual.
     const abonoActivo = await InscripcionMensual.findOne({
       where: {
-        cliente_email: data.cliente_email,
-        actividad_id: data.actividad_id,
+        cliente_email: datosInscripcion.cliente_email,
+        clase_id: datosInscripcion.clase_id,
         estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
         periodo_inicio: { [Op.lte]: fecha },
         periodo_fin: { [Op.gt]: fecha },
@@ -54,13 +59,41 @@ const crearInscripcionIndividual = async (data) => {
       transaction,
     });
     if (abonoActivo) {
-      throw httpError(
-        409,
-        "Ya tenés un abono activo en esta actividad, no podés reservar individualmente esta clase",
-      );
+      const reservaActivaMensual = await ReservaClase.findOne({
+        where: {
+          inscripcion_mensual_id: abonoActivo.id,
+          fecha_exacta: fecha,
+          estado: "ACTIVA",
+        },
+        transaction,
+      });
+      if (reservaActivaMensual) {
+        throw httpError(
+          409,
+          "Ya tenés un abono activo en esta clase, no podés reservar individualmente",
+        );
+      }
     }
 
-    const inscripcion = await InscripcionIndividual.create(data, { transaction });
+    // Aplica cupón TIPO INDIVIDUAL si vino. Recomputa monto_pagado según
+    // modalidad (COMPLETO = total, SEÑA = 50%).
+    const { monto_final: montoTotalFinal, descuento } = await aplicarVale({
+      vale_id,
+      cliente_email: datosInscripcion.cliente_email,
+      clase_id: clase.id,
+      monto_base: Number(datosInscripcion.monto_total),
+      tipo_inscripcion: "INDIVIDUAL",
+      transaction,
+    });
+    const datosFinales = { ...datosInscripcion, monto_total: montoTotalFinal };
+    if (descuento > 0) {
+      datosFinales.monto_pagado =
+        datosInscripcion.modalidad === "SEÑA"
+          ? Number((montoTotalFinal / 2).toFixed(2))
+          : montoTotalFinal;
+    }
+
+    const inscripcion = await InscripcionIndividual.create(datosFinales, { transaction });
     await generarReservasIndividual(inscripcion, clase, { transaction });
 
     return InscripcionIndividual.findByPk(inscripcion.id, {

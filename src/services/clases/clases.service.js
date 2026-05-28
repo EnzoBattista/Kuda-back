@@ -285,6 +285,7 @@ const cancelarFechaClase = async (claseId, data) => {
       await reserva.save({ transaction });
 
       let monto = 0;
+      let tipoVale = "MENSUAL";
 
       if (reserva.inscripcion_individual_id) {
         const ins = await InscripcionIndividual.findByPk(
@@ -292,6 +293,7 @@ const cancelarFechaClase = async (claseId, data) => {
           { transaction }
         );
         if (ins) monto = Number(ins.monto_pagado);
+        tipoVale = "INDIVIDUAL";
       } else if (reserva.inscripcion_mensual_id) {
         const ins = await InscripcionMensual.findByPk(
           reserva.inscripcion_mensual_id,
@@ -309,12 +311,15 @@ const cancelarFechaClase = async (claseId, data) => {
             monto = Number(ins.monto) / totalReservas;
           }
         }
+        tipoVale = "MENSUAL";
       }
 
       if (monto > 0) {
         await Vale.create(
           {
             cliente_email: reserva.cliente_email,
+            clase_id: clase.id,
+            tipo: tipoVale,
             monto: Number(monto.toFixed(2)),
             valido_desde: validoDesde,
             valido_hasta: validoHasta,
