@@ -9,9 +9,7 @@ const TIPOS_INSCRIPCION = ["MENSUAL", "INDIVIDUAL"];
  *  - Tiene que estar vigente (hoy entre valido_desde y valido_hasta).
  *  - Tiene que estar atado a la misma clase (vale.clase_id === claseId).
  *  - No tiene que haber sido usado previamente.
- *  - SOLO se permite aplicarlo a inscripciones MENSUAL (regla de negocio:
- *    el cupón es para descuento del pago de la mensualidad del mes siguiente;
- *    no se puede usar en clases individuales).
+ *  - Puede aplicarse tanto a inscripciones MENSUALES como INDIVIDUALES.
  *
  * Si todo OK, marca el cupón como usado y devuelve el monto final con
  * descuento. Si vale_id es undefined/null, no hace nada.
@@ -43,17 +41,7 @@ const aplicarVale = async ({
   if (vale.clase_id != null && vale.clase_id !== clase_id) {
     throw httpError(409, "El cupón solo puede aplicarse a la clase original");
   }
-  // El tipo del cupón tiene que coincidir con el tipo de inscripción que se
-  // está creando. Cupón MENSUAL solo aplica a inscripción mensual; cupón
-  // INDIVIDUAL solo aplica a inscripción individual.
-  if (tipo_inscripcion && vale.tipo && vale.tipo !== tipo_inscripcion) {
-    throw httpError(
-      409,
-      vale.tipo === "MENSUAL"
-        ? "Este cupón solo puede usarse para el pago de la mensualidad"
-        : "Este cupón solo puede usarse para una inscripción individual de esta clase"
-    );
-  }
+
 
   const hoy = new Date().toISOString().slice(0, 10);
   if (hoy < String(vale.valido_desde) || hoy > String(vale.valido_hasta)) {

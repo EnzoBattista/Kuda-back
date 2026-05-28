@@ -335,7 +335,7 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
           await inscripcion.update({ estado_seña: null }, { transaction });
         }
         vale = await generarValeIndividual(emailUsuario, reserva.clase_id, { transaction });
-        mensaje = "Clase cancelada con exito. Se acredito un cupon disponible para la proxima reserva en esta clase";
+        mensaje = "Clase cancelada con exito.";
       } else {
         mensaje = "Clase cancelada con exito.";
       }
