@@ -64,7 +64,7 @@ const darDeBajaUsuario = async (email) => {
     {
       where: {
         cliente_email: email,
-        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA", "PENDIENTE"] },
+        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
       },
     }
   );
