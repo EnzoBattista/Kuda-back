@@ -184,10 +184,14 @@ const getClaseById = async (id) => {
   }
 
   let generadas = 0;
-  // Buscamos hasta 4 fechas, con un límite de iteraciones por seguridad
+  // Buscamos hasta 8 fechas, con un límite de iteraciones por seguridad
   let intentos = 0;
-  while (generadas < 4 && intentos < 12) {
-    const fechaStr = actual.toISOString().slice(0, 10);
+  while (generadas < 8 && intentos < 24) {
+    const yyyy = actual.getFullYear();
+    const mm = String(actual.getMonth() + 1).padStart(2, '0');
+    const dd = String(actual.getDate()).padStart(2, '0');
+    const fechaStr = `${yyyy}-${mm}-${dd}`;
+    
     if (!fechasCanceladas.includes(fechaStr)) {
       proximasFechas.push(fechaStr);
       generadas++;
@@ -206,7 +210,11 @@ const deleteClase = async (id) => {
   const clase = await Clase.findByPk(id);
   if (!clase) throw httpError(404, "Clase no encontrada");
 
-  const hoy = new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hoy = `${yyyy}-${mm}-${dd}`;
 
   const reservasActivasFuturas = await ReservaClase.count({
     where: {

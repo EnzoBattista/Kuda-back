@@ -6,8 +6,6 @@ const { ROLES } = require("../../constants/roles");
 
 const validarUsuario = (data) => {
   if (data.email !== undefined) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data.email)) throw httpError(400, "El email no tiene un formato válido");
     if (!data.email.trim()) throw httpError(400, "El email no puede estar vacío");
   }
   if (data.dni !== undefined && !data.dni.trim()) throw httpError(400, "El DNI no puede estar vacío");

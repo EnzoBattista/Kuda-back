@@ -18,8 +18,8 @@ const createActividad = async (data) => {
     throw httpError(400, "El nombre de la actividad no puede estar vacío");
   }
 
-  if (precio !== undefined && precio < 0) {
-    throw httpError(400, "El precio no puede ser negativo");
+  if (precio !== undefined && precio <= 0) {
+    throw httpError(400, "El precio de la actividad debe ser mayor a 0");
   }
 
   const existente = await Actividad.findOne({ where: { nombre } });
