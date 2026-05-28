@@ -1,6 +1,6 @@
 const { Usuario, Rol } = require("../../../db");
 const { ROLES } = require("../../constants/roles");
-const { crearUsuario } = require("../../services/acceso/usuarios.service");
+const { crearUsuario, darDeBajaUsuario } = require("../../services/acceso/usuarios.service");
 const httpError = require("../../utils/httpError");
 
 const CAMPOS_RECEPCIONISTA = ["email", "dni", "nombre", "apellido", "telefono", "password"];
@@ -44,4 +44,26 @@ const createRecepcionista = async (req, res, next) => {
   }
 };
 
-module.exports = { createRecepcionista };
+const deleteRecepcionista = async (req, res, next) => {
+  try {
+    const usuario = await Usuario.findByPk(req.params.email, {
+      include: [{ model: Rol, as: "rol" }],
+    });
+    if (!usuario) {
+      throw httpError(404, "Recepcionista no encontrado");
+    }
+    if (!usuario.rol || usuario.rol.nombre !== ROLES.RECEPCIONISTA) {
+      throw httpError(400, "El usuario indicado no es un recepcionista");
+    }
+
+    await darDeBajaUsuario(req.params.email);
+    return res.status(200).json({ message: "Recepcionista eliminado con éxito" });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
+module.exports = { createRecepcionista, deleteRecepcionista };

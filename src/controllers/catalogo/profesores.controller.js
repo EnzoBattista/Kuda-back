@@ -63,6 +63,30 @@ const updateProfesor = async (req, res, next) => {
       });
     }
 
+    if (actividades !== undefined) {
+      const actividadesActuales = await profesor.getActividades({ attributes: ["id", "nombre"] });
+      const nuevasIds = actividades.map((a) => Number(a));
+      const quitadas = actividadesActuales.filter((a) => !nuevasIds.includes(a.id));
+
+      if (quitadas.length > 0) {
+        const conflictivas = await Clase.findAll({
+          where: {
+            profesor_id: profesor.id,
+            activa: true,
+            actividad_id: { [Op.in]: quitadas.map((a) => a.id) },
+          },
+          include: [{ model: Actividad, as: "actividad", attributes: ["nombre"] }],
+        });
+
+        if (conflictivas.length > 0) {
+          const nombres = [...new Set(conflictivas.map((c) => c.actividad?.nombre).filter(Boolean))];
+          return res.status(409).json({
+            message: `No se puede quitar la actividad ${nombres.join(", ")}: el profesor tiene clases activas asignadas`,
+          });
+        }
+      }
+    }
+
     await profesor.update({ nombre, apellido, dni, activo });
 
     if (actividades !== undefined) {
