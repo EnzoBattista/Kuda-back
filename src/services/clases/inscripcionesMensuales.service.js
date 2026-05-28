@@ -1,7 +1,7 @@
 const { Op } = require("sequelize");
-const { InscripcionMensual, Clase, ReservaClase, conn } = require("../../../db");
+const { InscripcionMensual, Clase, ReservaClase, CancelacionClase, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
-const { generarReservasMensual } = require("./reservas.service");
+const { generarReservasMensual, fechasDeClaseEnPeriodo } = require("./reservas.service");
 const { notificarPrimero } = require("./listaEspera.service");
 
 const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA"];
@@ -57,7 +57,41 @@ const crearInscripcionMensual = async (data) => {
       throw httpError(400, "La clase seleccionada se encuentra inactiva o dada de baja");
     }
 
-    const inscripcion = await InscripcionMensual.create(data, { transaction });
+    // Prorratea el monto según las fechas que efectivamente ocurrirán en el
+    // período (descuenta las que están canceladas por el CEF). Si no hay
+    // ninguna fecha disponible, no se permite la inscripción.
+    const fechasPeriodo = fechasDeClaseEnPeriodo(
+      clase.dia_semana,
+      data.periodo_inicio,
+      data.periodo_fin
+    );
+    if (fechasPeriodo.length === 0) {
+      throw httpError(409, "El período seleccionado no tiene ocurrencias de la clase");
+    }
+    const canceladas = await CancelacionClase.findAll({
+      where: { clase_id: clase.id, fecha: { [Op.in]: fechasPeriodo } },
+      attributes: ["fecha"],
+      transaction,
+    });
+    const setCanceladas = new Set(canceladas.map((c) => String(c.fecha).slice(0, 10)));
+    const fechasEfectivas = fechasPeriodo.filter((f) => !setCanceladas.has(f));
+    if (fechasEfectivas.length === 0) {
+      throw httpError(
+        409,
+        "El período seleccionado no tiene clases disponibles (todas las fechas están canceladas)"
+      );
+    }
+
+    const montoBase = Number(data.monto);
+    const montoProrrateado =
+      fechasEfectivas.length === fechasPeriodo.length
+        ? montoBase
+        : Number(((montoBase / fechasPeriodo.length) * fechasEfectivas.length).toFixed(2));
+
+    const inscripcion = await InscripcionMensual.create(
+      { ...data, monto: montoProrrateado },
+      { transaction }
+    );
     await generarReservasMensual(inscripcion, clase, { transaction });
 
     return InscripcionMensual.findByPk(inscripcion.id, {

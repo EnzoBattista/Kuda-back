@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { Clase, Actividad, Sala, Profesor, CancelacionClase, InscripcionMensual, InscripcionIndividual, ReservaClase } = require("../../../db");
+const { Clase, Actividad, Sala, Profesor, CancelacionClase, InscripcionMensual, InscripcionIndividual, ReservaClase, Vale, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
 const MAPA_DIAS = {
@@ -257,24 +257,80 @@ const cancelarFechaClase = async (claseId, data) => {
     throw httpError(409, "Esta fecha ya se encuentra cancelada");
   }
 
-  const cancelacion = await CancelacionClase.create({
-    clase_id: claseId,
-    fecha,
-    motivo,
+  return conn.transaction(async (transaction) => {
+    const cancelacion = await CancelacionClase.create(
+      { clase_id: claseId, fecha, motivo },
+      { transaction }
+    );
+
+    // Cancelar las reservas activas de esa fecha y otorgar un vale por el
+    // valor de la clase a cada cliente afectado.
+    const reservasActivas = await ReservaClase.findAll({
+      where: { clase_id: claseId, fecha_exacta: fecha, estado: "ACTIVA" },
+      transaction,
+    });
+
+    const hoy = new Date();
+    const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1)
+      .toISOString()
+      .slice(0, 10);
+    const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0)
+      .toISOString()
+      .slice(0, 10);
+
+    let valesGenerados = 0;
+
+    for (const reserva of reservasActivas) {
+      reserva.estado = "CANCELADA";
+      await reserva.save({ transaction });
+
+      let monto = 0;
+
+      if (reserva.inscripcion_individual_id) {
+        const ins = await InscripcionIndividual.findByPk(
+          reserva.inscripcion_individual_id,
+          { transaction }
+        );
+        if (ins) monto = Number(ins.monto_pagado);
+      } else if (reserva.inscripcion_mensual_id) {
+        const ins = await InscripcionMensual.findByPk(
+          reserva.inscripcion_mensual_id,
+          { transaction }
+        );
+        if (ins) {
+          // El valor de una clase del abonado = monto pagado / cantidad de
+          // reservas generadas por esa inscripción (refleja el prorrateo
+          // hecho al momento de inscribirse).
+          const totalReservas = await ReservaClase.count({
+            where: { inscripcion_mensual_id: ins.id },
+            transaction,
+          });
+          if (totalReservas > 0) {
+            monto = Number(ins.monto) / totalReservas;
+          }
+        }
+      }
+
+      if (monto > 0) {
+        await Vale.create(
+          {
+            cliente_email: reserva.cliente_email,
+            monto: Number(monto.toFixed(2)),
+            valido_desde: validoDesde,
+            valido_hasta: validoHasta,
+          },
+          { transaction }
+        );
+        valesGenerados += 1;
+      }
+    }
+
+    return {
+      cancelacion,
+      reservasCanceladas: reservasActivas.length,
+      valesGenerados,
+    };
   });
-
-  // RUTINA DE REINTEGRO
-  // Verificar si hay inscriptos para este día específico
-  const individualesAfectadas = await InscripcionIndividual.findAll({
-    where: { clase_id: claseId, fecha }
-  });
-
-  if (individualesAfectadas.length > 0) {
-    // TODO: Ejecutar rutina automática de reintegro a cada afectado
-    console.log(`[Reintegro] Se debe reintegrar a ${individualesAfectadas.length} inscriptos por la cancelación de la clase ${claseId} el ${fecha}`);
-  }
-
-  return cancelacion;
 };
 
 module.exports = {

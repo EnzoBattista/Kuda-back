@@ -86,12 +86,18 @@ const cancelarFechaClase = async (req, res, next) => {
   try {
     const { id } = req.params;
     const data = req.body; // { fecha, motivo }
-    
-    const cancelacion = await clasesService.cancelarFechaClase(id, data);
-    
+
+    const resultado = await clasesService.cancelarFechaClase(id, data);
+
+    const message = resultado.reservasCanceladas > 0
+      ? "La clase fue cancelada exitosamente. Se le reintegrara a cada cliente afectado la clase correspondiente"
+      : "La clase fue cancelada exitosamente";
+
     return res.status(201).json({
-      message: "La clase fue cancelada exitosamente",
-      cancelacion,
+      message,
+      cancelacion: resultado.cancelacion,
+      reservasCanceladas: resultado.reservasCanceladas,
+      valesGenerados: resultado.valesGenerados,
     });
   } catch (error) {
     return next(error);
