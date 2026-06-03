@@ -7,6 +7,8 @@ const {
   registrarPago,
   generarPagoQr,
   createPreference,
+  getEstadoPago,
+  webhookMercadoPago,
   generarComprobante,
 } = require("../../controllers/pagos/pagos.controller");
 
@@ -16,6 +18,8 @@ router.get("/", auth, requirePermiso(PERMISOS.PAGO_VER_TODOS), getAllPagos);
 router.post("/registrar", auth, requirePermiso(PERMISOS.PAGO_COBRAR), registrarPago);
 router.post("/qr", auth, generarPagoQr);
 router.post("/create-preference", auth, createPreference);
+router.post("/webhook/mercadopago", webhookMercadoPago);
+router.get("/:id/estado", auth, getEstadoPago);
 router.get("/:id/comprobante", auth, requirePermiso(PERMISOS.PAGO_VER_TODOS), generarComprobante);
 
 module.exports = router;
