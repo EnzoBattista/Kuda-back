@@ -8,9 +8,11 @@ const {
   updateUsuario,
   deleteUsuario,
 } = require("../../controllers/usuarios/usuarios.controller");
+const { getMiQr } = require("../../controllers/usuarios/qr.controller");
 
 const router = express.Router();
 
+router.get("/me/qr", auth, getMiQr);
 router.get("/", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), getAllUsuarios);
 router.get("/:email", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR, { allowSelf: true }), getUsuarioByEmail);
 router.put("/:email", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR, { allowSelf: true }), updateUsuario);

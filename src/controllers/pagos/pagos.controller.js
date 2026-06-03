@@ -1,116 +1,69 @@
-const { Op } = require("sequelize");
-const { MercadoPagoConfig, Preference } = require("mercadopago");
-const { Pago, Cliente, Usuario } = require("../../../db");
-
-const includes = [
-  { model: Cliente, as: "cliente" },
-  { model: Usuario, as: "recepcionista" },
-];
+const pagosService = require("../../services/pagos/pagos.service");
 
 const getAllPagos = async (req, res, next) => {
   try {
-    const { cliente_email, origen, desde, hasta } = req.query;
-    const where = {};
-    if (cliente_email) where.cliente_email = cliente_email;
-    if (origen) where.origen = origen;
-    if (desde || hasta) {
-      where.fecha = {};
-      if (desde) where.fecha[Op.gte] = new Date(desde);
-      if (hasta) where.fecha[Op.lte] = new Date(hasta);
-    }
+    const pagos = await pagosService.listarPagos(req.query);
 
-    const pagos = await Pago.findAll({
-      where,
-      include: includes,
-      order: [["fecha", "DESC"]],
-    });
     if (pagos.length === 0) {
       return res.status(200).json({ message: "No se han encontrado pagos", data: [] });
     }
+
     return res.status(200).json(pagos);
   } catch (error) {
     return next(error);
   }
 };
 
-const createPago = async (req, res, next) => {
+const registrarPago = async (req, res, next) => {
   try {
-    const {
-      cliente_email,
-      recepcionista_email,
-      origen,
-      origen_id,
-      monto,
-      fecha,
-      medio,
-      mp_payment_id,
-    } = req.body;
-
-    if (monto <= 0) {
-      return res.status(400).json({ message: "El monto del pago debe ser mayor a cero" });
-    }
-
-    const pago = await Pago.create({
-      cliente_email,
-      recepcionista_email,
-      origen,
-      origen_id,
-      monto,
-      fecha,
-      medio,
-      mp_payment_id,
+    const pago = await pagosService.registrarPagoManual(req.body, req.usuario.email);
+    return res.status(201).json({
+      message: "Pago registrado correctamente",
+      data: pago,
     });
-    return res.status(201).json({ message: "Pago registrado correctamente", data: pago });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
+const generarPagoQr = async (req, res, next) => {
+  try {
+    const resultado = await pagosService.generarPagoQr(req.body, req.usuario.email);
+    return res.status(201).json({
+      message: "Intención de pago QR generada",
+      ...resultado,
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     return next(error);
   }
 };
 
 const createPreference = async (req, res, next) => {
   try {
-    const { tituloPlan, precio } = req.body;
+    const { tituloPlan, precio, cliente_email, external_reference } = req.body;
 
-    if (!tituloPlan || precio === undefined || Number(precio) <= 0) {
-      return res.status(400).json({
-        error: "Debe enviar tituloPlan y precio válido",
-      });
+    if (!tituloPlan || precio === undefined) {
+      return res.status(400).json({ error: "Debe enviar tituloPlan y precio válido" });
     }
 
-    if (!process.env.MP_ACCESS_TOKEN) {
-      return res.status(500).json({
-        error: "Falta configurar MP_ACCESS_TOKEN en variables de entorno",
-      });
-    }
-
-    const client = new MercadoPagoConfig({
-      accessToken: process.env.MP_ACCESS_TOKEN,
+    const preference = await pagosService.crearPreferenciaMercadoPago({
+      tituloPlan,
+      precio,
+      cliente_email: cliente_email || req.usuario?.email,
+      external_reference,
     });
 
-    const preferenceClient = new Preference(client);
-
-    const bodyData = {
-      items: [
-        {
-          title: tituloPlan,
-          quantity: 1,
-          currency_id: "ARS",
-          unit_price: Number(precio),
-        },
-      ],
-      back_urls: {
-        success: "http://localhost:4200",
-        failure: "http://localhost:4200",
-        pending: "http://localhost:4200",
-      },
-    };
-
-    const preference = await preferenceClient.create({ body: bodyData });
-
-    return res.status(201).json({
-      id: preference.id,
-      init_point: preference.init_point,
-    });
+    return res.status(201).json(preference);
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message, error: error.message });
+    }
     return next(error);
   }
 };
@@ -118,19 +71,22 @@ const createPreference = async (req, res, next) => {
 const generarComprobante = async (req, res, next) => {
   try {
     const { id } = req.params;
-    // Mock
-    if (id === 'error') {
-      return res.status(500).json({ message: "Hubo un error al recuperar la informacion del pago." });
-    }
-    return res.status(200).json({ message: "Generar comprobante", id });
+    const comprobante = await pagosService.obtenerComprobante(id);
+    return res.status(200).json(comprobante);
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        message: "Hubo un error al recuperar la informacion del pago.",
+      });
+    }
     return next(error);
   }
 };
 
 module.exports = {
   getAllPagos,
-  createPago,
+  registrarPago,
+  generarPagoQr,
   createPreference,
   generarComprobante,
 };

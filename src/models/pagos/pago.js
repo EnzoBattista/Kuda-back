@@ -1,7 +1,8 @@
 const { DataTypes } = require("sequelize");
 
-const ORIGENES = ["MENSUALIDAD", "CLASE_SUELTA", "SEÑA", "SALDO_SEÑA"];
-const MEDIOS = ["MP"];
+const ORIGENES = ["MENSUALIDAD", "CLASE_SUELTA", "SEÑA", "SALDO_SEÑA", "MANUAL"];
+const METODOS = ["EFECTIVO", "TRANSFERENCIA", "MERCADO_PAGO", "QR"];
+const ESTADOS = ["PENDIENTE", "COMPLETADO", "RECHAZADO"];
 
 module.exports = (sequelize) => {
   const Pago = sequelize.define(
@@ -24,11 +25,25 @@ module.exports = (sequelize) => {
       },
       origen: {
         type: DataTypes.ENUM(...ORIGENES),
-        allowNull: false,
+        allowNull: true,
       },
       origen_id: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
+      },
+      reserva_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: "reservas_clase", key: "id" },
+      },
+      inscripcion_mensual_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: "inscripciones_mensuales", key: "id" },
+      },
+      concepto: {
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       monto: {
         type: DataTypes.DECIMAL(10, 2),
@@ -39,28 +54,43 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: DataTypes.NOW,
       },
-      medio: {
-        type: DataTypes.ENUM(...MEDIOS),
+      metodo: {
+        type: DataTypes.ENUM(...METODOS),
         allowNull: false,
-        defaultValue: "MP",
+        defaultValue: "MERCADO_PAGO",
+      },
+      estado: {
+        type: DataTypes.ENUM(...ESTADOS),
+        allowNull: false,
+        defaultValue: "COMPLETADO",
       },
       mp_payment_id: {
         type: DataTypes.STRING,
+        allowNull: true,
+      },
+      qr_referencia: {
+        type: DataTypes.TEXT,
         allowNull: true,
       },
     },
     {
       tableName: "pagos",
       timestamps: true,
-    }
+    },
   );
 
   Pago.ORIGENES = ORIGENES;
-  Pago.MEDIOS = MEDIOS;
+  Pago.METODOS = METODOS;
+  Pago.ESTADOS = ESTADOS;
 
   Pago.associate = (models) => {
     Pago.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
     Pago.belongsTo(models.Usuario, { foreignKey: "recepcionista_email", as: "recepcionista" });
+    Pago.belongsTo(models.ReservaClase, { foreignKey: "reserva_id", as: "reserva" });
+    Pago.belongsTo(models.InscripcionMensual, {
+      foreignKey: "inscripcion_mensual_id",
+      as: "inscripcionMensual",
+    });
   };
 
   return Pago;

@@ -205,6 +205,27 @@ const removerDeListaManual = async (listaEsperaId) => {
 };
 
 /**
+ * Lista los clientes en espera (global o filtrada por clase).
+ */
+const listarListaEspera = async ({ clase_id, tipo, fecha_exacta } = {}) => {
+  const where = {
+    estado: { [Op.in]: ["ESPERANDO", "NOTIFICADO"] },
+  };
+  if (clase_id) where.clase_id = clase_id;
+  if (tipo) where.tipo = tipo;
+  if (tipo === "INDIVIDUAL" && fecha_exacta) where.fecha_exacta = fecha_exacta;
+
+  return ListaEspera.findAll({
+    where,
+    order: [["clase_id", "ASC"], ["posicion", "ASC"]],
+    include: [
+      { model: Usuario, as: "cliente", attributes: ["email", "nombre", "apellido", "dni"] },
+      { model: Clase, as: "clase", attributes: ["id", "nombre", "dia_semana", "hora_inicio"] },
+    ],
+  });
+};
+
+/**
  * Lista los clientes en espera para una clase (para visualización del recepcionista).
  */
 const getListaEspera = async (claseId, tipo, fechaExacta = null) => {
@@ -229,5 +250,6 @@ module.exports = {
   notificarPrimero,
   verificarExpirados,
   removerDeListaManual,
+  listarListaEspera,
   getListaEspera,
 };

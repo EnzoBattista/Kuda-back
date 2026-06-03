@@ -2,7 +2,30 @@ const {
   anotarseEnLista,
   removerDeListaManual,
   getListaEspera,
+  listarListaEspera,
 } = require("../../services/clases/listaEspera.service");
+
+/**
+ * GET /api/lista-espera
+ * Query: ?clase_id=&tipo=&fecha_exacta=
+ */
+const getListaGlobal = async (req, res, next) => {
+  try {
+    const { clase_id, tipo, fecha_exacta } = req.query;
+    const lista = await listarListaEspera({
+      clase_id: clase_id ? Number(clase_id) : undefined,
+      tipo,
+      fecha_exacta,
+    });
+
+    if (lista.length === 0) {
+      return res.status(200).json({ message: "No hay clientes en la lista de espera", data: [] });
+    }
+    return res.status(200).json(lista);
+  } catch (error) {
+    return next(error);
+  }
+};
 
 /**
  * POST /api/lista-espera
@@ -68,4 +91,4 @@ const removerManual = async (req, res, next) => {
   }
 };
 
-module.exports = { anotarse, getLista, removerManual };
+module.exports = { anotarse, getListaGlobal, getLista, removerManual };

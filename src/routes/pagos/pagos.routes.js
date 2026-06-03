@@ -4,7 +4,8 @@ const requirePermiso = require("../../middleware/requirePermiso");
 const { PERMISOS } = require("../../constants/permisos");
 const {
   getAllPagos,
-  createPago,
+  registrarPago,
+  generarPagoQr,
   createPreference,
   generarComprobante,
 } = require("../../controllers/pagos/pagos.controller");
@@ -12,8 +13,9 @@ const {
 const router = express.Router();
 
 router.get("/", auth, requirePermiso(PERMISOS.PAGO_VER_TODOS), getAllPagos);
-router.post("/", auth, requirePermiso(PERMISOS.PAGO_COBRAR), createPago);
+router.post("/registrar", auth, requirePermiso(PERMISOS.PAGO_COBRAR), registrarPago);
+router.post("/qr", auth, generarPagoQr);
 router.post("/create-preference", auth, createPreference);
-router.get("/comprobante/:id", auth, generarComprobante);
+router.get("/:id/comprobante", auth, requirePermiso(PERMISOS.PAGO_VER_TODOS), generarComprobante);
 
 module.exports = router;

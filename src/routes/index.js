@@ -18,7 +18,7 @@ const listaEsperaRouter = require("./clases/listaEspera.routes");
 const cronRouter = require("./cron.routes");
 const reportesRouter = require("./reportes/reportes.routes");
 const notificacionesRouter = require("./notificaciones/notificaciones.routes");
-const qrRouter = require("./qr/qr.routes");
+const asistenciasRouter = require("./asistencias/asistencias.routes");
 
 router.get("/", (_req, res) => {
   res.json({
@@ -37,6 +37,8 @@ router.get("/", (_req, res) => {
       pagos: "/api/pagos",
       reservas: "/api/reservas",
       listaEspera: "/api/lista-espera",
+      reportes: "/api/reportes",
+      asistencias: "/api/asistencias",
     },
   });
 });
@@ -58,6 +60,6 @@ router.use("/api/lista-espera", listaEsperaRouter);
 router.use("/api/cron", cronRouter);
 router.use("/api/reportes", reportesRouter);
 router.use("/api/notificaciones", notificacionesRouter);
-router.use("/api/qr", qrRouter);
+router.use("/api/asistencias", asistenciasRouter);
 
 module.exports = router;

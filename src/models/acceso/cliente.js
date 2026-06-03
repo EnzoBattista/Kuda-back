@@ -26,6 +26,27 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
+      foto_perfil: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      notificaciones_activas: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
+      canales_notificacion: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {
+          email: true,
+          sms: false,
+          push: false,
+          recordatorios_clases: true,
+          promociones: false,
+          recordatorio_pago_dia: null,
+        },
+      },
     },
     {
       tableName: "clientes",
