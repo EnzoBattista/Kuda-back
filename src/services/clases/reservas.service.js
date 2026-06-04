@@ -101,6 +101,27 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction }) =>
     throw httpError(400, "Ya se cuenta con una reserva activa para esta clase");
   }
 
+  const conflictoHorario = await ReservaClase.findOne({
+    where: {
+      cliente_email: inscripcion.cliente_email,
+      fecha_exacta: fecha,
+      estado: "ACTIVA",
+      clase_id: { [Op.ne]: clase.id },
+    },
+    include: [{
+      model: Clase,
+      as: "clase",
+      where: {
+        hora_inicio: { [Op.lt]: clase.hora_fin },
+        hora_fin: { [Op.gt]: clase.hora_inicio },
+      }
+    }],
+    transaction,
+  });
+  if (conflictoHorario) {
+    throw httpError(409, "Ya tenés una reserva activa en ese día y horario");
+  }
+
   await verificarCupo(clase, fecha, transaction);
 
   const reserva = await ReservaClase.create(
@@ -172,6 +193,32 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
       409,
       "Ya tenés reservas activas para todas las fechas de esta clase en el período"
     );
+  }
+
+  for (const fecha of fechasValidas) {
+    const conflictoHorario = await ReservaClase.findOne({
+      where: {
+        cliente_email: inscripcion.cliente_email,
+        fecha_exacta: fecha,
+        estado: "ACTIVA",
+        clase_id: { [Op.ne]: clase.id },
+      },
+      include: [{
+        model: Clase,
+        as: "clase",
+        where: {
+          hora_inicio: { [Op.lt]: clase.hora_fin },
+          hora_fin: { [Op.gt]: clase.hora_inicio },
+        }
+      }],
+      transaction,
+    });
+    if (conflictoHorario) {
+      throw httpError(
+        409,
+        `Ya tenés una reserva activa en ese horario para la fecha ${fecha}`
+      );
+    }
   }
 
   const sinCupo = [];

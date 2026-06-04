@@ -25,7 +25,7 @@ const toReservaDTO = (reserva, { canceladaPorCef = false } = {}) => {
       profesor: reserva.clase.profesor
         ? `${reserva.clase.profesor.nombre} ${reserva.clase.profesor.apellido}`
         : null,
-      sala: reserva.clase.sala ? reserva.clase.sala.nombre : null,
+      sala: reserva.clase.sala ? reserva.clase.sala.identificador : null,
     } : null,
   };
 
