@@ -4,7 +4,7 @@ const { crearProfesor } = require("../../services/catalogo/profesores.service");
 
 const createProfesor = async (req, res, next) => {
   try {
-    const { nombre, apellido, dni, actividades } = req.body;
+    const { nombre, apellido, dni, telefono, email, actividades } = req.body;
 
     const existingProfesor = await Profesor.findOne({ where: { dni } });
     if (existingProfesor) {
@@ -23,6 +23,8 @@ const createProfesor = async (req, res, next) => {
       nombre,
       apellido,
       dni,
+      telefono,
+      email,
     });
 
     if (actividades && actividades.length > 0) {
@@ -41,7 +43,7 @@ const createProfesor = async (req, res, next) => {
 const updateProfesor = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { nombre, apellido, dni, activo, actividades } = req.body;
+    const { nombre, apellido, dni, telefono, email, activo, actividades } = req.body;
 
     const profesor = await Profesor.findByPk(id);
     if (!profesor) {
@@ -87,7 +89,7 @@ const updateProfesor = async (req, res, next) => {
       }
     }
 
-    await profesor.update({ nombre, apellido, dni, activo });
+    await profesor.update({ nombre, apellido, dni, telefono, email, activo });
 
     if (actividades !== undefined) {
       await profesor.setActividades(actividades);

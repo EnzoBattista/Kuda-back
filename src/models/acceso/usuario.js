@@ -43,6 +43,10 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: false,
       },
+      fecha_intento_registro: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
     },
     {
       tableName: "usuarios",
