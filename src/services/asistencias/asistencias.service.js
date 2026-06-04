@@ -182,7 +182,7 @@ const generarQrCliente = async (clienteEmail) => {
   if (!reserva) {
     throw httpError(
       400,
-      "No posee reserva activa para el turno actual.",
+      "No tenés una clase reservada para hoy. El QR de acceso se habilita el día de tu clase, desde 30 minutos antes del horario.",
     );
   }
 

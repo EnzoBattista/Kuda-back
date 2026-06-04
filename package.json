@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest --runInBand --detectOpenHandles --forceExit"
+    "test": "jest --runInBand --detectOpenHandles --forceExit",
+    "seed:qr-demo": "sequelize-cli db:seed --seed 20260608120000-qr-hoy-demo.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
