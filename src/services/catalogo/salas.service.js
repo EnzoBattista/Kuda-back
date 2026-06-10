@@ -49,7 +49,7 @@ const validarSala = (data) => {
     throw httpError(400, "El identificador de la sala no puede estar vacío");
   }
   if (data.cupo !== undefined && Number(data.cupo) < CUPO_MINIMO) {
-    throw httpError(400, "El cupo debe ser mayor a 0.");
+    throw httpError(400, "El cupo debe ser mayor o igual a 10.");
   }
 };
 
@@ -110,25 +110,16 @@ const listarSalas = async () => {
   return salas;
 };
 
-const obtenerSalaDetalle = async (id) => {
-  const sala = await Sala.findByPk(id);
-  if (!sala) throw httpError(404, "Sala no encontrada");
-
-  const clases_proximas = await construirClasesProximas(sala.id);
-
-  return {
-    ...sala.toJSON(),
-    clases_proximas,
-  };
-};
-
 const crearSala = async (data) => {
   validarSala(data);
 
   const identificador = String(data.identificador).trim();
   const salaExistente = await Sala.findOne({ where: { identificador } });
   if (salaExistente) {
-    throw httpError(400, "La sala ya se encuentra registrada en el sistema.");
+    throw httpError(
+      400,
+      `La sala "${identificador}" ya se encuentra registrada en el sistema.`,
+    );
   }
 
   return Sala.create({
@@ -170,6 +161,17 @@ const actualizarSala = async (sala, data) => {
   return sala.update(data);
 };
 
+const habilitarSala = async (id) => {
+  const sala = await Sala.findByPk(id);
+  if (!sala) throw httpError(404, "Sala no encontrada");
+
+  if (sala.estado_activo) {
+    return sala;
+  }
+
+  return sala.update({ estado_activo: true });
+};
+
 const deshabilitarSala = async (id) => {
   const sala = await Sala.findByPk(id);
   if (!sala) throw httpError(404, "Sala no encontrada");
@@ -200,9 +202,9 @@ const eliminarSala = async (id) => {
 module.exports = {
   validarSala,
   listarSalas,
-  obtenerSalaDetalle,
   crearSala,
   actualizarSala,
+  habilitarSala,
   deshabilitarSala,
   eliminarSala,
 };

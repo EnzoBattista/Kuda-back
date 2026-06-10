@@ -11,14 +11,25 @@ module.exports = {
     const rolPorNombre = Object.fromEntries(roles.map((r) => [r.nombre, r.id]));
 
     const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash("password123", salt);
+    const hash = await bcrypt.hash("12345678", salt);
 
     await queryInterface.bulkInsert("usuarios", [
       {
-        email: "recepcion@test.com",
-        dni: "55555555",
-        nombre: "Sofía",
-        apellido: "López",
+        email: "recepcion1@test.com",
+        dni: "55555551",
+        nombre: "Recepcionista",
+        apellido: "Uno",
+        password: hash,
+        activo: true,
+        rol_id: rolPorNombre["RECEPCIONISTA"],
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        email: "recepcion2@test.com",
+        dni: "55555552",
+        nombre: "Recepcionista",
+        apellido: "Dos",
         password: hash,
         activo: true,
         rol_id: rolPorNombre["RECEPCIONISTA"],
@@ -27,9 +38,9 @@ module.exports = {
       },
       {
         email: "cliente1@test.com",
-        dni: "66666666",
-        nombre: "Juan",
-        apellido: "Pérez",
+        dni: "66666661",
+        nombre: "Cliente",
+        apellido: "Uno",
         password: hash,
         activo: true,
         rol_id: rolPorNombre["CLIENTE"],
@@ -38,26 +49,15 @@ module.exports = {
       },
       {
         email: "cliente2@test.com",
-        dni: "77777777",
-        nombre: "María",
-        apellido: "González",
+        dni: "77777772",
+        nombre: "Cliente",
+        apellido: "Dos",
         password: hash,
         activo: true,
         rol_id: rolPorNombre["CLIENTE"],
         createdAt: now,
         updatedAt: now,
-      },
-      {
-        email: "cliente3@test.com",
-        dni: "88888888",
-        nombre: "Lucas",
-        apellido: "Martínez",
-        password: hash,
-        activo: true,
-        rol_id: rolPorNombre["CLIENTE"],
-        createdAt: now,
-        updatedAt: now,
-      },
+      }
     ]);
 
     await queryInterface.bulkInsert("clientes", [
@@ -78,28 +78,19 @@ module.exports = {
         direccion: "Calle Florida 567, CABA",
         createdAt: now,
         updatedAt: now,
-      },
-      {
-        usuario_email: "cliente3@test.com",
-        genero: "masculino",
-        fechaNacimiento: "2000-01-30",
-        fichaMedica: null,
-        direccion: "Belgrano 890, CABA",
-        createdAt: now,
-        updatedAt: now,
-      },
+      }
     ]);
   },
 
   async down(queryInterface) {
     await queryInterface.bulkDelete(
       "clientes",
-      { usuario_email: ["cliente1@test.com", "cliente2@test.com", "cliente3@test.com"] },
+      { usuario_email: ["cliente1@test.com", "cliente2@test.com"] },
       {}
     );
     await queryInterface.bulkDelete(
       "usuarios",
-      { email: ["recepcion@test.com", "cliente1@test.com", "cliente2@test.com", "cliente3@test.com"] },
+      { email: ["recepcion1@test.com", "recepcion2@test.com", "cliente1@test.com", "cliente2@test.com"] },
       {}
     );
   },
