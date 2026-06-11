@@ -26,6 +26,14 @@ const createRecepcionista = async (req, res, next) => {
       throw httpError(500, "Rol RECEPCIONISTA no existe. Ejecutar seeders.");
     }
 
+    // Verificar si el DNI ya pertenece a un recepcionista registrado
+    const dniExistente = await Usuario.findOne({ 
+      where: { dni: datos.dni, rol_id: rolRecepcionista.id } 
+    });
+    if (dniExistente) {
+      throw httpError(409, "El DNI ya se encuentra registrado");
+    }
+
     const recepcionista = await crearUsuario({
       ...datos,
       activo: true,
@@ -66,4 +74,53 @@ const deleteRecepcionista = async (req, res, next) => {
   }
 };
 
-module.exports = { createRecepcionista, deleteRecepcionista };
+const updateRecepcionista = async (req, res, next) => {
+  try {
+    const email = req.params.email;
+    const datos = pickCampos(req.body);
+
+    const usuario = await Usuario.findByPk(email, {
+      include: [{ model: Rol, as: "rol" }],
+    });
+
+    if (!usuario) {
+      throw httpError(404, "Recepcionista no encontrado");
+    }
+
+    if (!usuario.rol || usuario.rol.nombre !== ROLES.RECEPCIONISTA) {
+      throw httpError(400, "El usuario indicado no es un recepcionista");
+    }
+
+    const rolRecepcionista = await Rol.findOne({ where: { nombre: ROLES.RECEPCIONISTA } });
+    
+    // Verificar si el DNI ya pertenece a OTRO recepcionista
+    if (datos.dni && datos.dni !== usuario.dni) {
+      const dniExistente = await Usuario.findOne({ 
+        where: { dni: datos.dni, rol_id: rolRecepcionista.id } 
+      });
+      if (dniExistente && dniExistente.email !== email) {
+        throw httpError(409, "El DNI ya se encuentra registrado");
+      }
+    }
+
+    // Actualizar datos
+    await usuario.update({
+      nombre: datos.nombre !== undefined ? datos.nombre : usuario.nombre,
+      apellido: datos.apellido !== undefined ? datos.apellido : usuario.apellido,
+      dni: datos.dni !== undefined ? datos.dni : usuario.dni,
+      telefono: datos.telefono !== undefined ? datos.telefono : usuario.telefono,
+    });
+
+    return res.status(200).json({
+      message: "Recepcionista modificado con exito",
+      recepcionista: usuario,
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
+module.exports = { createRecepcionista, deleteRecepcionista, updateRecepcionista };
