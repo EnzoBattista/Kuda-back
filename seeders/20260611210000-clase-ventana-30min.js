@@ -1,9 +1,10 @@
 "use strict";
 
-const NOMBRE_CLASE_DEMO = "Demo Reservar y QR Hoy";
-/** Inicio ~15 min desde ahora → ventana QR (30 min antes) ya está abierta. */
-const MINUTOS_HASTA_INICIO = 15;
+const NOMBRE_CLASE_DEMO = "Demo Ventana 30 min";
+/** Inicio ~20 min → ventana QR (30 min antes) ya abierta ~10 min. */
+const MINUTOS_HASTA_INICIO = 20;
 const DURACION_CLASE_MIN = 60;
+const MINUTOS_VENTANA_QR = 30;
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -14,7 +15,7 @@ const horaMasMinutos = (date, minutos) => {
   return `${pad2(h)}:${pad2(m)}:00`;
 };
 
-/** Clase vacía para HOY: reservá como cliente y generá QR en el mismo turno. */
+/** Clase HOY en ventana QR (30 min antes del inicio hasta el fin), cupo libre para reservar. */
 module.exports = {
   async up(queryInterface) {
     const now = new Date();
@@ -23,25 +24,26 @@ module.exports = {
     const diaHoy = dias[now.getDay()];
 
     if (diaHoy === "Domingo") {
-      console.warn("[seeder qr-hoy-demo] Hoy es domingo; no se crea la clase demo.");
+      console.warn("[seeder ventana-30min] Hoy es domingo; no se crea la clase demo.");
       return;
     }
 
     const horaInicio = horaMasMinutos(now, MINUTOS_HASTA_INICIO);
     const horaFin = horaMasMinutos(now, MINUTOS_HASTA_INICIO + DURACION_CLASE_MIN);
+    const ventanaDesde = horaMasMinutos(now, MINUTOS_HASTA_INICIO - MINUTOS_VENTANA_QR);
 
     const [actividades] = await queryInterface.sequelize.query(
-      `SELECT id FROM actividades WHERE nombre = 'Pilates' LIMIT 1`,
+      `SELECT id FROM actividades WHERE nombre = 'Funcional' LIMIT 1`,
     );
     const [salas] = await queryInterface.sequelize.query(
-      `SELECT id FROM salas WHERE "identificador" = 'A-03' LIMIT 1`,
+      `SELECT id FROM salas WHERE "identificador" = 'A-02' LIMIT 1`,
     );
     const [profesores] = await queryInterface.sequelize.query(
-      `SELECT id FROM profesores ORDER BY id ASC OFFSET 2 LIMIT 1`,
+      `SELECT id FROM profesores ORDER BY id ASC OFFSET 1 LIMIT 1`,
     );
 
     if (!actividades[0] || !salas[0] || !profesores[0]) {
-      console.warn("[seeder qr-hoy-demo] Faltan actividades, salas o profesores base.");
+      console.warn("[seeder ventana-30min] Faltan actividades, salas o profesores base.");
       return;
     }
 
@@ -115,10 +117,13 @@ module.exports = {
     );
 
     console.info(
-      `[seeder qr-hoy-demo] Clase "${NOMBRE_CLASE_DEMO}" (id ${claseId}) — ${hoy} (${diaHoy}) ${horaInicio.slice(0, 5)}–${horaFin.slice(0, 5)}, cupo libre.`,
+      `[seeder ventana-30min] Clase "${NOMBRE_CLASE_DEMO}" (id ${claseId}) — ${hoy} (${diaHoy})`,
     );
     console.info(
-      "[seeder qr-hoy-demo] 1) Entrá a Clases → reservá esta clase. 2) Generar QR (ventana ya abierta).",
+      `  Horario: ${horaInicio.slice(0, 5)}–${horaFin.slice(0, 5)} | Ventana QR: ${ventanaDesde.slice(0, 5)}–${horaFin.slice(0, 5)} | Cupo libre.`,
+    );
+    console.info(
+      "[seeder ventana-30min] Clases → reservá → Generar QR. Re-ejecutá el seeder si pasó la hora.",
     );
   },
 

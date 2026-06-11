@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { randomUUID } = require("crypto");
 const { Op } = require("sequelize");
 const {
   Asistencia,
@@ -100,9 +101,6 @@ const claseEnVentana = (clase, horaActual) => {
   return compararHoras(horaActual, inicioVentana) >= 0 && compararHoras(horaActual, fin) <= 0;
 };
 
-const claseProximaHoy = (clase, horaActual) =>
-  compararHoras(clase.hora_inicio, horaActual) >= 0;
-
 const ordenarPorHorario = (a, b) =>
   compararHoras(a.hora_inicio, b.hora_inicio);
 
@@ -127,24 +125,16 @@ const buscarReservaTurnoActual = async (clienteEmail) => {
     order: [["id", "ASC"]],
   });
 
-  if (reservas.length === 0) return null;
-
-  const enCurso = reservas
+  const enTurnoActual = reservas
     .filter((r) => r.clase && claseEnVentana(r.clase, horaActual))
     .sort((a, b) => ordenarPorHorario(a.clase, b.clase));
 
-  if (enCurso.length > 0) return enCurso[0];
-
-  const proximas = reservas
-    .filter((r) => r.clase && claseProximaHoy(r.clase, horaActual))
-    .sort((a, b) => ordenarPorHorario(a.clase, b.clase));
-
-  return proximas[0] ?? reservas[0];
+  return enTurnoActual[0] ?? null;
 };
 
 const generarTokenQr = (email, reservaId) =>
   jwt.sign(
-    { type: QR_TIPO, email, reserva_id: reservaId },
+    { type: QR_TIPO, email, reserva_id: reservaId, jti: randomUUID() },
     process.env.JWT_SECRET,
     { expiresIn: QR_EXPIRES_IN },
   );
@@ -169,21 +159,11 @@ const generarQrCliente = async (clienteEmail) => {
 
   if (!cliente) throw httpError(404, "Cliente no encontrado");
 
-  if (!cliente.fichaMedica) {
-    throw httpError(
-      400,
-      "Debe cargar su ficha médica en el perfil para generar el código QR.",
-    );
-  }
-
   await validarMoraCliente(clienteEmail);
 
   const reserva = await buscarReservaTurnoActual(clienteEmail);
   if (!reserva) {
-    throw httpError(
-      400,
-      "No tenés una clase reservada para hoy. El QR de acceso se habilita el día de tu clase, desde 30 minutos antes del horario.",
-    );
+    throw httpError(400, "No posee reserva activa para el turno actual.");
   }
 
   const token = generarTokenQr(clienteEmail, reserva.id);

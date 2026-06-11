@@ -6,7 +6,11 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "jest --runInBand --detectOpenHandles --forceExit",
-    "seed:qr-demo": "sequelize-cli db:seed --seed 20260608120000-qr-hoy-demo.js"
+    "seed:qr-demo": "sequelize-cli db:seed --seed 20260608120000-qr-hoy-demo.js",
+    "seed:ventana-30min": "sequelize-cli db:seed --seed 20260611210000-clase-ventana-30min.js",
+    "seed:lista-espera-demo": "sequelize-cli db:seed --seed 20260611120000-clase-lista-espera-demo.js",
+    "seed:cliente-suspendido": "sequelize-cli db:seed --seed 20260611180000-cliente-suspendido-demo.js",
+    "seed:reset-passwords": "sequelize-cli db:seed --seed 20260611190000-reset-demo-passwords.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
