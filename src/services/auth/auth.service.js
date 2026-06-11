@@ -157,6 +157,7 @@ const registrarCliente = async ({
     tokenConfirmacion,
     tokenExpiracion,
     activo: false,
+    fecha_intento_registro: new Date(),
     rol_id: rolCliente.id,
   };
 

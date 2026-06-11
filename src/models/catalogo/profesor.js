@@ -22,6 +22,14 @@ module.exports = (sequelize) => {
         allowNull: false,
         unique: true,
       },
+      telefono: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      email: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
       activo: {
         type: DataTypes.BOOLEAN,
         allowNull: false,

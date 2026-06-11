@@ -10,19 +10,6 @@ const getAllSalas = async (req, res, next) => {
   }
 };
 
-const getSalaById = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const sala = await salasService.obtenerSalaDetalle(id);
-    return res.status(200).json(sala);
-  } catch (error) {
-    if (error.status) {
-      return res.status(error.status).json({ message: error.message });
-    }
-    return next(error);
-  }
-};
-
 const createSala = async (req, res, next) => {
   try {
     const nuevaSala = await salasService.crearSala(req.body);
@@ -61,6 +48,19 @@ const updateSala = async (req, res, next) => {
   }
 };
 
+const habilitarSala = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await salasService.habilitarSala(id);
+    return res.status(200).json({ message: "La sala fue habilitada exitosamente." });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
 const deshabilitarSala = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -89,9 +89,9 @@ const deleteSala = async (req, res, next) => {
 
 module.exports = {
   getAllSalas,
-  getSalaById,
   createSala,
   updateSala,
+  habilitarSala,
   deshabilitarSala,
   deleteSala,
 };

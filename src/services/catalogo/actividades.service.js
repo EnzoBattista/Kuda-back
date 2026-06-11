@@ -22,7 +22,7 @@ const createActividad = async (data) => {
     throw httpError(400, "El precio de la actividad debe ser mayor a 0");
   }
 
-  const existente = await Actividad.findOne({ where: { nombre } });
+  const existente = await Actividad.findOne({ where: { nombre, activa: true } });
   if (existente) {
     throw httpError(409, "Ya existe una actividad con ese nombre");
   }
@@ -50,7 +50,7 @@ const updateActividad = async (id, data) => {
   }
 
   if (nombre && nombre !== actividad.nombre) {
-    const existente = await Actividad.findOne({ where: { nombre } });
+    const existente = await Actividad.findOne({ where: { nombre, activa: true } });
     if (existente) {
       throw httpError(409, "Ya existe una actividad con ese nombre");
     }
