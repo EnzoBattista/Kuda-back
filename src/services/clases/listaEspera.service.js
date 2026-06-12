@@ -1,6 +1,16 @@
 const { Op } = require("sequelize");
-const { ListaEspera, Clase, ReservaClase, InscripcionMensual, Usuario, conn } = require("../../../db");
+const {
+  ListaEspera,
+  Clase,
+  ReservaClase,
+  InscripcionMensual,
+  Usuario,
+  Actividad,
+  Sala,
+  conn,
+} = require("../../../db");
 const httpError = require("../../utils/httpError");
+const { sumarUnMes } = require("../../utils/fechas");
 const { notificarCupoDisponible, notificarExpiracion } = require("../notificaciones/email.listaEspera.service");
 
 const HORAS_LIMITE = 6;
@@ -27,6 +37,47 @@ const contarReservasActivas = async (claseId, tipo, fechaExacta, transaction) =>
 /**
  * Devuelve el siguiente cliente ESPERANDO en la cola para una clase/tipo/fecha.
  */
+const includeEntradaCompleta = [
+  {
+    model: Clase,
+    as: "clase",
+    include: [
+      { model: Actividad, as: "actividad" },
+      { model: Sala, as: "sala", attributes: ["identificador"] },
+    ],
+  },
+  { model: Usuario, as: "cliente", attributes: ["email", "nombre", "apellido"] },
+];
+
+/**
+ * Valida que el cliente tenga un cupo NOTIFICADO vigente para confirmar o rechazar.
+ */
+const cargarEntradaNotificada = async (listaEsperaId, clienteEmail) => {
+  const entrada = await ListaEspera.findByPk(listaEsperaId, {
+    include: includeEntradaCompleta,
+  });
+  if (!entrada) throw httpError(404, "Entrada de lista de espera no encontrada");
+  if (entrada.cliente_email !== clienteEmail) {
+    throw httpError(403, "No tenés permiso para realizar esta acción");
+  }
+  if (entrada.estado !== "NOTIFICADO") {
+    throw httpError(409, "No tenés un cupo pendiente de confirmación para esta clase");
+  }
+
+  if (entrada.notificado_en) {
+    const limite = new Date(Date.now() - HORAS_LIMITE * 60 * 60 * 1000);
+    if (entrada.notificado_en < limite) {
+      await entrada.update({ estado: "EXPIRADO" });
+      setImmediate(() => {
+        notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+      });
+      throw httpError(410, "El tiempo para confirmar el cupo ha expirado");
+    }
+  }
+
+  return entrada;
+};
+
 const buscarPrimeroEnEspera = (claseId, tipo, fechaExacta, transaction) => {
   const where = { clase_id: claseId, tipo, estado: "ESPERANDO" };
   if (tipo === "INDIVIDUAL" && fechaExacta) where.fecha_exacta = fechaExacta;
@@ -205,6 +256,96 @@ const removerDeListaManual = async (listaEsperaId) => {
 };
 
 /**
+ * Cupos NOTIFICADOS pendientes de decisión para el cliente logueado.
+ */
+const obtenerPendientesCliente = async (clienteEmail) => {
+  const limite = new Date(Date.now() - HORAS_LIMITE * 60 * 60 * 1000);
+
+  const pendientes = await ListaEspera.findAll({
+    where: {
+      cliente_email: clienteEmail,
+      estado: "NOTIFICADO",
+      notificado_en: { [Op.gte]: limite },
+    },
+    include: includeEntradaCompleta,
+    order: [["notificado_en", "ASC"]],
+  });
+
+  return pendientes;
+};
+
+/**
+ * El cliente confirma el cupo liberado: se inscribe en la clase.
+ */
+const confirmarCupo = async (listaEsperaId, clienteEmail) => {
+  const { crearInscripcionIndividual } = require("./inscripcionesIndividuales.service");
+  const { crearInscripcionMensual } = require("./inscripcionesMensuales.service");
+
+  const entrada = await cargarEntradaNotificada(listaEsperaId, clienteEmail);
+  const clase = entrada.clase;
+  const actividad = clase?.actividad;
+  if (!clase || !actividad) {
+    throw httpError(500, "No se pudo obtener la información de la clase");
+  }
+
+  let reservaId = null;
+
+  if (entrada.tipo === "INDIVIDUAL") {
+    const montoTotal = Number(actividad.precio) * 0.333;
+    const inscripcion = await crearInscripcionIndividual({
+      cliente_email: clienteEmail,
+      clase_id: clase.id,
+      actividad_id: actividad.id,
+      fecha: entrada.fecha_exacta,
+      modalidad: "COMPLETO",
+      monto_total: montoTotal,
+      monto_pagado: montoTotal,
+    });
+    reservaId = inscripcion.reservas?.[0]?.id ?? null;
+  } else {
+    const periodoInicio = new Date().toISOString().slice(0, 10);
+    const periodoFin = sumarUnMes(periodoInicio);
+    const inscripcion = await crearInscripcionMensual({
+      cliente_email: clienteEmail,
+      actividad_id: actividad.id,
+      clase_id: clase.id,
+      periodo_inicio: periodoInicio,
+      periodo_fin: periodoFin,
+      dia_vencimiento: periodoFin,
+      monto: actividad.precio,
+      estado: "VIGENTE",
+    });
+    reservaId = inscripcion.reservas?.[0]?.id ?? null;
+  }
+
+  await entrada.update({ estado: "CONFIRMADO" });
+
+  return {
+    message: "Reserva confirmada con éxito",
+    reservaId,
+    clase_id: clase.id,
+  };
+};
+
+/**
+ * El cliente rechaza el cupo liberado: se remueve de la lista y avanza la fila.
+ */
+const rechazarCupo = async (listaEsperaId, clienteEmail) => {
+  const entrada = await cargarEntradaNotificada(listaEsperaId, clienteEmail);
+
+  await entrada.update({ estado: "RECHAZADO" });
+
+  setImmediate(() => {
+    notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+  });
+
+  return {
+    message: "Has rechazado el cupo correctamente",
+    clase_id: entrada.clase_id,
+  };
+};
+
+/**
  * Lista los clientes en espera (global o filtrada por clase).
  */
 const listarListaEspera = async ({ clase_id, tipo, fecha_exacta } = {}) => {
@@ -250,6 +391,9 @@ module.exports = {
   notificarPrimero,
   verificarExpirados,
   removerDeListaManual,
+  obtenerPendientesCliente,
+  confirmarCupo,
+  rechazarCupo,
   listarListaEspera,
   getListaEspera,
 };
