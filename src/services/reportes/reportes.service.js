@@ -328,10 +328,99 @@ const getIngresosMensuales = async ({ anio, actividadId } = {}) => {
   };
 };
 
+const getHorariosSeleccionados = async ({ anio, actividadId } = {}) => {
+  const year = Number.parseInt(anio, 10);
+  if (!Number.isInteger(year)) {
+    throw httpError(400, "El año del reporte es obligatorio");
+  }
+
+  const inicioAnio = `${year}-01-01`;
+  const finAnio = `${year}-12-31`;
+
+  let categoria = { id: null, nombre: "Todas las clases" };
+  const claseWhere = {};
+
+  if (actividadId != null) {
+    const actividad = await Actividad.findByPk(actividadId, {
+      attributes: ["id", "nombre"],
+    });
+    if (!actividad) {
+      throw httpError(404, "Categoría (actividad) no encontrada");
+    }
+    categoria = { id: actividad.id, nombre: actividad.nombre };
+    claseWhere.actividad_id = actividad.id;
+  }
+
+  // Demanda por horario = reservas del año a cada clase, agrupadas por horario
+  // (clase) y ordenadas de mayor a menor.
+  const filas = await ReservaClase.findAll({
+    attributes: [
+      "clase_id",
+      [fn("COUNT", col("ReservaClase.id")), "total_reservas"],
+    ],
+    where: {
+      estado: "ACTIVA",
+      fecha_exacta: { [Op.between]: [inicioAnio, finAnio] },
+    },
+    include: [
+      {
+        model: Clase,
+        as: "clase",
+        attributes: ["id", "nombre", "dia_semana", "hora_inicio", "hora_fin", "cupo"],
+        where: claseWhere,
+        required: true,
+        include: [{ model: Actividad, as: "actividad", attributes: ["id", "nombre"] }],
+      },
+    ],
+    group: [
+      "clase_id",
+      "clase.id",
+      "clase.nombre",
+      "clase.dia_semana",
+      "clase.hora_inicio",
+      "clase.hora_fin",
+      "clase.cupo",
+      "clase->actividad.id",
+      "clase->actividad.nombre",
+    ],
+    order: [[literal("total_reservas"), "DESC"]],
+    subQuery: false,
+  });
+
+  const horarios = filas.map((f) => {
+    const clase = f.clase;
+    const horaInicio = String(clase?.hora_inicio ?? "").slice(0, 5);
+    const horaFin = String(clase?.hora_fin ?? "").slice(0, 5);
+    return {
+      clase_id: f.clase_id,
+      actividad: clase?.actividad?.nombre ?? clase?.nombre ?? "Clase",
+      nombre: clase?.nombre,
+      dia_semana: clase?.dia_semana,
+      hora_inicio: horaInicio,
+      hora_fin: horaFin,
+      horario: `${clase?.dia_semana ?? ""} ${horaInicio}${horaFin ? `-${horaFin}` : ""}`.trim(),
+      cupo: Number(clase?.cupo ?? 0),
+      total_reservas: Number(f.get("total_reservas")),
+    };
+  });
+
+  return {
+    anio: year,
+    categoria,
+    hay_datos: horarios.length > 0,
+    mensaje:
+      horarios.length > 0
+        ? null
+        : `No hubo inscripciones a la categoría "${categoria.nombre}" durante el ${year}.`,
+    horarios,
+  };
+};
+
 module.exports = {
   getTotalUsuarios,
   getUsuariosNuevos,
   getIngresos,
   getIngresosMensuales,
   getHorariosPopulares,
+  getHorariosSeleccionados,
 };
