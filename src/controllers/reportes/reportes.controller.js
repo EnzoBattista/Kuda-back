@@ -18,6 +18,16 @@ const getUsuariosNuevos = async (_req, res, next) => {
   }
 };
 
+const getUsuariosNuevosAnual = async (req, res, next) => {
+  try {
+    const { anio } = req.query;
+    const data = await reportesService.getUsuariosNuevosAnual({ anio });
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const getIngresos = async (_req, res, next) => {
   try {
     const data = await reportesService.getIngresos();
@@ -67,6 +77,7 @@ const getHorariosPopulares = async (_req, res, next) => {
 module.exports = {
   getTotalUsuarios,
   getUsuariosNuevos,
+  getUsuariosNuevosAnual,
   getIngresos,
   getIngresosMensuales,
   getHorariosSeleccionados,

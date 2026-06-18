@@ -416,9 +416,57 @@ const getHorariosSeleccionados = async ({ anio, actividadId } = {}) => {
   };
 };
 
+const getUsuariosNuevosAnual = async ({ anio } = {}) => {
+  const year = Number.parseInt(anio, 10);
+  if (!Number.isInteger(year)) {
+    throw httpError(400, "El año del reporte es obligatorio");
+  }
+
+  const inicioAnio = new Date(year, 0, 1);
+  const inicioAnioSiguiente = new Date(year + 1, 0, 1);
+
+  // Usuarios nuevos = usuarios dados de alta en el año, agrupados por mes y
+  // ordenados de mayor a menor por cantidad.
+  const filas = await Usuario.findAll({
+    attributes: [
+      [fn("TO_CHAR", col("Usuario.createdAt"), "YYYY-MM"), "mes"],
+      [fn("COUNT", col("Usuario.email")), "cantidad"],
+    ],
+    where: {
+      createdAt: { [Op.gte]: inicioAnio, [Op.lt]: inicioAnioSiguiente },
+    },
+    group: [fn("TO_CHAR", col("Usuario.createdAt"), "YYYY-MM")],
+    order: [[fn("COUNT", col("Usuario.email")), "DESC"]],
+    raw: true,
+  });
+
+  const meses = filas.map((f) => {
+    const numeroMes = Number.parseInt(String(f.mes).slice(5, 7), 10);
+    return {
+      mes: f.mes,
+      nombre_mes: NOMBRES_MESES[numeroMes - 1] ?? f.mes,
+      cantidad: Number(f.cantidad),
+    };
+  });
+
+  const totalAnual = meses.reduce((acc, m) => acc + m.cantidad, 0);
+
+  return {
+    anio: year,
+    hay_datos: meses.length > 0,
+    mensaje:
+      meses.length > 0
+        ? null
+        : `No existen usuarios nuevos en el año ${year}.`,
+    total_anual: totalAnual,
+    meses,
+  };
+};
+
 module.exports = {
   getTotalUsuarios,
   getUsuariosNuevos,
+  getUsuariosNuevosAnual,
   getIngresos,
   getIngresosMensuales,
   getHorariosPopulares,

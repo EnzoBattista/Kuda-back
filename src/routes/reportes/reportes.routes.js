@@ -5,6 +5,7 @@ const { PERMISOS } = require("../../constants/permisos");
 const {
   getTotalUsuarios,
   getUsuariosNuevos,
+  getUsuariosNuevosAnual,
   getIngresos,
   getIngresosMensuales,
   getHorariosSeleccionados,
@@ -16,6 +17,7 @@ const soloDueno = requirePermiso(PERMISOS.REPORTE_VER);
 
 router.get("/total-usuarios", auth, soloDueno, getTotalUsuarios);
 router.get("/usuarios-nuevos", auth, soloDueno, getUsuariosNuevos);
+router.get("/usuarios-nuevos-anual", auth, soloDueno, getUsuariosNuevosAnual);
 router.get("/ingresos", auth, soloDueno, getIngresos);
 router.get("/ingresos-mensuales", auth, soloDueno, getIngresosMensuales);
 router.get("/horarios-seleccionados", auth, soloDueno, getHorariosSeleccionados);
