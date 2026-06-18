@@ -1,8 +1,32 @@
 const { Op, fn, col, literal } = require("sequelize");
-const { Usuario, Rol, Pago, ReservaClase, Clase, Actividad } = require("../../../db");
+const {
+  Usuario,
+  Rol,
+  Pago,
+  ReservaClase,
+  Clase,
+  Actividad,
+  InscripcionMensual,
+} = require("../../../db");
+const httpError = require("../../utils/httpError");
 
 const MESES_HISTORICO = 6;
 const TOP_HORARIOS = 10;
+
+const NOMBRES_MESES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
 const mesActualIso = () => {
   const now = new Date();
@@ -217,9 +241,97 @@ const getHorariosPopulares = async () => {
   };
 };
 
+const getIngresosMensuales = async ({ anio, actividadId } = {}) => {
+  const year = Number.parseInt(anio, 10);
+  if (!Number.isInteger(year)) {
+    throw httpError(400, "El año del reporte es obligatorio");
+  }
+
+  const inicioAnio = new Date(year, 0, 1);
+  const inicioAnioSiguiente = new Date(year + 1, 0, 1);
+
+  const where = {
+    estado: "COMPLETADO",
+    fecha: { [Op.gte]: inicioAnio, [Op.lt]: inicioAnioSiguiente },
+  };
+
+  const include = [];
+  let categoria = { id: null, nombre: "Todas las clases" };
+
+  if (actividadId != null) {
+    const actividad = await Actividad.findByPk(actividadId, {
+      attributes: ["id", "nombre"],
+    });
+    if (!actividad) {
+      throw httpError(404, "Categoría (actividad) no encontrada");
+    }
+    categoria = { id: actividad.id, nombre: actividad.nombre };
+
+    // Un pago se asocia a una actividad por la inscripción mensual (MENSUALIDAD)
+    // o por la reserva → clase (CLASE_SUELTA).
+    where[Op.or] = [
+      { "$reserva.clase.actividad_id$": actividad.id },
+      { "$inscripcionMensual.actividad_id$": actividad.id },
+    ];
+
+    include.push(
+      {
+        model: ReservaClase,
+        as: "reserva",
+        attributes: [],
+        required: false,
+        include: [{ model: Clase, as: "clase", attributes: [], required: false }],
+      },
+      {
+        model: InscripcionMensual,
+        as: "inscripcionMensual",
+        attributes: [],
+        required: false,
+      },
+    );
+  }
+
+  const filas = await Pago.findAll({
+    attributes: [
+      [fn("TO_CHAR", col("Pago.fecha"), "YYYY-MM"), "mes"],
+      [fn("SUM", col("Pago.monto")), "total"],
+    ],
+    where,
+    include,
+    group: [fn("TO_CHAR", col("Pago.fecha"), "YYYY-MM")],
+    order: [[fn("SUM", col("Pago.monto")), "DESC"]],
+    subQuery: false,
+    raw: true,
+  });
+
+  const meses = filas.map((f) => {
+    const numeroMes = Number.parseInt(String(f.mes).slice(5, 7), 10);
+    return {
+      mes: f.mes,
+      nombre_mes: NOMBRES_MESES[numeroMes - 1] ?? f.mes,
+      total: toNumber(f.total),
+    };
+  });
+
+  const totalAnual = meses.reduce((acc, m) => acc + m.total, 0);
+
+  return {
+    anio: year,
+    categoria,
+    hay_datos: meses.length > 0,
+    mensaje:
+      meses.length > 0
+        ? null
+        : `No hay ingresos registrados en el año ${year}.`,
+    total_anual: totalAnual,
+    meses,
+  };
+};
+
 module.exports = {
   getTotalUsuarios,
   getUsuariosNuevos,
   getIngresos,
+  getIngresosMensuales,
   getHorariosPopulares,
 };
