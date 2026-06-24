@@ -98,7 +98,7 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction }) =>
     transaction,
   });
   if (existente) {
-    throw httpError(400, "Ya se cuenta con una reserva activa para esta clase");
+    throw httpError(400, "Ya tenés una reserva activa para esta clase en esa fecha");
   }
 
   const conflictoHorario = await ReservaClase.findOne({
@@ -216,7 +216,7 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
     if (conflictoHorario) {
       throw httpError(
         409,
-        `Ya tenés una reserva activa en ese horario para la fecha ${fecha}`
+        "Ya tenés una reserva activa en ese día y horario"
       );
     }
   }
@@ -404,9 +404,12 @@ const cancelarReservaConNotificacion = async (reservaId, emailUsuario) => {
   setImmediate(async () => {
     try {
       const { reserva } = resultado;
-      if (reserva.inscripcion_mensual_id) {
-        await notificarPrimero(reserva.clase_id, "MENSUAL");
-      } else if (reserva.inscripcion_individual_id) {
+      // Priorizar la lista de espera MENSUAL: intentamos notificar a un mensual primero.
+      // Si se logra notificar (porque todas las fechas del mes pasan a tener cupo), no notificamos a la individual.
+      const notificadoMensual = await notificarPrimero(reserva.clase_id, "MENSUAL");
+      if (!notificadoMensual) {
+        // Si no se notificó a nadie mensual (cola vacía o alguna fecha del mes sigue sin cupo),
+        // notificamos a la lista INDIVIDUAL para la fecha exacta de esta reserva.
         await notificarPrimero(reserva.clase_id, "INDIVIDUAL", reserva.fecha_exacta);
       }
     } catch (err) {

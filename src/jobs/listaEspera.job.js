@@ -1,15 +1,15 @@
 const cron = require("node-cron");
-const { verificarExpirados } = require("../services/clases/listaEspera.service");
+const { liberarCuposDiferidos } = require("../services/clases/listaEspera.service");
 
 /**
- * Inicia el cron job que verifica cada 10 minutos si alguna notificación
- * de lista de espera expiró (pasaron 6hs sin confirmar el pago).
+ * Inicia el cron job que libera los cupos de clases próximas a ocurrir
+ * Además, libera los cupos de clases próximas a ocurrir para los usuarios en espera individual.
  */
 const iniciarJobListaEspera = () => {
   // Corre cada 10 minutos: "*/10 * * * *"
   cron.schedule("*/10 * * * *", async () => {
     try {
-      await verificarExpirados();
+      await liberarCuposDiferidos();
     } catch (err) {
       console.error("[listaEspera.job] Error al verificar expirados:", err.message);
     }

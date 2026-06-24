@@ -39,6 +39,13 @@ const crearInscripcionIndividual = async (data) => {
   validarInscripcionIndividual(datosInscripcion);
 
   return conn.transaction(async (transaction) => {
+    const { validarMoraCliente } = require("../asistencias/asistencias.service");
+    try {
+      await validarMoraCliente(datosInscripcion.cliente_email);
+    } catch (err) {
+      throw httpError(403, "Tu cuenta se encuentra suspendida por falta de pago. Regularizá tu situación para poder reservar.");
+    }
+
     const clase = await Clase.findByPk(datosInscripcion.clase_id, { transaction });
     if (!clase) {
       throw httpError(404, "Clase no encontrada");

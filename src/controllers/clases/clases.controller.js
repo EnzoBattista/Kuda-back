@@ -104,6 +104,25 @@ const cancelarFechaClase = async (req, res, next) => {
   }
 };
 
+const checkConflicto = async (req, res, next) => {
+  try {
+    const claseId = Number(req.params.id);
+    const { fecha, cliente_email } = req.query;
+
+    if (!fecha || !cliente_email) {
+      return res.status(400).json({ message: "Se requieren los parámetros fecha y cliente_email" });
+    }
+
+    const resultado = await clasesService.verificarConflictoReserva(claseId, fecha, cliente_email);
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
 module.exports = {
   getAllClases,
   createClase,
@@ -111,4 +130,5 @@ module.exports = {
   getClaseById,
   deleteClase,
   cancelarFechaClase,
+  checkConflicto,
 };

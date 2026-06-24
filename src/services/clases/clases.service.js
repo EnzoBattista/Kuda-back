@@ -184,14 +184,22 @@ const getClaseById = async (id) => {
   }
 
   let generadas = 0;
-  // Buscamos hasta 8 fechas, con un límite de iteraciones por seguridad
+  // Limitar la visualización de clases a 30 días máximo.
   let intentos = 0;
-  while (generadas < 8 && intentos < 24) {
+  const hoy30 = new Date();
+  hoy30.setDate(hoy30.getDate() + 30);
+  const limiteStr = `${hoy30.getFullYear()}-${String(hoy30.getMonth() + 1).padStart(2, '0')}-${String(hoy30.getDate()).padStart(2, '0')}`;
+
+  while (intentos < 10) { // Un mes son máx 5 semanas
     const yyyy = actual.getFullYear();
     const mm = String(actual.getMonth() + 1).padStart(2, '0');
     const dd = String(actual.getDate()).padStart(2, '0');
     const fechaStr = `${yyyy}-${mm}-${dd}`;
-    
+
+    if (fechaStr > limiteStr) {
+      break;
+    }
+
     if (!fechasCanceladas.includes(fechaStr)) {
       proximasFechas.push(fechaStr);
       generadas++;
@@ -338,10 +346,78 @@ const cancelarFechaClase = async (claseId, data) => {
   });
 };
 
+/**
+ * Verifica si un cliente tiene conflictos para reservar una clase en una fecha.
+ * Retorna un objeto { conflicto: boolean, tipo: null|'MISMA_CLASE'|'HORARIO', mensaje: string }
+ */
+const verificarConflictoReserva = async (claseId, fecha, clienteEmail) => {
+  const { validarMoraCliente } = require("../asistencias/asistencias.service");
+  try {
+    await validarMoraCliente(clienteEmail);
+  } catch (err) {
+    if (err.status === 403) {
+      return {
+        conflicto: true,
+        tipo: "MORA",
+        mensaje: "Tu cuenta se encuentra suspendida por falta de pago. Regularizá tu situación para poder reservar.",
+      };
+    }
+    throw err;
+  }
+
+  const clase = await Clase.findByPk(claseId);
+  if (!clase) throw httpError(404, "Clase no encontrada");
+
+  const fechaStr = String(fecha).slice(0, 10);
+
+  const mismaClase = await ReservaClase.findOne({
+    where: {
+      cliente_email: clienteEmail,
+      clase_id: claseId,
+      fecha_exacta: fechaStr,
+      estado: "ACTIVA",
+    },
+  });
+  if (mismaClase) {
+    return {
+      conflicto: true,
+      tipo: "MISMA_CLASE",
+      mensaje: "Ya tenés una reserva activa para esta clase.",
+    };
+  }
+
+  const conflictoHorario = await ReservaClase.findOne({
+    where: {
+      cliente_email: clienteEmail,
+      fecha_exacta: fechaStr,
+      estado: "ACTIVA",
+      clase_id: { [Op.ne]: claseId },
+    },
+    include: [{
+      model: Clase,
+      as: "clase",
+      where: {
+        hora_inicio: { [Op.lt]: clase.hora_fin },
+        hora_fin: { [Op.gt]: clase.hora_inicio },
+      },
+    }],
+  });
+  if (conflictoHorario) {
+    return {
+      conflicto: true,
+      tipo: "HORARIO",
+      mensaje: "Ya tenés una reserva activa en ese día y horario.",
+    };
+  }
+
+  return { conflicto: false, tipo: null, mensaje: null };
+};
+
 module.exports = {
   crearClase,
   modificarClase,
   getClaseById,
   deleteClase,
   cancelarFechaClase,
+  verificarConflictoReserva,
 };

@@ -9,6 +9,7 @@ const {
   getClaseById,
   deleteClase,
   cancelarFechaClase,
+  checkConflicto,
 } = require("../../controllers/clases/clases.controller");
 
 const router = express.Router();
@@ -19,5 +20,6 @@ router.post("/", auth, requirePermiso(PERMISOS.CLASE_GESTIONAR), createClase);
 router.put("/:id", auth, requirePermiso(PERMISOS.CLASE_GESTIONAR), updateClase);
 router.delete("/:id", auth, requirePermiso(PERMISOS.CLASE_GESTIONAR), deleteClase);
 router.post("/:id/cancelaciones", auth, requirePermiso(PERMISOS.CLASE_GESTIONAR), cancelarFechaClase);
+router.get("/:id/conflicto", auth, checkConflicto);
 
 module.exports = router;

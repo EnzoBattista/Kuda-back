@@ -10,7 +10,7 @@ const sgMail = require("@sendgrid/mail");
  * @param {string|null} params.fechaExacta - Solo para tipo INDIVIDUAL
  * @param {number} params.horasLimite
  */
-const notificarCupoDisponible = async ({ email, nombre, nombreClase, tipo, fechaExacta, horasLimite = 6 }) => {
+const notificarCupoDisponible = async ({ email, nombre, nombreClase, tipo, fechaExacta }) => {
   if (!process.env.SENDGRID_API_KEY || !process.env.EMAIL_FROM) {
     console.warn("[listaEspera.email] SendGrid no configurado, se omite el envío.");
     return;
@@ -38,9 +38,9 @@ const notificarCupoDisponible = async ({ email, nombre, nombreClase, tipo, fecha
         <p>Tenés buenas noticias: se liberó ${detalleClase} para la que estabas en lista de espera.</p>
 
         <div style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin: 20px 0; text-align: left;">
-          <strong>⏰ Tenés <span style="color: #E30613;">${horasLimite} horas</span> para confirmar tu lugar.</strong><br>
+          <strong>✨ ¡Tenés tiempo para confirmar tu lugar!</strong><br>
           ${instrucciones}<br>
-          Si no realizás el pago en ese tiempo, el lugar pasará al siguiente en la lista.
+          Te recomendamos realizar el pago lo antes posible para asegurar tu lugar.
         </div>
 
         <p style="font-size: 0.9em; color: #666;">

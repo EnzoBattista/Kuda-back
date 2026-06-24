@@ -62,6 +62,13 @@ const crearInscripcionMensual = async (data) => {
   await validarInscripcionMensual(datosInscripcion);
 
   return conn.transaction(async (transaction) => {
+    const { validarMoraCliente } = require("../asistencias/asistencias.service");
+    try {
+      await validarMoraCliente(datosInscripcion.cliente_email);
+    } catch (err) {
+      throw httpError(403, "Tu cuenta se encuentra suspendida por falta de pago. Regularizá tu situación para poder reservar.");
+    }
+
     const clase = await Clase.findByPk(datosInscripcion.clase_id, { transaction });
     if (!clase) {
       throw httpError(404, "La clase no existe");
@@ -93,6 +100,24 @@ const crearInscripcionMensual = async (data) => {
         409,
         "El período seleccionado no tiene clases disponibles (todas las fechas están canceladas)"
       );
+    }
+
+    // Verificar cupos estrictos para cada fecha (Nueva regla de negocio)
+    for (const fecha of fechasEfectivas) {
+      const reservasActivas = await ReservaClase.count({
+        where: {
+          clase_id: clase.id,
+          fecha_exacta: fecha,
+          estado: { [Op.ne]: "CANCELADA" },
+        },
+        transaction,
+      });
+      if (reservasActivas >= clase.cupo) {
+        throw httpError(
+          409,
+          "No hay cupo suficiente en todas las fechas del mes."
+        );
+      }
     }
 
     const montoBase = Number(datosInscripcion.monto);

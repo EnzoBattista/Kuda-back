@@ -19,7 +19,7 @@ module.exports = {
     const pagos = [
       {
         cliente_email: emails[0],
-        recepcionista_email: "recepcion@test.com",
+        recepcionista_email: "recepcion1@test.com",
         origen: "CLASE_SUELTA",
         origen_id: 1,
         concepto: "Clase Yoga — pago mostrador",
@@ -32,7 +32,7 @@ module.exports = {
       },
       {
         cliente_email: emails[1] ?? emails[0],
-        recepcionista_email: "recepcion@test.com",
+        recepcionista_email: "recepcion1@test.com",
         origen: "MENSUALIDAD",
         origen_id: 1,
         concepto: "Mensualidad Pilates — transferencia",

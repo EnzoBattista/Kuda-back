@@ -437,4 +437,5 @@ module.exports = {
   listarHistorial,
   listarClasesHoy,
   fotoPerfilCliente,
+  validarMoraCliente,
 };

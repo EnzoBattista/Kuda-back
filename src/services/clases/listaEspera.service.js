@@ -11,9 +11,7 @@ const {
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { sumarUnMes } = require("../../utils/fechas");
-const { notificarCupoDisponible, notificarExpiracion } = require("../notificaciones/email.listaEspera.service");
-
-const HORAS_LIMITE = 6;
+const { notificarCupoDisponible } = require("../notificaciones/email.listaEspera.service");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers internos
@@ -64,16 +62,7 @@ const cargarEntradaNotificada = async (listaEsperaId, clienteEmail) => {
     throw httpError(409, "No tenés un cupo pendiente de confirmación para esta clase");
   }
 
-  if (entrada.notificado_en) {
-    const limite = new Date(Date.now() - HORAS_LIMITE * 60 * 60 * 1000);
-    if (entrada.notificado_en < limite) {
-      await entrada.update({ estado: "EXPIRADO" });
-      setImmediate(() => {
-        notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
-      });
-      throw httpError(410, "El tiempo para confirmar el cupo ha expirado");
-    }
-  }
+
 
   return entrada;
 };
@@ -110,30 +99,62 @@ const anotarseEnLista = async (clienteEmail, claseId, tipo, fechaExacta = null) 
     if (!clase) throw httpError(404, "Clase no encontrada");
     if (!clase.activa) throw httpError(400, "La clase no está activa");
 
-    // Verificar que realmente esté llena
-    const reservasActivas = await contarReservasActivas(claseId, tipo, fechaExacta, transaction);
-    if (reservasActivas < clase.cupo) {
-      throw httpError(400, "La clase todavía tiene cupos disponibles. No es necesario anotarse en la lista de espera.");
+    // Verificar que el usuario no tenga ya una membresía mensual activa/vigente para esta clase
+    const inscripcionVigente = await InscripcionMensual.findOne({
+      where: {
+        clase_id: claseId,
+        cliente_email: clienteEmail,
+        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] }
+      },
+      transaction
+    });
+    if (inscripcionVigente) {
+      throw httpError(409, "Ya tenés una membresía mensual activa para esta clase.");
     }
 
-    // Validar tipo de cliente
-    if (tipo === "MENSUAL") {
-      const esAbonado = await InscripcionMensual.findOne({
-        where: {
-          cliente_email: clienteEmail,
-          estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] }
-        },
-        transaction
-      });
-      if (!esAbonado) {
-        throw httpError(403, "Debe tener una suscripción mensual activa para anotarse como abonado");
+    if (tipo === "INDIVIDUAL") {
+      const { verificarConflictoReserva } = require("./clases.service");
+      const conflicto = await verificarConflictoReserva(claseId, fechaExacta, clienteEmail);
+      if (conflicto && conflicto.conflicto) {
+        throw httpError(409, conflicto.mensaje);
       }
     }
+
+    // Verificar que realmente esté llena
+    if (tipo === "MENSUAL") {
+      const { fechasDeClaseEnPeriodo } = require("./reservas.service");
+      const hoy = new Date().toISOString().slice(0, 10);
+      const fin = sumarUnMes(hoy);
+      const fechasPeriodo = fechasDeClaseEnPeriodo(clase.dia_semana, hoy, fin);
+      
+      let hayAlMenosUnaLlena = false;
+      for (const fecha of fechasPeriodo) {
+        const ocupadas = await ReservaClase.count({
+          where: { clase_id: claseId, fecha_exacta: fecha, estado: "ACTIVA" },
+          transaction,
+        });
+        if (ocupadas >= clase.cupo) {
+          hayAlMenosUnaLlena = true;
+          break;
+        }
+      }
+      
+      if (!hayAlMenosUnaLlena) {
+        throw httpError(400, "La clase todavía tiene cupos disponibles. Podés realizar la reserva directamente.");
+      }
+    } else {
+      const reservasActivas = await contarReservasActivas(claseId, tipo, fechaExacta, transaction);
+      if (reservasActivas < clase.cupo) {
+        throw httpError(400, "La clase todavía tiene cupos disponibles. No es necesario anotarse en la lista de espera.");
+      }
+    }
+
+
     const whereExistente = { clase_id: claseId, cliente_email: clienteEmail, tipo, estado: "ESPERANDO" };
     if (tipo === "INDIVIDUAL" && fechaExacta) whereExistente.fecha_exacta = fechaExacta;
     const existente = await ListaEspera.findOne({ where: whereExistente, transaction });
     if (existente) {
-      throw httpError(409, "Ya estás anotado/a en la lista de espera para esta clase");
+      throw httpError(409, "Ya estás en la lista de espera para esta clase.");
     }
 
     // Calcular la posición (último + 1)
@@ -162,11 +183,47 @@ const anotarseEnLista = async (clienteEmail, claseId, tipo, fechaExacta = null) 
 /**
  * Notifica al primer cliente ESPERANDO en la cola que se liberó un cupo.
  * Llamado automáticamente después de cada cancelación.
+ * Verifica que haya cupo real antes de notificar para evitar race conditions.
  */
 const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
   return conn.transaction(async (transaction) => {
     const entrada = await buscarPrimeroEnEspera(claseId, tipo, fechaExacta, transaction);
     if (!entrada) return null; // Cola vacía
+
+    // Verificar que realmente hay cupo disponible antes de notificar.
+    // Esto evita que dos llamadas concurrentes noten a dos personas distintas
+    // cuando solo se liberó un lugar.
+    const clase = await Clase.findByPk(claseId, { attributes: ["cupo"], transaction });
+    if (!clase) return null;
+
+    if (tipo === "INDIVIDUAL" && fechaExacta) {
+      const activas = await ReservaClase.count({
+        where: { clase_id: claseId, fecha_exacta: fechaExacta, estado: "ACTIVA" },
+        transaction,
+      });
+      if (activas >= clase.cupo) return null; // Sin cupo real, no notificar
+    } else if (tipo === "MENSUAL") {
+      const { fechasDeClaseEnPeriodo } = require("./reservas.service");
+      const claseCompleta = await Clase.findByPk(claseId, { attributes: ["cupo", "dia_semana"], transaction });
+      if (!claseCompleta) return null;
+      const hoy = new Date().toISOString().slice(0, 10);
+      const fin = sumarUnMes(hoy);
+      const fechas = fechasDeClaseEnPeriodo(claseCompleta.dia_semana, hoy, fin);
+      
+      // Para mensualidad, se requiere que TODAS las fechas del periodo tengan cupo disponible
+      let todasTienenCupo = true;
+      for (const f of fechas) {
+        const activas = await ReservaClase.count({
+          where: { clase_id: claseId, fecha_exacta: f, estado: "ACTIVA" },
+          transaction,
+        });
+        if (activas >= claseCompleta.cupo) {
+          todasTienenCupo = false;
+          break;
+        }
+      }
+      if (!todasTienenCupo) return null;
+    }
 
     await entrada.update({
       estado: "NOTIFICADO",
@@ -181,7 +238,6 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
         nombreClase: entrada.clase.nombre,
         tipo,
         fechaExacta,
-        horasLimite: HORAS_LIMITE,
       });
     });
 
@@ -189,42 +245,52 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
   });
 };
 
-/**
- * Cron job: revisa registros NOTIFICADO cuyo tiempo de 6hs expiró,
- * los marca como EXPIRADO y llama al siguiente en la fila.
- */
-const verificarExpirados = async () => {
-  const limite = new Date(Date.now() - HORAS_LIMITE * 60 * 60 * 1000);
 
-  const expirados = await ListaEspera.findAll({
+
+/**
+ * Cron job: busca entradas en ESPERANDO de tipo INDIVIDUAL cuya fecha_exacta esté
+ * a 7 días o menos de ocurrir, verifica si la clase tiene cupo (por cancelaciones de
+ * mensuales que no se llenaron) y dispara notificarPrimero.
+ */
+const liberarCuposDiferidos = async () => {
+  const hoy = new Date();
+  const limite = new Date();
+  limite.setDate(hoy.getDate() + 7);
+  
+  const hoyStr = hoy.toISOString().slice(0, 10);
+  const limiteStr = limite.toISOString().slice(0, 10);
+
+  const pendientes = await ListaEspera.findAll({
     where: {
-      estado: "NOTIFICADO",
-      notificado_en: { [Op.lt]: limite },
+      tipo: "INDIVIDUAL",
+      estado: "ESPERANDO",
+      fecha_exacta: {
+        [Op.gte]: hoyStr,
+        [Op.lte]: limiteStr,
+      }
     },
-    include: [
-      { model: Usuario, as: "cliente", attributes: ["email", "nombre"] },
-      { model: Clase, as: "clase", attributes: ["nombre"] },
-    ],
+    include: [{ model: Clase, as: "clase" }],
+    order: [["fecha_exacta", "ASC"], ["posicion", "ASC"]],
   });
 
-  for (const entrada of expirados) {
-    await entrada.update({ estado: "EXPIRADO" });
+  const procesadas = new Set();
+  let liberados = 0;
 
-    // Notificar expiración al cliente (sin bloquear)
-    setImmediate(() => {
-      notificarExpiracion({
-        email: entrada.cliente.email,
-        nombre: entrada.cliente.nombre,
-        nombreClase: entrada.clase.nombre,
-      });
-    });
-
-    // Llamar al siguiente en la fila
-    await notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+  for (const entrada of pendientes) {
+    const key = `${entrada.clase_id}-${entrada.fecha_exacta}`;
+    if (procesadas.has(key)) continue;
+    
+    // Contamos reservas activas. Si hay cupo, disparamos la notificación
+    const reservasActivas = await contarReservasActivas(entrada.clase_id, "INDIVIDUAL", entrada.fecha_exacta);
+    if (reservasActivas < entrada.clase.cupo) {
+      await notificarPrimero(entrada.clase_id, "INDIVIDUAL", entrada.fecha_exacta);
+      procesadas.add(key); // Solo lo marcamos procesado si efectivamente procesamos la cola para esa clase/fecha
+      liberados++;
+    }
   }
 
-  if (expirados.length > 0) {
-    console.log(`[listaEspera.cron] ${expirados.length} entradas expiradas procesadas.`);
+  if (liberados > 0) {
+    console.log(`[listaEspera.cron] ${liberados} cupos diferidos liberados a lista individual.`);
   }
 };
 
@@ -256,30 +322,88 @@ const removerDeListaManual = async (listaEsperaId) => {
 };
 
 /**
+ * Permite a un cliente salir de la lista de espera por su propia cuenta.
+ * Verifica la propiedad de la entrada.
+ */
+const removerDeListaCliente = async (listaEsperaId, clienteEmail) => {
+  return conn.transaction(async (transaction) => {
+    const entrada = await ListaEspera.findByPk(listaEsperaId, { transaction });
+    if (!entrada) throw httpError(404, "Entrada de lista de espera no encontrada");
+    if (entrada.cliente_email !== clienteEmail) {
+      throw httpError(403, "No tenés permiso para realizar esta acción");
+    }
+    if (!["ESPERANDO", "NOTIFICADO"].includes(entrada.estado)) {
+      throw httpError(409, "Esta entrada ya no está activa");
+    }
+
+    const eraNotificado = entrada.estado === "NOTIFICADO";
+    await entrada.update({ estado: "RECHAZADO" }, { transaction });
+
+    if (eraNotificado) {
+      setImmediate(() => {
+        notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+      });
+    }
+
+    return { message: "Te removiste de la lista de espera correctamente." };
+  });
+};
+
+/**
  * Cupos NOTIFICADOS pendientes de decisión para el cliente logueado.
+ * Excluye entradas donde el cliente ya tiene una reserva ACTIVA en esa
+ * clase/fecha (p.ej. si canceló y volvió a reservar, o si el cupo ya fue
+ * confirmado por otro camino).
  */
 const obtenerPendientesCliente = async (clienteEmail) => {
-  const limite = new Date(Date.now() - HORAS_LIMITE * 60 * 60 * 1000);
-
   const pendientes = await ListaEspera.findAll({
     where: {
       cliente_email: clienteEmail,
       estado: "NOTIFICADO",
-      notificado_en: { [Op.gte]: limite },
     },
     include: includeEntradaCompleta,
     order: [["notificado_en", "ASC"]],
   });
 
-  return pendientes;
+  // Filtrar entradas donde el cliente ya tiene una reserva ACTIVA
+  // (p.ej. canceló la original, fue notificado, y ahora tiene otra activa)
+  const filtradas = await Promise.all(
+    pendientes.map(async (entrada) => {
+      const where = {
+        clase_id: entrada.clase_id,
+        cliente_email: clienteEmail,
+        estado: "ACTIVA",
+      };
+      // Para individuales, verificar la fecha exacta puntual
+      if (entrada.tipo === "INDIVIDUAL" && entrada.fecha_exacta) {
+        where.fecha_exacta = entrada.fecha_exacta;
+      }
+      const reservaActiva = await ReservaClase.findOne({ where });
+      return reservaActiva ? null : entrada;
+    })
+  );
+
+  return filtradas.filter(Boolean);
 };
 
 /**
- * El cliente confirma el cupo liberado: se inscribe en la clase.
+ * Obtiene las entradas activas (ESPERANDO, NOTIFICADO) para el cliente logueado.
  */
-const confirmarCupo = async (listaEsperaId, clienteEmail) => {
+const obtenerEntradasCliente = async (clienteEmail) => {
+  return ListaEspera.findAll({
+    where: {
+      cliente_email: clienteEmail,
+      estado: { [Op.in]: ["ESPERANDO", "NOTIFICADO"] },
+    },
+    include: includeEntradaCompleta,
+    order: [["createdAt", "ASC"]],
+  });
+};
+
+const confirmarCupo = async (listaEsperaId, clienteEmail, options = {}) => {
   const { crearInscripcionIndividual } = require("./inscripcionesIndividuales.service");
   const { crearInscripcionMensual } = require("./inscripcionesMensuales.service");
+  const { tipoPago, vencimiento_seña, valeId } = options;
 
   const entrada = await cargarEntradaNotificada(listaEsperaId, clienteEmail);
   const clase = entrada.clase;
@@ -289,19 +413,34 @@ const confirmarCupo = async (listaEsperaId, clienteEmail) => {
   }
 
   let reservaId = null;
+  let montoPagado = 0;
+  let inscripcionMensualId = null;
+  let inscripcionIndividualId = null;
 
   if (entrada.tipo === "INDIVIDUAL") {
+    const modalidad = tipoPago === "SEÑA" ? "SEÑA" : "COMPLETO";
     const montoTotal = Number(actividad.precio) * 0.333;
-    const inscripcion = await crearInscripcionIndividual({
+    const data = {
       cliente_email: clienteEmail,
       clase_id: clase.id,
       actividad_id: actividad.id,
       fecha: entrada.fecha_exacta,
-      modalidad: "COMPLETO",
+      modalidad,
       monto_total: montoTotal,
-      monto_pagado: montoTotal,
-    });
+      vale_id: valeId || null,
+    };
+    if (modalidad === "SEÑA") {
+      data.estado_seña = "PENDIENTE";
+      data.vencimiento_seña = vencimiento_seña;
+      data.monto_pagado = Number(montoTotal) / 2;
+    } else {
+      data.monto_pagado = montoTotal;
+    }
+
+    const inscripcion = await crearInscripcionIndividual(data);
     reservaId = inscripcion.reservas?.[0]?.id ?? null;
+    montoPagado = Number(inscripcion.monto_pagado ?? 0);
+    inscripcionIndividualId = inscripcion.id;
   } else {
     const periodoInicio = new Date().toISOString().slice(0, 10);
     const periodoFin = sumarUnMes(periodoInicio);
@@ -314,8 +453,11 @@ const confirmarCupo = async (listaEsperaId, clienteEmail) => {
       dia_vencimiento: periodoFin,
       monto: actividad.precio,
       estado: "VIGENTE",
+      vale_id: valeId || null,
     });
     reservaId = inscripcion.reservas?.[0]?.id ?? null;
+    montoPagado = Number(inscripcion.monto ?? 0);
+    inscripcionMensualId = inscripcion.id;
   }
 
   await entrada.update({ estado: "CONFIRMADO" });
@@ -324,6 +466,9 @@ const confirmarCupo = async (listaEsperaId, clienteEmail) => {
     message: "Reserva confirmada con éxito",
     reservaId,
     clase_id: clase.id,
+    monto_pagado: montoPagado,
+    inscripcion_mensual_id: inscripcionMensualId,
+    inscripcion_individual_id: inscripcionIndividualId,
   };
 };
 
@@ -389,9 +534,11 @@ const getListaEspera = async (claseId, tipo, fechaExacta = null) => {
 module.exports = {
   anotarseEnLista,
   notificarPrimero,
-  verificarExpirados,
+  liberarCuposDiferidos,
   removerDeListaManual,
+  removerDeListaCliente,
   obtenerPendientesCliente,
+  obtenerEntradasCliente,
   confirmarCupo,
   rechazarCupo,
   listarListaEspera,
