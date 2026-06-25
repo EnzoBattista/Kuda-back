@@ -1,8 +1,32 @@
 const { Op, fn, col, literal } = require("sequelize");
-const { Usuario, Rol, Pago, ReservaClase, Clase, Actividad } = require("../../../db");
+const {
+  Usuario,
+  Rol,
+  Pago,
+  ReservaClase,
+  Clase,
+  Actividad,
+  InscripcionMensual,
+} = require("../../../db");
+const httpError = require("../../utils/httpError");
 
 const MESES_HISTORICO = 6;
 const TOP_HORARIOS = 10;
+
+const NOMBRES_MESES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
 const mesActualIso = () => {
   const now = new Date();
@@ -51,13 +75,18 @@ const completarMeses = (meses, mapa) =>
 const toNumber = (value) => Number.parseFloat(value ?? 0) || 0;
 
 const getTotalUsuarios = async () => {
-  const total = await Usuario.count();
+  // Solo cuentan los usuarios ACTIVO (activo:true). Quedan fuera los ELIMINADO
+  // (baja del admin) y los PENDIENTE (registro sin confirmar).
+  const soloActivos = { activo: true };
+
+  const total = await Usuario.count({ where: soloActivos });
 
   const porRol = await Usuario.findAll({
     attributes: [
       [col("rol.nombre"), "rol"],
       [fn("COUNT", col("Usuario.email")), "cantidad"],
     ],
+    where: soloActivos,
     include: [{ model: Rol, as: "rol", attributes: [] }],
     group: [col("rol.nombre")],
     raw: true,
@@ -82,6 +111,7 @@ const getUsuariosNuevos = async () => {
       [fn("COUNT", col("Usuario.email")), "cantidad"],
     ],
     where: {
+      activo: true,
       createdAt: { [Op.gte]: desde },
     },
     group: [fn("TO_CHAR", col("Usuario.createdAt"), "YYYY-MM")],
@@ -178,6 +208,11 @@ const getHorariosPopulares = async () => {
         model: Clase,
         as: "clase",
         attributes: ["id", "nombre", "dia_semana", "hora_inicio", "hora_fin", "cupo"],
+        // Solo clases vigentes: si la clase se eliminó (activa: false) no debe
+        // figurar entre los horarios más seleccionados, aunque conserve reservas
+        // viejas en estado ACTIVA. required: true descarta reservas huérfanas.
+        where: { activa: true },
+        required: true,
         include: [{ model: Actividad, as: "actividad", attributes: ["nombre"] }],
       },
     ],
@@ -217,9 +252,236 @@ const getHorariosPopulares = async () => {
   };
 };
 
+const getIngresosMensuales = async ({ anio, actividadId } = {}) => {
+  const year = Number.parseInt(anio, 10);
+  if (!Number.isInteger(year)) {
+    throw httpError(400, "El año del reporte es obligatorio");
+  }
+
+  const inicioAnio = new Date(year, 0, 1);
+  const inicioAnioSiguiente = new Date(year + 1, 0, 1);
+
+  const where = {
+    estado: "COMPLETADO",
+    fecha: { [Op.gte]: inicioAnio, [Op.lt]: inicioAnioSiguiente },
+  };
+
+  const include = [];
+  let categoria = { id: null, nombre: "Todas las clases" };
+
+  if (actividadId != null) {
+    const actividad = await Actividad.findByPk(actividadId, {
+      attributes: ["id", "nombre"],
+    });
+    if (!actividad) {
+      throw httpError(404, "Categoría (actividad) no encontrada");
+    }
+    categoria = { id: actividad.id, nombre: actividad.nombre };
+
+    // Un pago se asocia a una actividad por la inscripción mensual (MENSUALIDAD)
+    // o por la reserva → clase (CLASE_SUELTA).
+    where[Op.or] = [
+      { "$reserva.clase.actividad_id$": actividad.id },
+      { "$inscripcionMensual.actividad_id$": actividad.id },
+    ];
+
+    include.push(
+      {
+        model: ReservaClase,
+        as: "reserva",
+        attributes: [],
+        required: false,
+        include: [{ model: Clase, as: "clase", attributes: [], required: false }],
+      },
+      {
+        model: InscripcionMensual,
+        as: "inscripcionMensual",
+        attributes: [],
+        required: false,
+      },
+    );
+  }
+
+  const filas = await Pago.findAll({
+    attributes: [
+      [fn("TO_CHAR", col("Pago.fecha"), "YYYY-MM"), "mes"],
+      [fn("SUM", col("Pago.monto")), "total"],
+    ],
+    where,
+    include,
+    group: [fn("TO_CHAR", col("Pago.fecha"), "YYYY-MM")],
+    order: [[fn("SUM", col("Pago.monto")), "DESC"]],
+    subQuery: false,
+    raw: true,
+  });
+
+  const meses = filas.map((f) => {
+    const numeroMes = Number.parseInt(String(f.mes).slice(5, 7), 10);
+    return {
+      mes: f.mes,
+      nombre_mes: NOMBRES_MESES[numeroMes - 1] ?? f.mes,
+      total: toNumber(f.total),
+    };
+  });
+
+  const totalAnual = meses.reduce((acc, m) => acc + m.total, 0);
+
+  return {
+    anio: year,
+    categoria,
+    hay_datos: meses.length > 0,
+    mensaje:
+      meses.length > 0
+        ? null
+        : `No hay ingresos registrados en el año ${year}.`,
+    total_anual: totalAnual,
+    meses,
+  };
+};
+
+const getHorariosSeleccionados = async ({ anio, actividadId } = {}) => {
+  const year = Number.parseInt(anio, 10);
+  if (!Number.isInteger(year)) {
+    throw httpError(400, "El año del reporte es obligatorio");
+  }
+
+  const inicioAnio = `${year}-01-01`;
+  const finAnio = `${year}-12-31`;
+
+  let categoria = { id: null, nombre: "Todas las clases" };
+  // Solo clases vigentes: las eliminadas (activa: false) no figuran en el reporte.
+  const claseWhere = { activa: true };
+
+  if (actividadId != null) {
+    const actividad = await Actividad.findByPk(actividadId, {
+      attributes: ["id", "nombre"],
+    });
+    if (!actividad) {
+      throw httpError(404, "Categoría (actividad) no encontrada");
+    }
+    categoria = { id: actividad.id, nombre: actividad.nombre };
+    claseWhere.actividad_id = actividad.id;
+  }
+
+  // Demanda por horario = reservas del año a cada clase, agrupadas por horario
+  // (clase) y ordenadas de mayor a menor.
+  const filas = await ReservaClase.findAll({
+    attributes: [
+      "clase_id",
+      [fn("COUNT", col("ReservaClase.id")), "total_reservas"],
+    ],
+    where: {
+      estado: "ACTIVA",
+      fecha_exacta: { [Op.between]: [inicioAnio, finAnio] },
+    },
+    include: [
+      {
+        model: Clase,
+        as: "clase",
+        attributes: ["id", "nombre", "dia_semana", "hora_inicio", "hora_fin", "cupo"],
+        where: claseWhere,
+        required: true,
+        include: [{ model: Actividad, as: "actividad", attributes: ["id", "nombre"] }],
+      },
+    ],
+    group: [
+      "clase_id",
+      "clase.id",
+      "clase.nombre",
+      "clase.dia_semana",
+      "clase.hora_inicio",
+      "clase.hora_fin",
+      "clase.cupo",
+      "clase->actividad.id",
+      "clase->actividad.nombre",
+    ],
+    order: [[literal("total_reservas"), "DESC"]],
+    subQuery: false,
+  });
+
+  const horarios = filas.map((f) => {
+    const clase = f.clase;
+    const horaInicio = String(clase?.hora_inicio ?? "").slice(0, 5);
+    const horaFin = String(clase?.hora_fin ?? "").slice(0, 5);
+    return {
+      clase_id: f.clase_id,
+      actividad: clase?.actividad?.nombre ?? clase?.nombre ?? "Clase",
+      nombre: clase?.nombre,
+      dia_semana: clase?.dia_semana,
+      hora_inicio: horaInicio,
+      hora_fin: horaFin,
+      horario: `${clase?.dia_semana ?? ""} ${horaInicio}${horaFin ? `-${horaFin}` : ""}`.trim(),
+      cupo: Number(clase?.cupo ?? 0),
+      total_reservas: Number(f.get("total_reservas")),
+    };
+  });
+
+  return {
+    anio: year,
+    categoria,
+    hay_datos: horarios.length > 0,
+    mensaje:
+      horarios.length > 0
+        ? null
+        : `No hubo inscripciones a la categoría "${categoria.nombre}" durante el ${year}.`,
+    horarios,
+  };
+};
+
+const getUsuariosNuevosAnual = async ({ anio } = {}) => {
+  const year = Number.parseInt(anio, 10);
+  if (!Number.isInteger(year)) {
+    throw httpError(400, "El año del reporte es obligatorio");
+  }
+
+  const inicioAnio = new Date(year, 0, 1);
+  const inicioAnioSiguiente = new Date(year + 1, 0, 1);
+
+  // Usuarios nuevos = usuarios dados de alta en el año, agrupados por mes y
+  // ordenados de mayor a menor por cantidad.
+  const filas = await Usuario.findAll({
+    attributes: [
+      [fn("TO_CHAR", col("Usuario.createdAt"), "YYYY-MM"), "mes"],
+      [fn("COUNT", col("Usuario.email")), "cantidad"],
+    ],
+    where: {
+      activo: true,
+      createdAt: { [Op.gte]: inicioAnio, [Op.lt]: inicioAnioSiguiente },
+    },
+    group: [fn("TO_CHAR", col("Usuario.createdAt"), "YYYY-MM")],
+    order: [[fn("COUNT", col("Usuario.email")), "DESC"]],
+    raw: true,
+  });
+
+  const meses = filas.map((f) => {
+    const numeroMes = Number.parseInt(String(f.mes).slice(5, 7), 10);
+    return {
+      mes: f.mes,
+      nombre_mes: NOMBRES_MESES[numeroMes - 1] ?? f.mes,
+      cantidad: Number(f.cantidad),
+    };
+  });
+
+  const totalAnual = meses.reduce((acc, m) => acc + m.cantidad, 0);
+
+  return {
+    anio: year,
+    hay_datos: meses.length > 0,
+    mensaje:
+      meses.length > 0
+        ? null
+        : `No existen usuarios nuevos en el año ${year}.`,
+    total_anual: totalAnual,
+    meses,
+  };
+};
+
 module.exports = {
   getTotalUsuarios,
   getUsuariosNuevos,
+  getUsuariosNuevosAnual,
   getIngresos,
+  getIngresosMensuales,
   getHorariosPopulares,
+  getHorariosSeleccionados,
 };
