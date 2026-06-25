@@ -34,10 +34,6 @@ const createActividad = async (data) => {
     activa: activa !== undefined ? activa : true,
   });
 
-  if (Array.isArray(profesores) && profesores.length > 0) {
-    await nuevaActividad.setProfesores(profesores);
-  }
-
   return nuevaActividad;
 };
 
@@ -92,10 +88,6 @@ const updateActividad = async (id, data) => {
     activa: activa !== undefined ? activa : actividad.activa,
   });
 
-  if (Array.isArray(profesores)) {
-    await actividad.setProfesores(profesores);
-  }
-
   return actividad;
 };
 
@@ -138,6 +130,7 @@ const deleteActividad = async (id) => {
   }
 
   await actividad.update({ activa: false });
+  await actividad.setProfesores([]);
   await Clase.update({ activa: false }, { where: { actividad_id: id } });
   return { message: "Actividad eliminada con éxito" };
 };

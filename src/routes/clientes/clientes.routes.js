@@ -12,6 +12,7 @@ const {
 const {
   getMisNotificaciones,
   updateMisNotificaciones,
+  updateNotificacionesCliente,
 } = require("../../controllers/notificaciones/notificaciones.controller");
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.put("/me/notificaciones", auth, updateMisNotificaciones);
 router.get("/:email", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR, { allowSelf: true }), getClienteById);
 router.post("/", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), createCliente);
 router.put("/:email", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR, { allowSelf: true }), updateCliente);
+router.put("/:email/notificaciones", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), updateNotificacionesCliente);
 router.delete("/:email", auth, requirePermiso(PERMISOS.USUARIO_GESTIONAR), deleteCliente);
 
 module.exports = router;

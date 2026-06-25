@@ -117,18 +117,13 @@ const updateCliente = async (req, res, next) => {
 
 const deleteCliente = async (req, res, next) => {
   try {
-    const usuario = await Usuario.findByPk(req.params.email);
-    if (!usuario) return res.status(404).json({ message: "Cliente (Usuario) no encontrado" });
-
-    if (!usuario.activo) {
-      return res.status(410).json({ message: "Cliente ya dado de baja" });
-    }
-
-    usuario.activo = false;
-    await usuario.save();
-
+    const { darDeBajaUsuario } = require("../../services/acceso/usuarios.service");
+    await darDeBajaUsuario(req.params.email);
     return res.status(204).send();
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     return next(error);
   }
 };

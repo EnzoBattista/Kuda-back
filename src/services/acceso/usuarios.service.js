@@ -69,6 +69,14 @@ const darDeBajaUsuario = async (email) => {
     }
   );
 
+  const { ReservaClase } = require("../../../db");
+  await ReservaClase.destroy({
+    where: {
+      cliente_email: email,
+      estado: "ACTIVA",
+    }
+  });
+
   return usuario;
 };
 

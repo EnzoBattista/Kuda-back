@@ -19,6 +19,18 @@ const createProfesor = async (req, res, next) => {
       });
     }
 
+    if (!telefono || !telefono.trim()) {
+      return res.status(400).json({
+        message: "El teléfono no puede estar vacío",
+      });
+    }
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        message: "El email no puede estar vacío",
+      });
+    }
+
     const nuevoProfesor = await crearProfesor({
       nombre,
       apellido,
@@ -48,6 +60,14 @@ const updateProfesor = async (req, res, next) => {
     const profesor = await Profesor.findByPk(id);
     if (!profesor) {
       return res.status(404).json({ message: "Profesor no encontrado" });
+    }
+
+    if (telefono !== undefined && (!telefono || !telefono.trim())) {
+      return res.status(400).json({ message: "El teléfono no puede estar vacío" });
+    }
+
+    if (email !== undefined && (!email || !email.trim())) {
+      return res.status(400).json({ message: "El email no puede estar vacío" });
     }
 
     if (dni && dni !== profesor.dni) {
@@ -124,6 +144,7 @@ const deleteProfesor = async (req, res, next) => {
     }
 
     await profesor.update({ activo: false });
+    await profesor.setActividades([]);
     await profesor.destroy();
 
     return res.status(200).json({
