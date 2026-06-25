@@ -173,6 +173,8 @@ const getAllProfesores = async (req, res, next) => {
         {
           model: Actividad,
           as: "actividades",
+          where: { activa: true },
+          required: false,
           through: { attributes: [] }, // No traer atributos de la tabla intermedia
         },
       ],
