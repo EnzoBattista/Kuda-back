@@ -31,6 +31,15 @@ module.exports = (sequelize) => {
     {
       tableName: "actividades",
       timestamps: true,
+      indexes: [
+        {
+          unique: true,
+          fields: ["nombre"],
+          where: {
+            activa: true,
+          },
+        },
+      ],
     }
   );
 

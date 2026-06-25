@@ -137,6 +137,7 @@ const deleteActividad = async (id) => {
     throw httpError(409, "No se puede eliminar una actividad con clientes inscriptos");
   }
 
+  await actividad.setProfesores([]);
   await actividad.update({ activa: false });
   await Clase.update({ activa: false }, { where: { actividad_id: id } });
   return { message: "Actividad eliminada con éxito" };

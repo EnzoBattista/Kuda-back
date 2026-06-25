@@ -10,7 +10,7 @@ const {
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
-const { sumarUnMes } = require("../../utils/fechas");
+const { sumarUnMes, getFechaHoyLocal } = require("../../utils/fechas");
 const { notificarCupoDisponible } = require("../notificaciones/email.listaEspera.service");
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,13 +22,14 @@ const { notificarCupoDisponible } = require("../notificaciones/email.listaEspera
  * o en promedio para el mes vigente (MENSUAL).
  */
 const contarReservasActivas = async (claseId, tipo, fechaExacta, transaction) => {
+  const { obtenerCuposOcupados } = require("./reservas.service");
+  if (tipo === "INDIVIDUAL" && fechaExacta) {
+    return obtenerCuposOcupados(claseId, fechaExacta, null, transaction);
+  }
   const where = {
     clase_id: claseId,
     estado: { [Op.ne]: "CANCELADA" },
   };
-  if (tipo === "INDIVIDUAL" && fechaExacta) {
-    where.fecha_exacta = fechaExacta;
-  }
   return ReservaClase.count({ where, transaction });
 };
 
@@ -123,16 +124,14 @@ const anotarseEnLista = async (clienteEmail, claseId, tipo, fechaExacta = null) 
     // Verificar que realmente esté llena
     if (tipo === "MENSUAL") {
       const { fechasDeClaseEnPeriodo } = require("./reservas.service");
-      const hoy = new Date().toISOString().slice(0, 10);
+      const hoy = getFechaHoyLocal();
       const fin = sumarUnMes(hoy);
       const fechasPeriodo = fechasDeClaseEnPeriodo(clase.dia_semana, hoy, fin);
       
+      const { obtenerCuposOcupados } = require("./reservas.service");
       let hayAlMenosUnaLlena = false;
       for (const fecha of fechasPeriodo) {
-        const ocupadas = await ReservaClase.count({
-          where: { clase_id: claseId, fecha_exacta: fecha, estado: "ACTIVA" },
-          transaction,
-        });
+        const ocupadas = await obtenerCuposOcupados(claseId, fecha, clienteEmail, transaction);
         if (ocupadas >= clase.cupo) {
           hayAlMenosUnaLlena = true;
           break;
@@ -196,27 +195,22 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
     const clase = await Clase.findByPk(claseId, { attributes: ["cupo"], transaction });
     if (!clase) return null;
 
+    const { obtenerCuposOcupados } = require("./reservas.service");
     if (tipo === "INDIVIDUAL" && fechaExacta) {
-      const activas = await ReservaClase.count({
-        where: { clase_id: claseId, fecha_exacta: fechaExacta, estado: "ACTIVA" },
-        transaction,
-      });
+      const activas = await obtenerCuposOcupados(claseId, fechaExacta, entrada.cliente_email, transaction);
       if (activas >= clase.cupo) return null; // Sin cupo real, no notificar
     } else if (tipo === "MENSUAL") {
       const { fechasDeClaseEnPeriodo } = require("./reservas.service");
       const claseCompleta = await Clase.findByPk(claseId, { attributes: ["cupo", "dia_semana"], transaction });
       if (!claseCompleta) return null;
-      const hoy = new Date().toISOString().slice(0, 10);
+      const hoy = getFechaHoyLocal();
       const fin = sumarUnMes(hoy);
       const fechas = fechasDeClaseEnPeriodo(claseCompleta.dia_semana, hoy, fin);
       
       // Para mensualidad, se requiere que TODAS las fechas del periodo tengan cupo disponible
       let todasTienenCupo = true;
       for (const f of fechas) {
-        const activas = await ReservaClase.count({
-          where: { clase_id: claseId, fecha_exacta: f, estado: "ACTIVA" },
-          transaction,
-        });
+        const activas = await obtenerCuposOcupados(claseId, f, entrada.cliente_email, transaction);
         if (activas >= claseCompleta.cupo) {
           todasTienenCupo = false;
           break;
@@ -253,12 +247,16 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
  * mensuales que no se llenaron) y dispara notificarPrimero.
  */
 const liberarCuposDiferidos = async () => {
+  const hoyStr = getFechaHoyLocal();
   const hoy = new Date();
-  const limite = new Date();
-  limite.setDate(hoy.getDate() + 7);
-  
-  const hoyStr = hoy.toISOString().slice(0, 10);
-  const limiteStr = limite.toISOString().slice(0, 10);
+  const limite = new Date(hoy.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const limiteStr = formatter.format(limite);
 
   const pendientes = await ListaEspera.findAll({
     where: {
@@ -377,6 +375,9 @@ const obtenerPendientesCliente = async (clienteEmail) => {
       // Para individuales, verificar la fecha exacta puntual
       if (entrada.tipo === "INDIVIDUAL" && entrada.fecha_exacta) {
         where.fecha_exacta = entrada.fecha_exacta;
+      } else if (entrada.tipo === "MENSUAL") {
+        // Para mensuales, solo filtrar si la reserva activa es por membresía mensual
+        where.inscripcion_mensual_id = { [Op.ne]: null };
       }
       const reservaActiva = await ReservaClase.findOne({ where });
       return reservaActiva ? null : entrada;
@@ -442,7 +443,7 @@ const confirmarCupo = async (listaEsperaId, clienteEmail, options = {}) => {
     montoPagado = Number(inscripcion.monto_pagado ?? 0);
     inscripcionIndividualId = inscripcion.id;
   } else {
-    const periodoInicio = new Date().toISOString().slice(0, 10);
+    const periodoInicio = getFechaHoyLocal();
     const periodoFin = sumarUnMes(periodoInicio);
     const inscripcion = await crearInscripcionMensual({
       cliente_email: clienteEmail,

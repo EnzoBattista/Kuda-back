@@ -39,7 +39,12 @@ const aplicarVale = async ({
     throw httpError(409, "El cupón ya fue utilizado");
   }
   if (vale.clase_id != null && vale.clase_id !== clase_id) {
-    throw httpError(409, "El cupón solo puede aplicarse a la clase original");
+    const { Clase } = require("../../../db");
+    const claseOriginal = await Clase.findByPk(vale.clase_id, { transaction });
+    const claseNueva = await Clase.findByPk(clase_id, { transaction });
+    if (!claseOriginal || !claseNueva || claseOriginal.actividad_id !== claseNueva.actividad_id) {
+      throw httpError(409, "El cupón solo puede aplicarse a clases de la misma actividad");
+    }
   }
 
 

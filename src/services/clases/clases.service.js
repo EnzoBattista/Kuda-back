@@ -1,6 +1,7 @@
 const { Op } = require("sequelize");
 const { Clase, Actividad, Sala, Profesor, CancelacionClase, InscripcionMensual, InscripcionIndividual, ReservaClase, Vale, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
+const { getFechaHoyLocal } = require("../../utils/fechas");
 
 const MAPA_DIAS = {
   Domingo: 0,
@@ -218,11 +219,7 @@ const deleteClase = async (id) => {
   const clase = await Clase.findByPk(id);
   if (!clase) throw httpError(404, "Clase no encontrada");
 
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hoy = `${yyyy}-${mm}-${dd}`;
+  const hoy = getFechaHoyLocal();
 
   const reservasActivasFuturas = await ReservaClase.count({
     where: {
@@ -252,7 +249,7 @@ const cancelarFechaClase = async (claseId, data) => {
     throw httpError(400, `La fecha ${fecha} no es un ${clase.dia_semana}`);
   }
 
-  const hoyStr = new Date().toISOString().slice(0, 10);
+  const hoyStr = getFechaHoyLocal();
   if (fecha < hoyStr) {
     throw httpError(400, "No se puede cancelar una clase pasada");
   }
@@ -413,6 +410,88 @@ const verificarConflictoReserva = async (claseId, fecha, clienteEmail) => {
   return { conflicto: false, tipo: null, mensaje: null };
 };
 
+const verificarConflictoMensual = async (claseId, clienteEmail) => {
+  const { Clase, ReservaClase, conn } = require("../../../db");
+  const { Op } = require("sequelize");
+  const { fechasDeClaseEnPeriodo, obtenerCuposOcupados } = require("./reservas.service");
+  const { sumarUnMes } = require("../../utils/fechas");
+  const { validarMoraCliente } = require("../asistencias/asistencias.service");
+
+  try {
+    await validarMoraCliente(clienteEmail);
+  } catch (err) {
+    if (err.status === 403) {
+      return {
+        conflicto: true,
+        tipo: "MORA",
+        mensaje: "Tu cuenta se encuentra suspendida por falta de pago. Regularizá tu situación para poder reservar.",
+      };
+    }
+    throw err;
+  }
+
+  const clase = await Clase.findByPk(claseId);
+  if (!clase) throw httpError(404, "Clase no encontrada");
+
+  const hoy = getFechaHoyLocal();
+  const fin = sumarUnMes(hoy);
+  const fechas = fechasDeClaseEnPeriodo(clase.dia_semana, hoy, fin);
+
+  // Buscar si el cliente ya tiene reservas individuales en este período para fusionarlas
+  const yaReservadas = await ReservaClase.findAll({
+    where: {
+      cliente_email: clienteEmail,
+      clase_id: claseId,
+      fecha_exacta: { [Op.in]: fechas },
+      estado: "ACTIVA",
+      inscripcion_individual_id: { [Op.ne]: null },
+    },
+  });
+  const setYaReservadas = new Set(yaReservadas.map((r) => String(r.fecha_exacta).slice(0, 10)));
+  const fechasAChequear = fechas.filter((f) => !setYaReservadas.has(f));
+
+  // 1. Verificar si hay conflicto de horario (reserva activa en otra clase a la misma hora)
+  for (const fecha of fechasAChequear) {
+    const conflictoHorario = await ReservaClase.findOne({
+      where: {
+        cliente_email: clienteEmail,
+        fecha_exacta: fecha,
+        estado: "ACTIVA",
+        clase_id: { [Op.ne]: claseId },
+      },
+      include: [{
+        model: Clase,
+        as: "clase",
+        where: {
+          hora_inicio: { [Op.lt]: clase.hora_fin },
+          hora_fin: { [Op.gt]: clase.hora_inicio },
+        },
+      }],
+    });
+    if (conflictoHorario) {
+      return {
+        conflicto: true,
+        tipo: "HORARIO",
+        mensaje: "Ya tenés una reserva activa en ese día y horario.",
+      };
+    }
+  }
+
+  // 2. Verificar cupo disponible para las fechas nuevas a inscribir
+  for (const fecha of fechasAChequear) {
+    const ocupadas = await obtenerCuposOcupados(claseId, fecha, clienteEmail);
+    if (ocupadas >= clase.cupo) {
+      return {
+        conflicto: true,
+        tipo: "SIN_CUPO",
+        mensaje: "No hay cupo suficiente en todas las fechas del mes.",
+      };
+    }
+  }
+
+  return { conflicto: false, tipo: null, mensaje: null };
+};
+
 module.exports = {
   crearClase,
   modificarClase,
@@ -420,4 +499,5 @@ module.exports = {
   deleteClase,
   cancelarFechaClase,
   verificarConflictoReserva,
+  verificarConflictoMensual,
 };

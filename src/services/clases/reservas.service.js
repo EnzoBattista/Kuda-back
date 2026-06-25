@@ -11,6 +11,7 @@ const {
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { notificarPrimero } = require("./listaEspera.service");
+const { getFechaHoyLocal } = require("../../utils/fechas");
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -58,11 +59,71 @@ const fechasDeClaseEnPeriodo = (diaSemana, periodoInicio, periodoFin) => {
 
 // ─── Verificaciones de cupo y cancelación ────────────────────────────────────
 
-const verificarCupo = async (clase, fechaExacta, transaction) => {
-  const ocupadas = await ReservaClase.count({
-    where: { clase_id: clase.id, fecha_exacta: fechaExacta, estado: "ACTIVA" },
-    transaction,
+const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transaction) => {
+  const { ReservaClase, InscripcionMensual } = require("../../../db");
+
+  const whereReservas = {
+    clase_id: claseId,
+    fecha_exacta: fecha,
+    estado: "ACTIVA"
+  };
+  if (clienteEmailExcluir) {
+    whereReservas.cliente_email = { [Op.ne]: clienteEmailExcluir };
+  }
+  const activas = await ReservaClase.count({ where: whereReservas, transaction });
+
+  // Caso 1: abonados cuyo período CUBRE la fecha consultada (periodo_inicio <= fecha < periodo_fin).
+  // Estos ya tienen reservas ACTIVA generadas, pero se verifica por si alguno no las tiene aún.
+  const abonadosVigentes = await InscripcionMensual.findAll({
+    where: {
+      clase_id: claseId,
+      estado: ["VIGENTE", "EN_GRACIA"],
+      periodo_inicio: { [Op.lte]: fecha },
+      periodo_fin: { [Op.gt]: fecha }
+    },
+    transaction
   });
+
+  // Caso 2: abonados vigentes cuyo período termina ANTES de la fecha, pero cuyo mes de renovación
+  // (periodo_fin → periodo_fin + 1 mes) SÍ incluye la fecha. Estos tienen preferencia de cupo
+  // para la renovación y aún no han reservado concretamente esa fecha.
+  const hoy = getFechaHoyLocal();
+  const abonadosProximosARenovar = await InscripcionMensual.findAll({
+    where: {
+      clase_id: claseId,
+      estado: ["VIGENTE", "EN_GRACIA"],
+      periodo_fin: { [Op.gt]: hoy, [Op.lte]: fecha }
+    },
+    transaction
+  });
+
+  const emailsContados = new Set();
+  let noRenovados = 0;
+
+  for (const abono of [...abonadosVigentes, ...abonadosProximosARenovar]) {
+    if (clienteEmailExcluir && abono.cliente_email === clienteEmailExcluir) continue;
+    if (emailsContados.has(abono.cliente_email)) continue;
+
+    const yaTieneReserva = await ReservaClase.findOne({
+      where: {
+        cliente_email: abono.cliente_email,
+        clase_id: claseId,
+        fecha_exacta: fecha,
+        estado: "ACTIVA"
+      },
+      transaction
+    });
+    if (!yaTieneReserva) {
+      noRenovados++;
+      emailsContados.add(abono.cliente_email);
+    }
+  }
+
+  return activas + noRenovados;
+};
+
+const verificarCupo = async (clase, fechaExacta, transaction) => {
+  const ocupadas = await obtenerCuposOcupados(clase.id, fechaExacta, null, transaction);
   if (ocupadas >= clase.cupo) {
     throw httpError(409, `Sin cupo en la clase para la fecha ${fechaExacta}`);
   }
@@ -171,29 +232,30 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
   }
 
   // Saltea fechas donde el mismo cliente ya tiene una reserva activa
-  // (típicamente una individual previa): mantiene esa reserva y agrega
-  // solo las restantes como mensuales.
+  // (típicamente una individual previa): las fusiona/convierte a mensuales
+  // y crea el resto como nuevas.
   const yaReservadas = await ReservaClase.findAll({
     where: {
       cliente_email: inscripcion.cliente_email,
       clase_id: clase.id,
       fecha_exacta: { [Op.in]: fechasSinCancelar },
       estado: "ACTIVA",
+      inscripcion_individual_id: { [Op.ne]: null },
     },
-    attributes: ["fecha_exacta"],
     transaction,
   });
+
+  // Convertir las individuales existentes a mensuales
+  for (const r of yaReservadas) {
+    r.inscripcion_mensual_id = inscripcion.id;
+    r.inscripcion_individual_id = null;
+    await r.save({ transaction });
+  }
+
   const setYaReservadas = new Set(
     yaReservadas.map((r) => String(r.fecha_exacta).slice(0, 10))
   );
   const fechasValidas = fechasSinCancelar.filter((f) => !setYaReservadas.has(f));
-
-  if (fechasValidas.length === 0) {
-    throw httpError(
-      409,
-      "Ya tenés reservas activas para todas las fechas de esta clase en el período"
-    );
-  }
 
   for (const fecha of fechasValidas) {
     const conflictoHorario = await ReservaClase.findOne({
@@ -223,10 +285,7 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
 
   const sinCupo = [];
   for (const fecha of fechasValidas) {
-    const ocupadas = await ReservaClase.count({
-      where: { clase_id: clase.id, fecha_exacta: fecha, estado: "ACTIVA" },
-      transaction,
-    });
+    const ocupadas = await obtenerCuposOcupados(clase.id, fecha, inscripcion.cliente_email, transaction);
     if (ocupadas >= clase.cupo) {
       sinCupo.push(fecha);
     }
@@ -238,7 +297,7 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
     );
   }
 
-  const reservas = await ReservaClase.bulkCreate(
+  const reservasNuevas = await ReservaClase.bulkCreate(
     fechasValidas.map((fecha) => ({
       cliente_email: inscripcion.cliente_email,
       clase_id: clase.id,
@@ -248,7 +307,7 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
     })),
     { transaction, validate: true }
   );
-  return reservas;
+  return [...yaReservadas, ...reservasNuevas];
 };
 
 // ─── Cancelación de reservas (lógica de vales/reembolso) ─────────────────────
@@ -258,7 +317,7 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
  */
 const horasHastaClase = (fechaExacta, horaInicio) => {
   const ahora = new Date();
-  const fechaClase = new Date(`${fechaExacta}T${horaInicio}`);
+  const fechaClase = new Date(`${fechaExacta}T${horaInicio}-03:00`);
   return (fechaClase - ahora) / (1000 * 60 * 60);
 };
 
@@ -281,17 +340,33 @@ const generarValeAbonado = async (clienteEmail, claseId, inscripcionMensual, opt
   if (totalReservas <= 0) return null;
 
   const montoVale = Number(inscripcionMensual.monto) / totalReservas;
-  const hoy = new Date();
-  const validoDesde = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
-  const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
+  const hoyLocalStr = getFechaHoyLocal();
+  const [year, month] = hoyLocalStr.split("-").map(Number);
+
+  let nextMonth = month + 1;
+  let nextYear = year;
+  if (nextMonth > 12) {
+    nextMonth = 1;
+    nextYear += 1;
+  }
+  const validoDesdeStr = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
+
+  let monthAfter = nextMonth + 1;
+  let yearAfter = nextYear;
+  if (monthAfter > 12) {
+    monthAfter = 1;
+    yearAfter += 1;
+  }
+  const lastDayObj = new Date(Date.UTC(yearAfter, monthAfter - 1, 0));
+  const validoHastaStr = lastDayObj.toISOString().slice(0, 10);
 
   return Vale.create({
     cliente_email: clienteEmail,
     clase_id: claseId,
     tipo: "MENSUAL",
     monto: Number(montoVale.toFixed(2)),
-    valido_desde: validoDesde.toISOString().slice(0, 10),
-    valido_hasta: validoHasta.toISOString().slice(0, 10),
+    valido_desde: validoDesdeStr,
+    valido_hasta: validoHastaStr,
   }, options);
 };
 
@@ -300,28 +375,34 @@ const generarValeAbonado = async (clienteEmail, claseId, inscripcionMensual, opt
  * clase; aplicable a la próxima inscripción INDIVIDUAL de esa clase. Validez
  * por defecto: hasta el último día del mes siguiente.
  */
-const generarValeIndividual = async (clienteEmail, claseId, options = {}) => {
-  const clase = await Clase.findByPk(claseId, {
-    include: [{ model: Actividad, as: "actividad" }],
-    transaction: options.transaction,
-  });
-  const precio = Number(clase?.actividad?.precio ?? 0);
-  if (precio <= 0) return null;
+const generarValeIndividual = async (clienteEmail, claseId, monto, options = {}) => {
+  const validoDesdeStr = getFechaHoyLocal();
+  const [year, month] = validoDesdeStr.split("-").map(Number);
 
-  const montoVale = precio * 0.333;
-  const hoy = new Date();
-  const validoDesde = hoy.toISOString().slice(0, 10);
-  const validoHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0)
-    .toISOString()
-    .slice(0, 10);
+  let nextMonth = month + 1;
+  let nextYear = year;
+  if (nextMonth > 12) {
+    nextMonth = 1;
+    nextYear += 1;
+  }
+
+  let monthAfter = nextMonth + 1;
+  let yearAfter = nextYear;
+  if (monthAfter > 12) {
+    monthAfter = 1;
+    yearAfter += 1;
+  }
+
+  const lastDayObj = new Date(Date.UTC(yearAfter, monthAfter - 1, 0));
+  const validoHastaStr = lastDayObj.toISOString().slice(0, 10);
 
   return Vale.create({
     cliente_email: clienteEmail,
     clase_id: claseId,
     tipo: "INDIVIDUAL",
-    monto: Number(montoVale.toFixed(2)),
-    valido_desde: validoDesde,
-    valido_hasta: validoHasta,
+    monto: Number(Number(monto).toFixed(2)),
+    valido_desde: validoDesdeStr,
+    valido_hasta: validoHastaStr,
   }, options);
 };
 
@@ -373,15 +454,16 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
       }
       mensaje = "la cancelación se realizó con éxito";
     } else if (reserva.inscripcion_individual_id) {
-      // Individual + cancelación con +24hs ⇒ cupón TIPO INDIVIDUAL (33.3% del
-      // valor de la actividad) para la próxima reserva en esta clase.
+      // Individual + cancelación con +24hs ⇒ cupón TIPO INDIVIDUAL para la próxima reserva en esta clase.
       // <24hs ⇒ sin cupón, el centro retiene lo abonado.
       const inscripcion = await InscripcionIndividual.findByPk(reserva.inscripcion_individual_id, { transaction });
       if (conAnticipacion) {
+        let montoVale = 0;
         if (inscripcion) {
           await inscripcion.update({ estado_seña: null }, { transaction });
+          montoVale = Number(inscripcion.monto_pagado);
         }
-        vale = await generarValeIndividual(emailUsuario, reserva.clase_id, { transaction });
+        vale = await generarValeIndividual(emailUsuario, reserva.clase_id, montoVale, { transaction });
         mensaje = "Clase cancelada con exito.";
       } else {
         mensaje = "Clase cancelada con exito.";
@@ -425,4 +507,5 @@ module.exports = {
   generarReservasIndividual,
   generarReservasMensual,
   cancelarReserva: cancelarReservaConNotificacion,
+  obtenerCuposOcupados,
 };
