@@ -75,13 +75,18 @@ const completarMeses = (meses, mapa) =>
 const toNumber = (value) => Number.parseFloat(value ?? 0) || 0;
 
 const getTotalUsuarios = async () => {
-  const total = await Usuario.count();
+  // Solo cuentan los usuarios ACTIVO (activo:true). Quedan fuera los ELIMINADO
+  // (baja del admin) y los PENDIENTE (registro sin confirmar).
+  const soloActivos = { activo: true };
+
+  const total = await Usuario.count({ where: soloActivos });
 
   const porRol = await Usuario.findAll({
     attributes: [
       [col("rol.nombre"), "rol"],
       [fn("COUNT", col("Usuario.email")), "cantidad"],
     ],
+    where: soloActivos,
     include: [{ model: Rol, as: "rol", attributes: [] }],
     group: [col("rol.nombre")],
     raw: true,
@@ -106,6 +111,7 @@ const getUsuariosNuevos = async () => {
       [fn("COUNT", col("Usuario.email")), "cantidad"],
     ],
     where: {
+      activo: true,
       createdAt: { [Op.gte]: desde },
     },
     group: [fn("TO_CHAR", col("Usuario.createdAt"), "YYYY-MM")],
@@ -202,6 +208,11 @@ const getHorariosPopulares = async () => {
         model: Clase,
         as: "clase",
         attributes: ["id", "nombre", "dia_semana", "hora_inicio", "hora_fin", "cupo"],
+        // Solo clases vigentes: si la clase se eliminó (activa: false) no debe
+        // figurar entre los horarios más seleccionados, aunque conserve reservas
+        // viejas en estado ACTIVA. required: true descarta reservas huérfanas.
+        where: { activa: true },
+        required: true,
         include: [{ model: Actividad, as: "actividad", attributes: ["nombre"] }],
       },
     ],
@@ -338,7 +349,8 @@ const getHorariosSeleccionados = async ({ anio, actividadId } = {}) => {
   const finAnio = `${year}-12-31`;
 
   let categoria = { id: null, nombre: "Todas las clases" };
-  const claseWhere = {};
+  // Solo clases vigentes: las eliminadas (activa: false) no figuran en el reporte.
+  const claseWhere = { activa: true };
 
   if (actividadId != null) {
     const actividad = await Actividad.findByPk(actividadId, {
@@ -433,6 +445,7 @@ const getUsuariosNuevosAnual = async ({ anio } = {}) => {
       [fn("COUNT", col("Usuario.email")), "cantidad"],
     ],
     where: {
+      activo: true,
       createdAt: { [Op.gte]: inicioAnio, [Op.lt]: inicioAnioSiguiente },
     },
     group: [fn("TO_CHAR", col("Usuario.createdAt"), "YYYY-MM")],

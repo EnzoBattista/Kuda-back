@@ -12,6 +12,14 @@ const server = express();
 
 server.name = "API";
 
+// La API devuelve datos dinámicos: desactivamos el ETag de Express para evitar
+// respuestas 304 (sin cuerpo) que dejan al front esperando datos que nunca llegan.
+server.disable("etag");
+server.use((req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
 server.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 server.use(bodyParser.json({ limit: "50mb" }));
 server.use(cookieParser());
