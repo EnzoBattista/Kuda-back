@@ -11,6 +11,12 @@ const validarProfesor = (data) => {
   if (data.dni !== undefined && !data.dni.trim()) {
     throw httpError(400, "El DNI no puede estar vacío");
   }
+  if (data.telefono !== undefined && !data.telefono.trim()) {
+    throw httpError(400, "El teléfono no puede estar vacío");
+  }
+  if (data.email !== undefined && !data.email.trim()) {
+    throw httpError(400, "El email no puede estar vacío");
+  }
 };
 
 const crearProfesor = async (data) => {

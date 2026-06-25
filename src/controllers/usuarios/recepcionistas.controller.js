@@ -103,12 +103,18 @@ const updateRecepcionista = async (req, res, next) => {
       }
     }
 
+    // Validar contraseña si se envía
+    if (datos.password !== undefined && datos.password.trim() !== "" && datos.password.length < 8) {
+      throw httpError(400, "La contraseña debe tener al menos 8 caracteres");
+    }
+
     // Actualizar datos
     await usuario.update({
       nombre: datos.nombre !== undefined ? datos.nombre : usuario.nombre,
       apellido: datos.apellido !== undefined ? datos.apellido : usuario.apellido,
       dni: datos.dni !== undefined ? datos.dni : usuario.dni,
       telefono: datos.telefono !== undefined ? datos.telefono : usuario.telefono,
+      ...(datos.password !== undefined && datos.password.trim() !== "" ? { password: datos.password } : {}),
     });
 
     return res.status(200).json({

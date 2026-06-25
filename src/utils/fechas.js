@@ -52,4 +52,15 @@ const fechasDelMesPorDia = (diaSemana, inicioIso, finIso) => {
   return fechas;
 };
 
-module.exports = { calcularEdad, sumarUnMes, fechasDelMesPorDia };
+const getFechaHoyLocal = () => {
+  const d = new Date();
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return formatter.format(d);
+};
+
+module.exports = { calcularEdad, sumarUnMes, fechasDelMesPorDia, getFechaHoyLocal };

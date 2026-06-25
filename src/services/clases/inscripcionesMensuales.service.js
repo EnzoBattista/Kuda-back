@@ -1,9 +1,10 @@
 const { Op } = require("sequelize");
-const { InscripcionMensual, Clase, ReservaClase, CancelacionClase, conn } = require("../../../db");
+const { InscripcionMensual, Clase, ReservaClase, CancelacionClase, InscripcionIndividual, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { generarReservasMensual, fechasDeClaseEnPeriodo } = require("./reservas.service");
 const { notificarPrimero } = require("./listaEspera.service");
 const { aplicarVale } = require("../pagos/vales.service");
+const { getFechaHoyLocal } = require("../../utils/fechas");
 
 const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA"];
 
@@ -62,6 +63,13 @@ const crearInscripcionMensual = async (data) => {
   await validarInscripcionMensual(datosInscripcion);
 
   return conn.transaction(async (transaction) => {
+    const { validarMoraCliente } = require("../asistencias/asistencias.service");
+    try {
+      await validarMoraCliente(datosInscripcion.cliente_email);
+    } catch (err) {
+      throw httpError(403, "Tu cuenta se encuentra suspendida por falta de pago. Regularizá tu situación para poder reservar.");
+    }
+
     const clase = await Clase.findByPk(datosInscripcion.clase_id, { transaction });
     if (!clase) {
       throw httpError(404, "La clase no existe");
@@ -95,17 +103,55 @@ const crearInscripcionMensual = async (data) => {
       );
     }
 
+    // Buscar si el cliente ya tiene reservas individuales en este período para fusionarlas y descontar lo pagado
+    const yaReservadas = await ReservaClase.findAll({
+      where: {
+        cliente_email: datosInscripcion.cliente_email,
+        clase_id: clase.id,
+        fecha_exacta: { [Op.in]: fechasEfectivas },
+        estado: "ACTIVA",
+        inscripcion_individual_id: { [Op.ne]: null },
+      },
+      include: [{ model: InscripcionIndividual, as: "inscripcionIndividual" }],
+      transaction,
+    });
+
+    const setYaReservadas = new Set(yaReservadas.map((r) => String(r.fecha_exacta).slice(0, 10)));
+    const fechasAInscribir = fechasEfectivas.filter((f) => !setYaReservadas.has(f));
+
+    // Sumar el monto pagado de las individuales que se van a fusionar
+    let descuentoUpgrade = 0;
+    for (const r of yaReservadas) {
+      if (r.inscripcionIndividual) {
+        descuentoUpgrade += Number(r.inscripcionIndividual.monto_pagado);
+      }
+    }
+
+    const { obtenerCuposOcupados } = require("./reservas.service");
+    // Verificar cupos estrictos para las fechas nuevas a inscribir (Nueva regla de negocio)
+    for (const fecha of fechasAInscribir) {
+      const reservasActivas = await obtenerCuposOcupados(clase.id, fecha, datosInscripcion.cliente_email, transaction);
+      if (reservasActivas >= clase.cupo) {
+        throw httpError(
+          409,
+          "No hay cupo suficiente en todas las fechas del mes."
+        );
+      }
+    }
+
     const montoBase = Number(datosInscripcion.monto);
     const montoProrrateado =
       fechasEfectivas.length === fechasPeriodo.length
         ? montoBase
         : Number(((montoBase / fechasPeriodo.length) * fechasEfectivas.length).toFixed(2));
 
+    const montoFinalUpgrade = Math.max(0, montoProrrateado - descuentoUpgrade);
+
     const { monto_final: montoFinal } = await aplicarVale({
       vale_id,
       cliente_email: datosInscripcion.cliente_email,
       clase_id: clase.id,
-      monto_base: montoProrrateado,
+      monto_base: montoFinalUpgrade,
       tipo_inscripcion: "MENSUAL",
       transaction,
     });
@@ -128,7 +174,7 @@ const crearInscripcionMensual = async (data) => {
  * Gestiona el ciclo de vida de las ReservaClase futuras según el tipo de cambio.
  */
 const actualizarInscripcionMensual = async (inscripcion, data) => {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = getFechaHoyLocal();
   const estadosCancelacion = ["CANCELADA", "SUSPENDIDA"];
 
   const estadoCambia = data.estado && estadosCancelacion.includes(data.estado);
@@ -143,16 +189,38 @@ const actualizarInscripcionMensual = async (inscripcion, data) => {
     throw httpError(400, "Estado de inscripción no válido");
   }
 
+  // Si se cancela por completo la mensualidad, cancelamos ordenadamente cada reserva a futuro
+  // para que pasen por el flujo de reembolso (vale) si corresponde.
+  if (data.estado === "CANCELADA" && inscripcion.estado !== "CANCELADA") {
+    const { cancelarReserva } = require("./reservas.service");
+    const reservasFuturas = await ReservaClase.findAll({
+      where: {
+        inscripcion_mensual_id: inscripcion.id,
+        fecha_exacta: { [Op.gte]: hoy },
+        estado: "ACTIVA"
+      }
+    });
+    for (const r of reservasFuturas) {
+      try {
+        await cancelarReserva(r.id, inscripcion.cliente_email);
+      } catch (err) {
+        console.error(`[actualizarInscripcionMensual] Error al cancelar reserva ${r.id}:`, err.message);
+      }
+    }
+  }
+
   const resultado = await conn.transaction(async (transaction) => {
     if (estadoCambia || fechasCambian || claseCambia) {
-      // Eliminar reservas futuras existentes
-      await ReservaClase.destroy({
-        where: {
-          inscripcion_mensual_id: inscripcion.id,
-          fecha_exacta: { [Op.gte]: hoy },
-        },
-        transaction,
-      });
+      // Eliminar reservas futuras existentes si es suspensión o cambio de parámetros (NO en cancelación que ya se cancelaron ordenadamente)
+      if (data.estado !== "CANCELADA") {
+        await ReservaClase.destroy({
+          where: {
+            inscripcion_mensual_id: inscripcion.id,
+            fecha_exacta: { [Op.gte]: hoy },
+          },
+          transaction,
+        });
+      }
 
       // Si no es cancelación/suspensión, regenerar reservas con nuevos parámetros
       if (!estadoCambia && (fechasCambian || claseCambia)) {

@@ -1,7 +1,8 @@
 const { Op } = require("sequelize");
-const { ReservaClase, Clase, Actividad, Profesor, Sala, Vale, CancelacionClase } = require("../../../db");
+const { ReservaClase, Clase, Actividad, Profesor, Sala, Vale, CancelacionClase, InscripcionMensual } = require("../../../db");
 const { cancelarReserva } = require("../../services/clases/reservas.service");
 const { toReservaDTO } = require("../../dtos/reservas.dto");
+const { getFechaHoyLocal } = require("../../utils/fechas");
 
 /**
  * Para cada reserva CANCELADA, mira si hay una CancelacionClase para
@@ -30,7 +31,7 @@ const claveReserva = (r) =>
 const getReservasActivas = async (req, res, next) => {
   try {
     const { cliente_email, actividad_id, clase_id, incluir_canceladas } = req.query;
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = getFechaHoyLocal();
 
     const estadosVisibles = incluir_canceladas === "true"
       ? ["ACTIVA", "CANCELADA"]
@@ -63,15 +64,78 @@ const getReservasActivas = async (req, res, next) => {
       order: [["fecha_exacta", "ASC"]],
     });
 
-    if (reservas.length === 0) {
+    const setCef = await construirSetCanceladasPorCef(reservas);
+    const realDtos = reservas.map((r) =>
+      toReservaDTO(r, { canceladaPorCef: setCef.has(claveReserva(r)) })
+    );
+
+    let dummyDtos = [];
+    if (clase_id && incluir_canceladas !== "true" && !cliente_email) {
+      // Estamos consultando la ocupación de la clase
+      const clase = await Clase.findByPk(clase_id);
+      if (clase) {
+        const activeSubscriptions = await InscripcionMensual.findAll({
+          where: {
+            clase_id,
+            estado: ["VIGENTE", "EN_GRACIA"],
+            periodo_fin: { [Op.gt]: hoy }
+          }
+        });
+
+        const { fechasDeClaseEnPeriodo } = require("../../services/clases/reservas.service");
+        const { sumarUnMes } = require("../../utils/fechas");
+
+        for (const sub of activeSubscriptions) {
+          // Excluir al usuario actual si está logueado para que no se bloquee a sí mismo
+          if (req.usuario && sub.cliente_email === req.usuario.email) continue;
+
+          // Período de renovación (mes siguiente)
+          const inicioRenovacion = sub.periodo_fin;
+          const finRenovacion = sumarUnMes(inicioRenovacion);
+          const fechasFuturas = fechasDeClaseEnPeriodo(clase.dia_semana, inicioRenovacion, finRenovacion);
+
+          for (const f of fechasFuturas) {
+            // Verificar si el cliente ya renovó (ya tiene reserva activa)
+            const yaRenovo = await ReservaClase.findOne({
+              where: {
+                cliente_email: sub.cliente_email,
+                clase_id,
+                fecha_exacta: f,
+                estado: "ACTIVA"
+              }
+            });
+
+            if (!yaRenovo) {
+              // Agregar reserva dummy para proteger el cupo
+              dummyDtos.push({
+                id: 0,
+                fecha_exacta: f,
+                estado: "ACTIVA",
+                asistio: null,
+                inscripcion_mensual_id: sub.id,
+                inscripcion_individual_id: null,
+                clase: {
+                  id: clase.id,
+                  hora_inicio: clase.hora_inicio,
+                  hora_fin: clase.hora_fin,
+                  cupo: clase.cupo,
+                  actividad: null,
+                  actividad_descripcion: null,
+                  profesor: null,
+                  sala: null
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+
+    const todos = [...realDtos, ...dummyDtos];
+    if (todos.length === 0) {
       return res.status(200).json({ message: "No posee reservas", data: [] });
     }
-    const setCef = await construirSetCanceladasPorCef(reservas);
-    return res.status(200).json(
-      reservas.map((r) =>
-        toReservaDTO(r, { canceladaPorCef: setCef.has(claveReserva(r)) })
-      )
-    );
+    return res.status(200).json(todos);
   } catch (error) {
     return next(error);
   }
@@ -80,7 +144,7 @@ const getReservasActivas = async (req, res, next) => {
 const getHistorialReservas = async (req, res, next) => {
   try {
     const { cliente_email, desde, hasta, actividad_id, page = 1, limit = 20 } = req.query;
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = getFechaHoyLocal();
 
     const where = {
       [Op.or]: [
@@ -150,7 +214,7 @@ const getMisVales = async (req, res, next) => {
   try {
     const cliente_email = req.usuario.email;
     const { clase_id, vigentes } = req.query;
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = getFechaHoyLocal();
 
     const where = {
       cliente_email,
@@ -162,7 +226,17 @@ const getMisVales = async (req, res, next) => {
       where.valido_hasta = { [Op.gte]: hoy };
     }
     if (clase_id) {
-      where.clase_id = clase_id;
+      const claseObjetivo = await Clase.findByPk(clase_id);
+      if (claseObjetivo) {
+        const clasesMismaActividad = await Clase.findAll({
+          where: { actividad_id: claseObjetivo.actividad_id },
+          attributes: ["id"],
+        });
+        const idsClases = clasesMismaActividad.map((c) => c.id);
+        where.clase_id = { [Op.in]: idsClases };
+      } else {
+        where.clase_id = clase_id;
+      }
       // Para aplicarlo además tiene que estar dentro del período de validez.
       where.valido_desde = { [Op.lte]: hoy };
     }

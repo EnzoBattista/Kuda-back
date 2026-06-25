@@ -1,7 +1,9 @@
 const {
   anotarseEnLista,
   removerDeListaManual,
+  removerDeListaCliente,
   obtenerPendientesCliente,
+  obtenerEntradasCliente,
   confirmarCupo,
   rechazarCupo,
   getListaEspera,
@@ -96,13 +98,32 @@ const getMisPendientes = async (req, res, next) => {
 };
 
 /**
+ * GET /api/lista-espera/me
+ * Obtiene todas las inscripciones activas (ESPERANDO, NOTIFICADO) del cliente logueado.
+ */
+const getMisInscripciones = async (req, res, next) => {
+  try {
+    const inscripciones = await obtenerEntradasCliente(req.usuario.email);
+    return res.status(200).json(inscripciones);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+
+/**
  * POST /api/lista-espera/:id/confirmar
  * El cliente confirma el cupo notificado desde la lista de espera.
  */
 const confirmar = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const resultado = await confirmarCupo(Number(id), req.usuario.email);
+    const { tipoPago, vencimiento_seña, valeId } = req.body;
+    const resultado = await confirmarCupo(Number(id), req.usuario.email, {
+      tipoPago,
+      vencimiento_seña,
+      valeId,
+    });
     return res.status(200).json(resultado);
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message });
@@ -140,12 +161,30 @@ const removerManual = async (req, res, next) => {
   }
 };
 
+/**
+ * DELETE /api/lista-espera/me/:id
+ * Cliente se remueve a sí mismo de la lista de espera.
+ */
+const removerPropia = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const clienteEmail = req.usuario.email;
+    const resultado = await removerDeListaCliente(Number(id), clienteEmail);
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
+    return next(error);
+  }
+};
+
 module.exports = {
   anotarse,
   getListaGlobal,
   getLista,
   getMisPendientes,
+  getMisInscripciones,
   confirmar,
   rechazar,
   removerManual,
+  removerPropia,
 };

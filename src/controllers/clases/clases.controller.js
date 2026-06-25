@@ -104,6 +104,33 @@ const cancelarFechaClase = async (req, res, next) => {
   }
 };
 
+const checkConflicto = async (req, res, next) => {
+  try {
+    const claseId = Number(req.params.id);
+    const { fecha, cliente_email, tipo } = req.query;
+
+    if (!cliente_email) {
+      return res.status(400).json({ message: "Se requiere el parámetro cliente_email" });
+    }
+
+    let resultado;
+    if (tipo === "MENSUAL") {
+      resultado = await clasesService.verificarConflictoMensual(claseId, cliente_email);
+    } else {
+      if (!fecha) {
+        return res.status(400).json({ message: "Se requiere el parámetro fecha para reservas individuales" });
+      }
+      resultado = await clasesService.verificarConflictoReserva(claseId, fecha, cliente_email);
+    }
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
 module.exports = {
   getAllClases,
   createClase,
@@ -111,4 +138,5 @@ module.exports = {
   getClaseById,
   deleteClase,
   cancelarFechaClase,
+  checkConflicto,
 };

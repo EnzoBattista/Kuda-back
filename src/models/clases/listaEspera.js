@@ -42,7 +42,7 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      // Momento exacto en que se envió la notificación (para calcular expiración de 6hs)
+      // Momento exacto en que se envió la notificación
       notificado_en: {
         type: DataTypes.DATE,
         allowNull: true,
