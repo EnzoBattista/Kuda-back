@@ -74,6 +74,16 @@ module.exports = (sequelize) => {
   Usuario.prototype.toJSON = function () {
     const values = { ...this.get() };
     delete values.password;
+    
+    if (values.activo) {
+      values.estado = "ACTIVO";
+    } else if (values.tokenConfirmacion) {
+      values.estado = "PENDIENTE";
+    } else {
+      values.estado = "ELIMINADO";
+    }
+    
+    delete values.tokenConfirmacion;
     return values;
   };
 

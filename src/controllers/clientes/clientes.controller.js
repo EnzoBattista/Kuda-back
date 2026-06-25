@@ -117,9 +117,42 @@ const updateCliente = async (req, res, next) => {
 
 const deleteCliente = async (req, res, next) => {
   try {
+    const email = req.params.email;
     const { darDeBajaUsuario } = require("../../services/acceso/usuarios.service");
-    await darDeBajaUsuario(req.params.email);
-    return res.status(204).send();
+    
+    // Get user to use name in email
+    const usuario = await Usuario.findByPk(email);
+    if (!usuario) return res.status(404).json({ message: "Cliente (Usuario) no encontrado" });
+    
+    // Use the service to safely deactivate and cancel subscriptions
+    await darDeBajaUsuario(email);
+
+    // Send email notification
+    const sgMail = require("@sendgrid/mail");
+    if (process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM) {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      try {
+        await sgMail.send({
+          to: email,
+          from: process.env.EMAIL_FROM,
+          subject: "Baja en CEF Actividades",
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+              <h2 style="color: #003366;">Hola, ${usuario.nombre}</h2>
+              <p>Te informamos que tu cuenta ha sido eliminada de nuestro sistema.</p>
+              <hr>
+              <p style="font-size: 12px; color: #666;">CEF Actividades — Centro de bienestar</p>
+            </div>
+          `,
+        });
+      } catch (err) {
+        console.error("[deleteCliente] Error SendGrid:", err.message);
+      }
+    } else {
+      console.log("[deleteCliente] Simulación envío correo eliminación a", email);
+    }
+
+    return res.status(200).json({ message: "Cliente eliminado con éxito" });
   } catch (error) {
     if (error.status) {
       return res.status(error.status).json({ message: error.message });

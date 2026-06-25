@@ -21,14 +21,34 @@ const validarUsuario = (data) => {
 const crearUsuario = async (data) => {
   validarUsuario(data);
   
+  let usuarioReusar = null;
+
   if (data.email) {
     const emailExistente = await Usuario.findOne({ where: { email: data.email } });
-    if (emailExistente) throw httpError(400, "El email ingresado ya se encuentra registrado");
+    if (emailExistente) {
+      if (!emailExistente.activo && !emailExistente.tokenConfirmacion) {
+        usuarioReusar = emailExistente;
+      } else {
+        throw httpError(400, "El email ingresado ya se encuentra registrado");
+      }
+    }
   }
 
   if (data.dni) {
     const dniExistente = await Usuario.findOne({ where: { dni: data.dni } });
-    if (dniExistente) throw httpError(400, "El DNI ingresado ya se encuentra registrado");
+    if (dniExistente && (!usuarioReusar || dniExistente.email !== usuarioReusar.email)) {
+      if (!dniExistente.activo && !dniExistente.tokenConfirmacion) {
+        // It's a deleted user with the same DNI, but DIFFERENT email.
+        // Let's just allow DNI reuse by throwing only if the existing user is active or pending.
+        throw httpError(400, "El DNI ingresado ya se encuentra registrado por otro usuario.");
+      } else {
+        throw httpError(400, "El DNI ingresado ya se encuentra registrado");
+      }
+    }
+  }
+
+  if (usuarioReusar) {
+    return usuarioReusar.update(data);
   }
 
   return Usuario.create(data);
