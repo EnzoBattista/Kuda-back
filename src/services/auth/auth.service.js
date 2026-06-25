@@ -135,8 +135,13 @@ const registrarCliente = async ({
   }
 
   const emailExistente = await Usuario.findOne({ where: { email } });
+  let reusarUsuario = false;
   if (emailExistente) {
-    throw httpError(400, "El email ya se encuentra registrado.");
+    if (!emailExistente.activo && !emailExistente.tokenConfirmacion) {
+      reusarUsuario = true;
+    } else {
+      throw httpError(400, "El email ya se encuentra registrado.");
+    }
   }
 
   const rolCliente = await Rol.findOne({ where: { nombre: ROLES.CLIENTE } });
@@ -164,11 +169,24 @@ const registrarCliente = async ({
   validarUsuario(usuarioData);
 
   await conn.transaction(async (t) => {
-    await Usuario.create(usuarioData, { transaction: t });
-    await Cliente.create(
-      { usuario_email: email, genero, fechaNacimiento, fichaMedica },
-      { transaction: t }
-    );
+    if (reusarUsuario) {
+      await emailExistente.update(usuarioData, { transaction: t });
+      const clienteExistente = await Cliente.findOne({ where: { usuario_email: email }, transaction: t });
+      if (clienteExistente) {
+        await clienteExistente.update({ genero, fechaNacimiento, fichaMedica }, { transaction: t });
+      } else {
+        await Cliente.create(
+          { usuario_email: email, genero, fechaNacimiento, fichaMedica },
+          { transaction: t }
+        );
+      }
+    } else {
+      await Usuario.create(usuarioData, { transaction: t });
+      await Cliente.create(
+        { usuario_email: email, genero, fechaNacimiento, fichaMedica },
+        { transaction: t }
+      );
+    }
 
     try {
       await enviarEmailConfirmacion(email, nombre, tokenConfirmacion);

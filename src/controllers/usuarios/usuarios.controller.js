@@ -12,11 +12,21 @@ const parseBool = (valor) => {
 
 const getAllUsuarios = async (req, res, next) => {
   try {
-    const { rol, activo, q } = req.query;
+    const { rol, activo, estado, q } = req.query;
     const where = {};
 
     const activoBool = parseBool(activo);
     if (activoBool !== undefined) where.activo = activoBool;
+
+    if (estado === "ACTIVO") {
+      where.activo = true;
+    } else if (estado === "PENDIENTE") {
+      where.activo = false;
+      where.tokenConfirmacion = { [Op.not]: null };
+    } else if (estado === "ELIMINADO") {
+      where.activo = false;
+      where.tokenConfirmacion = null;
+    }
 
     if (q && q.trim()) {
       const term = `%${q.trim()}%`;
