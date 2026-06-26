@@ -6,6 +6,7 @@ const createProfesor = async (req, res, next) => {
   try {
     const { nombre, apellido, dni, telefono, email, actividades } = req.body;
 
+    // Conflicto real: ya existe un profesor ACTIVO (no borrado) con ese DNI.
     const existingProfesor = await Profesor.findOne({ where: { dni } });
     if (existingProfesor) {
       return res.status(409).json({
@@ -31,17 +32,25 @@ const createProfesor = async (req, res, next) => {
       });
     }
 
-    const nuevoProfesor = await crearProfesor({
-      nombre,
-      apellido,
-      dni,
-      telefono,
-      email,
+    // Si existe un profesor BORRADO (soft-delete) con ese DNI, su fila sigue
+    // ocupando el índice único del DNI y bloquearía el alta con un 409. En vez de
+    // fallar, lo restauramos y lo pisamos con los datos nuevos (reutilizamos el
+    // registro como un alta nueva).
+    const profesorEliminado = await Profesor.findOne({
+      where: { dni },
+      paranoid: false,
     });
 
-    if (actividades && actividades.length > 0) {
-      await nuevoProfesor.setActividades(actividades);
+    let nuevoProfesor;
+    if (profesorEliminado) {
+      await profesorEliminado.restore();
+      await profesorEliminado.update({ nombre, apellido, telefono, email, activo: true });
+      nuevoProfesor = profesorEliminado;
+    } else {
+      nuevoProfesor = await crearProfesor({ nombre, apellido, dni, telefono, email });
     }
+
+    await nuevoProfesor.setActividades(actividades);
 
     return res.status(201).json({
       message: "Profesor registrado con éxito",
