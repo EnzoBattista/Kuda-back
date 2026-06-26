@@ -73,9 +73,18 @@ const actualizarUsuario = async (usuario, data) => {
 const darDeBajaUsuario = async (email) => {
   const usuario = await Usuario.findByPk(email);
   if (!usuario) throw httpError(404, "Usuario no encontrado");
-  if (!usuario.activo) throw httpError(410, "Usuario ya dado de baja");
 
+  // Estado ELIMINADO = inactivo y sin token de confirmación pendiente. Solo
+  // rechazamos si ya está eliminado; un usuario PENDIENTE (inactivo pero con
+  // token) sí se puede dar de baja para que pase a ELIMINADO.
+  const yaEliminado = !usuario.activo && !usuario.tokenConfirmacion;
+  if (yaEliminado) throw httpError(410, "Usuario ya dado de baja");
+
+  // Dejarlo en ELIMINADO: inactivo y sin token pendiente (cubre tanto a los
+  // ACTIVO como a los PENDIENTE).
   usuario.activo = false;
+  usuario.tokenConfirmacion = null;
+  usuario.tokenExpiracion = null;
   await usuario.save();
 
   // Cancelar las inscripciones mensuales activas del usuario (si es cliente)
