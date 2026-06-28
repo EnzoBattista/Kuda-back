@@ -1,4 +1,5 @@
 const { liberarCuposDiferidos } = require("../../services/clases/listaEspera.service");
+const { cancelarSeñasVencidas } = require("../../services/clases/reservas.service");
 
 const verificarListaEspera = async (req, res) => {
   // Verifica que el request provenga de Vercel Cron
@@ -10,6 +11,7 @@ const verificarListaEspera = async (req, res) => {
   }
 
   try {
+    await cancelarSeñasVencidas();
     await liberarCuposDiferidos();
     return res.status(200).json({ message: "Job ejecutado exitosamente" });
   } catch (err) {

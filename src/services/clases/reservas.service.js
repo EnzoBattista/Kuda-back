@@ -502,10 +502,87 @@ const cancelarReservaConNotificacion = async (reservaId, emailUsuario) => {
   return resultado;
 };
 
+/**
+ * Cancela automáticamente las reservas asociadas a señas pendientes
+ * cuando faltan menos de 24 horas para la clase.
+ */
+const cancelarSeñasVencidas = async () => {
+  return conn.transaction(async (transaction) => {
+    const reservasConSeña = await ReservaClase.findAll({
+      where: { estado: "ACTIVA" },
+      include: [
+        {
+          model: InscripcionIndividual,
+          as: "inscripcionIndividual",
+          where: {
+            modalidad: "SEÑA",
+            estado_seña: "PENDIENTE"
+          },
+          required: true
+        },
+        {
+          model: Clase,
+          as: "clase",
+          required: true
+        }
+      ],
+      transaction
+    });
+
+    const reservasCanceladas = [];
+
+    for (const reserva of reservasConSeña) {
+      const horas = horasHastaClase(reserva.fecha_exacta, reserva.clase.hora_inicio);
+      
+      // Si faltan menos de 24 hs, se vence la seña y se cancela la reserva
+      // Se chequea que horas >= 0 para no tocar clases pasadas (estas pasan a 'COMPLETADA' en front, pero por las dudas las salteamos o las incluimos, pero mejor solo futuras).
+      // Bueno, si horas < 0, ya pasó la clase, debería haberse vencido antes.
+      if (horas < HORAS_ANTICIPACION) {
+        reserva.estado = "CANCELADA";
+        await reserva.save({ transaction });
+
+        const inscripcion = reserva.inscripcionIndividual;
+        inscripcion.estado_seña = "VENCIDA";
+        await inscripcion.save({ transaction });
+        
+        reservasCanceladas.push(reserva);
+      }
+    }
+
+    return reservasCanceladas;
+  });
+};
+
+const cancelarSeñasVencidasConNotificacion = async () => {
+  let reservasCanceladas = [];
+  try {
+    reservasCanceladas = await cancelarSeñasVencidas();
+  } catch (err) {
+    console.error("[cancelarSeñasVencidas] Error al procesar señas vencidas:", err.message);
+    return [];
+  }
+
+  for (const reserva of reservasCanceladas) {
+    setImmediate(async () => {
+      try {
+        const notificadoMensual = await notificarPrimero(reserva.clase_id, "MENSUAL");
+        if (!notificadoMensual) {
+          await notificarPrimero(reserva.clase_id, "INDIVIDUAL", reserva.fecha_exacta);
+        }
+      } catch (err) {
+        console.error("[cancelarSeñasVencidas] Error al notificar lista de espera:", err.message);
+      }
+    });
+  }
+
+  return reservasCanceladas;
+};
+
 module.exports = {
   fechasDeClaseEnPeriodo,
   generarReservasIndividual,
   generarReservasMensual,
   cancelarReserva: cancelarReservaConNotificacion,
   obtenerCuposOcupados,
+  cancelarSeñasVencidas: cancelarSeñasVencidasConNotificacion,
 };
