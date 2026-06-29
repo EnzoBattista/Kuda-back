@@ -83,6 +83,9 @@ module.exports = (sequelize) => {
       values.estado = "ELIMINADO";
     }
     
+    // Provide a clean email for UI display if it was deleted
+    values.displayEmail = values.email.split("_deleted_")[0];
+    
     delete values.tokenConfirmacion;
     return values;
   };
