@@ -35,15 +35,10 @@ const crearUsuario = async (data) => {
   }
 
   if (data.dni) {
-    const dniExistente = await Usuario.findOne({ where: { dni: data.dni } });
-    if (dniExistente && (!usuarioReusar || dniExistente.email !== usuarioReusar.email)) {
-      if (!dniExistente.activo && !dniExistente.tokenConfirmacion) {
-        // It's a deleted user with the same DNI, but DIFFERENT email.
-        // Let's just allow DNI reuse by throwing only if the existing user is active or pending.
-        throw httpError(400, "El DNI ingresado ya se encuentra registrado por otro usuario.");
-      } else {
-        throw httpError(400, "El DNI ingresado ya se encuentra registrado");
-      }
+    const usuariosDni = await Usuario.findAll({ where: { dni: data.dni } });
+    const conflictoDni = usuariosDni.find(u => (u.activo || u.tokenConfirmacion) && (!usuarioReusar || u.email !== usuarioReusar.email));
+    if (conflictoDni) {
+      throw httpError(400, "El DNI ingresado ya se encuentra registrado");
     }
   }
 
@@ -64,8 +59,9 @@ const actualizarUsuario = async (usuario, data) => {
       throw httpError(400, "El DNI de los administrativos no puede ser modificado");
     }
 
-    const dniExistente = await Usuario.findOne({ where: { dni: data.dni } });
-    if (dniExistente) throw httpError(400, "El DNI ingresado ya se encuentra registrado");
+    const usuariosDni = await Usuario.findAll({ where: { dni: data.dni } });
+    const conflictoDni = usuariosDni.find(u => (u.activo || u.tokenConfirmacion) && u.email !== usuario.email);
+    if (conflictoDni) throw httpError(400, "El DNI ingresado ya se encuentra registrado");
   }
   return usuario.update(data);
 };
@@ -85,6 +81,10 @@ const darDeBajaUsuario = async (email) => {
   usuario.activo = false;
   usuario.tokenConfirmacion = null;
   usuario.tokenExpiracion = null;
+  // Rename the email to allow new registrations with the same email
+  const originalEmail = usuario.email;
+  const suffix = `_deleted_${Date.now()}`;
+  usuario.email = `${originalEmail}${suffix}`;
   await usuario.save();
 
   // Cancelar las inscripciones mensuales activas del usuario (si es cliente)
@@ -92,7 +92,7 @@ const darDeBajaUsuario = async (email) => {
     { estado: "CANCELADA" },
     {
       where: {
-        cliente_email: email,
+        cliente_email: usuario.email, // Use the new email for the cascade update check, though cascade might have already handled it
         estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
       },
     }
@@ -101,7 +101,7 @@ const darDeBajaUsuario = async (email) => {
   const { ReservaClase } = require("../../../db");
   await ReservaClase.destroy({
     where: {
-      cliente_email: email,
+      cliente_email: usuario.email,
       estado: "ACTIVA",
     }
   });

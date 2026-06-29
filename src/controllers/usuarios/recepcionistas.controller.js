@@ -17,7 +17,7 @@ const createRecepcionista = async (req, res, next) => {
     }
 
     const existente = await Usuario.findOne({ where: { email: datos.email } });
-    if (existente) {
+    if (existente && (existente.activo || existente.tokenConfirmacion)) {
       throw httpError(409, "El correo electrónico ya está en uso por otro usuario");
     }
 
@@ -30,7 +30,7 @@ const createRecepcionista = async (req, res, next) => {
     const dniExistente = await Usuario.findOne({ 
       where: { dni: datos.dni, rol_id: rolRecepcionista.id } 
     });
-    if (dniExistente) {
+    if (dniExistente && (dniExistente.activo || dniExistente.tokenConfirmacion)) {
       throw httpError(409, "El DNI ya se encuentra registrado");
     }
 
