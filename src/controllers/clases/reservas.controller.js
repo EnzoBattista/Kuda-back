@@ -212,8 +212,20 @@ const cancelarReservaController = async (req, res, next) => {
 
 const getMisVales = async (req, res, next) => {
   try {
-    const cliente_email = req.usuario.email;
+    let cliente_email = req.usuario.email;
     const { clase_id, vigentes } = req.query;
+    
+    if (req.query.cliente_email && req.query.cliente_email !== cliente_email) {
+      // Verificar si el usuario autenticado es administrador
+      const { Usuario, Rol } = require("../../../db");
+      const usuarioAuth = await Usuario.findByPk(cliente_email, {
+        include: [{ model: Rol, as: "rol" }]
+      });
+      if (usuarioAuth && usuarioAuth.rol && (usuarioAuth.rol.nombre === "DUEÑO" || usuarioAuth.rol.nombre === "RECEPCIONISTA")) {
+        cliente_email = req.query.cliente_email;
+      }
+    }
+
     const hoy = getFechaHoyLocal();
 
     const where = {

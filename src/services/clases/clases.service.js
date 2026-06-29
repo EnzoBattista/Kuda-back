@@ -40,11 +40,11 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null, { i
     throw httpError(400, "La hora de fin debe ser posterior a la hora de inicio");
   }
 
-  if (hora_inicio && hora_inicio < "07:00") {
+  if (hora_inicio && hora_inicio < "07:00:00") {
     throw httpError(400, "La clase no puede iniciar antes de las 07:00hs");
   }
 
-  if (hora_fin && hora_fin > "22:00") {
+  if (hora_fin && hora_fin > "22:00:00") {
     throw httpError(400, "La clase no puede finalizar después de las 22:00hs");
   }
 
