@@ -11,7 +11,7 @@ const {
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { notificarPrimero } = require("./listaEspera.service");
-const { getFechaHoyLocal } = require("../../utils/fechas");
+const { getFechaHoyLocal, getHoraLocal } = require("../../utils/fechas");
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -140,6 +140,12 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction }) =>
   }
 
   const fecha = String(inscripcion.fecha).slice(0, 10);
+  const hoyStr = getFechaHoyLocal();
+  const horaActual = getHoraLocal();
+
+  if (fecha < hoyStr || (fecha === hoyStr && clase.hora_inicio < horaActual)) {
+    throw httpError(400, "No se puede reservar una clase que ya pasó");
+  }
 
   const cancelada = await CancelacionClase.findOne({
     where: { clase_id: clase.id, fecha },
@@ -255,7 +261,13 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
   const setYaReservadas = new Set(
     yaReservadas.map((r) => String(r.fecha_exacta).slice(0, 10))
   );
-  const fechasValidas = fechasSinCancelar.filter((f) => !setYaReservadas.has(f));
+  const hoyStr = getFechaHoyLocal();
+  const horaActual = getHoraLocal();
+  const fechasValidas = fechasSinCancelar.filter((f) => {
+    if (f < hoyStr) return false;
+    if (f === hoyStr && clase.hora_inicio < horaActual) return false;
+    return !setYaReservadas.has(f);
+  });
 
   for (const fecha of fechasValidas) {
     const conflictoHorario = await ReservaClase.findOne({

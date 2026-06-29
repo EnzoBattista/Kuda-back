@@ -1,7 +1,7 @@
 const { Op } = require("sequelize");
 const { Clase, Actividad, Sala, Profesor, CancelacionClase, InscripcionMensual, InscripcionIndividual, ReservaClase, Vale, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
-const { getFechaHoyLocal } = require("../../utils/fechas");
+const { getFechaHoyLocal, getHoraLocal } = require("../../utils/fechas");
 
 const MAPA_DIAS = {
   Domingo: 0,
@@ -199,6 +199,14 @@ const getClaseById = async (id) => {
 
     if (fechaStr > limiteStr) {
       break;
+    }
+
+    const hoyStr = getFechaHoyLocal();
+    const horaActual = getHoraLocal();
+    if (fechaStr === hoyStr && clase.hora_inicio < horaActual) {
+      actual.setDate(actual.getDate() + 7);
+      intentos++;
+      continue;
     }
 
     if (!fechasCanceladas.includes(fechaStr)) {

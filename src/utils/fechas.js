@@ -63,4 +63,16 @@ const getFechaHoyLocal = () => {
   return formatter.format(d);
 };
 
-module.exports = { calcularEdad, sumarUnMes, fechasDelMesPorDia, getFechaHoyLocal };
+const getHoraLocal = () => {
+  const d = new Date();
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  return formatter.format(d);
+};
+
+module.exports = { calcularEdad, sumarUnMes, fechasDelMesPorDia, getFechaHoyLocal, getHoraLocal };
