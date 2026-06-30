@@ -83,6 +83,36 @@ const getEstadoPago = async (req, res, next) => {
   }
 };
 
+const abandonarPago = async (req, res, next) => {
+  try {
+    const resultado = await pagosService.abandonarPago(
+      req.params.id,
+      req.usuario.email,
+    );
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
+const liberarReservaPendiente = async (req, res, next) => {
+  try {
+    const resultado = await pagosService.liberarReservaPendiente(
+      req.body,
+      req.usuario.email,
+    );
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+};
+
 const webhookMercadoPago = async (req, res) => {
   try {
     const resultado = await pagosService.procesarWebhookMercadoPago(req);
@@ -113,6 +143,8 @@ module.exports = {
   generarPagoQr,
   createPreference,
   getEstadoPago,
+  abandonarPago,
+  liberarReservaPendiente,
   webhookMercadoPago,
   generarComprobante,
 };

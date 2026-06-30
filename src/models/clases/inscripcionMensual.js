@@ -1,6 +1,6 @@
 const { DataTypes } = require("sequelize");
 
-const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA"];
+const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA", "PENDIENTE_PAGO"];
 
 module.exports = (sequelize) => {
   const InscripcionMensual = sequelize.define(

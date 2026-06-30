@@ -101,7 +101,12 @@ const crearInscripcionIndividual = async (data) => {
     }
 
     const inscripcion = await InscripcionIndividual.create(datosFinales, { transaction });
-    await generarReservasIndividual(inscripcion, clase, { transaction });
+    const requierePago =
+      datosFinales.modalidad === "COMPLETO" && Number(datosFinales.monto_total ?? 0) > 0;
+    await generarReservasIndividual(inscripcion, clase, {
+      transaction,
+      estadoReserva: requierePago ? "PENDIENTE_PAGO" : "ACTIVA",
+    });
 
     return InscripcionIndividual.findByPk(inscripcion.id, {
       include: [{ model: ReservaClase, as: "reservas" }],

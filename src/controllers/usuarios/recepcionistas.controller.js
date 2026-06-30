@@ -64,7 +64,7 @@ const deleteRecepcionista = async (req, res, next) => {
       throw httpError(400, "El usuario indicado no es un recepcionista");
     }
 
-    await darDeBajaUsuario(req.params.email);
+    await usuario.destroy({ force: true });
     return res.status(200).json({ message: "Recepcionista eliminado con éxito" });
   } catch (error) {
     if (error.status) {
