@@ -59,7 +59,7 @@ const fechasDeClaseEnPeriodo = (diaSemana, periodoInicio, periodoFin) => {
 
 // ─── Verificaciones de cupo y cancelación ────────────────────────────────────
 
-const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transaction) => {
+const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transaction, incluirEsperando = true) => {
   const { ReservaClase, InscripcionMensual } = require("../../../db");
 
   const whereReservas = {
@@ -119,11 +119,58 @@ const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transac
     }
   }
 
-  return activas + noRenovados;
+  // Caso 3: usuarios en lista de espera que están NOTIFICADOS (tienen el cupo bloqueado temporalmente)
+  const { ListaEspera } = require("../../../db");
+  const whereWaitlist = {
+    clase_id: claseId,
+    estado: incluirEsperando ? { [Op.in]: ["NOTIFICADO", "ESPERANDO"] } : "NOTIFICADO",
+    [Op.or]: [
+      { tipo: "INDIVIDUAL", fecha_exacta: fecha },
+      { tipo: "MENSUAL" }
+    ]
+  };
+  let notificados = await ListaEspera.count({ where: whereWaitlist, transaction });
+
+  if (clienteEmailExcluir) {
+    // Solo restamos 1 si este cliente en particular tiene un cupo bloqueado como NOTIFICADO
+    const tieneNotificado = await ListaEspera.count({
+      where: {
+        clase_id: claseId,
+        cliente_email: clienteEmailExcluir,
+        estado: "NOTIFICADO",
+        [Op.or]: [
+          { tipo: "INDIVIDUAL", fecha_exacta: fecha },
+          { tipo: "MENSUAL" }
+        ]
+      },
+      transaction
+    });
+    if (tieneNotificado > 0) {
+      if (incluirEsperando) {
+        const cantidadEsperando = await ListaEspera.count({
+          where: {
+            clase_id: claseId,
+            estado: "ESPERANDO",
+            [Op.or]: [
+              { tipo: "INDIVIDUAL", fecha_exacta: fecha },
+              { tipo: "MENSUAL" }
+            ]
+          },
+          transaction
+        });
+        notificados -= (tieneNotificado + cantidadEsperando);
+      } else {
+        notificados -= tieneNotificado;
+      }
+      notificados = Math.max(0, notificados);
+    }
+  }
+
+  return activas + noRenovados + notificados;
 };
 
-const verificarCupo = async (clase, fechaExacta, transaction) => {
-  const ocupadas = await obtenerCuposOcupados(clase.id, fechaExacta, null, transaction);
+const verificarCupo = async (clase, fechaExacta, clienteEmailExcluir, transaction) => {
+  const ocupadas = await obtenerCuposOcupados(clase.id, fechaExacta, clienteEmailExcluir, transaction);
   if (ocupadas >= clase.cupo) {
     throw httpError(409, `Sin cupo en la clase para la fecha ${fechaExacta}`);
   }
@@ -189,7 +236,7 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction }) =>
     throw httpError(409, "Ya tenés una reserva activa en ese día y horario");
   }
 
-  await verificarCupo(clase, fecha, transaction);
+  await verificarCupo(clase, fecha, inscripcion.cliente_email, transaction);
 
   const reserva = await ReservaClase.create(
     {

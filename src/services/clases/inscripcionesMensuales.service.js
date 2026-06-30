@@ -162,6 +162,32 @@ const crearInscripcionMensual = async (data) => {
     );
     await generarReservasMensual(inscripcion, clase, { transaction });
 
+    // Si el usuario acaba de adquirir una mensualidad, removerlo de todas las listas de espera INDIVIDUALES para esta clase
+    const { ListaEspera } = require("../../../db");
+    const entradasIndividuales = await ListaEspera.findAll({
+      where: {
+        clase_id: clase.id,
+        cliente_email: datosInscripcion.cliente_email,
+        tipo: "INDIVIDUAL",
+        estado: { [Op.in]: ["ESPERANDO", "NOTIFICADO"] }
+      },
+      transaction
+    });
+
+    if (entradasIndividuales.length > 0) {
+      const { reordenarPosiciones, notificarPrimero } = require("./listaEspera.service");
+      for (const entrada of entradasIndividuales) {
+        const eraNotificado = entrada.estado === "NOTIFICADO";
+        await entrada.update({ estado: "RECHAZADO" }, { transaction });
+        await reordenarPosiciones(entrada.clase_id, entrada.tipo, entrada.fecha_exacta, transaction);
+        if (eraNotificado) {
+           setImmediate(() => {
+              notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+           });
+        }
+      }
+    }
+
     return InscripcionMensual.findByPk(inscripcion.id, {
       include: [{ model: ReservaClase, as: "reservas" }],
       transaction,

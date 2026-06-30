@@ -82,6 +82,24 @@ const buscarPrimeroEnEspera = (claseId, tipo, fechaExacta, transaction) => {
   });
 };
 
+const reordenarPosiciones = async (claseId, tipo, fechaExacta = null, transaction = null) => {
+  const where = { clase_id: claseId, tipo, estado: { [Op.in]: ["ESPERANDO", "NOTIFICADO"] } };
+  if (tipo === "INDIVIDUAL" && fechaExacta) where.fecha_exacta = fechaExacta;
+
+  const activas = await ListaEspera.findAll({
+    where,
+    order: [["posicion", "ASC"], ["createdAt", "ASC"]],
+    transaction,
+  });
+
+  for (let i = 0; i < activas.length; i++) {
+    const nuevaPosicion = i + 1;
+    if (activas[i].posicion !== nuevaPosicion) {
+      await activas[i].update({ posicion: nuevaPosicion }, { transaction });
+    }
+  }
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Funciones exportadas
 // ─────────────────────────────────────────────────────────────────────────────
@@ -197,7 +215,7 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
 
     const { obtenerCuposOcupados } = require("./reservas.service");
     if (tipo === "INDIVIDUAL" && fechaExacta) {
-      const activas = await obtenerCuposOcupados(claseId, fechaExacta, entrada.cliente_email, transaction);
+      const activas = await obtenerCuposOcupados(claseId, fechaExacta, entrada.cliente_email, transaction, false);
       if (activas >= clase.cupo) return null; // Sin cupo real, no notificar
     } else if (tipo === "MENSUAL") {
       const { fechasDeClaseEnPeriodo } = require("./reservas.service");
@@ -210,7 +228,7 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
       // Para mensualidad, se requiere que TODAS las fechas del periodo tengan cupo disponible
       let todasTienenCupo = true;
       for (const f of fechas) {
-        const activas = await obtenerCuposOcupados(claseId, f, entrada.cliente_email, transaction);
+        const activas = await obtenerCuposOcupados(claseId, f, entrada.cliente_email, transaction, false);
         if (activas >= claseCompleta.cupo) {
           todasTienenCupo = false;
           break;
@@ -306,6 +324,7 @@ const removerDeListaManual = async (listaEsperaId) => {
 
     const eraNotificado = entrada.estado === "NOTIFICADO";
     await entrada.update({ estado: "RECHAZADO" }, { transaction });
+    await reordenarPosiciones(entrada.clase_id, entrada.tipo, entrada.fecha_exacta, transaction);
 
     // Solo avanzar la fila si era quien estaba notificado (tenía el cupo reservado)
     if (eraNotificado) {
@@ -336,6 +355,7 @@ const removerDeListaCliente = async (listaEsperaId, clienteEmail) => {
 
     const eraNotificado = entrada.estado === "NOTIFICADO";
     await entrada.update({ estado: "RECHAZADO" }, { transaction });
+    await reordenarPosiciones(entrada.clase_id, entrada.tipo, entrada.fecha_exacta, transaction);
 
     if (eraNotificado) {
       setImmediate(() => {
@@ -462,6 +482,7 @@ const confirmarCupo = async (listaEsperaId, clienteEmail, options = {}) => {
   }
 
   await entrada.update({ estado: "CONFIRMADO" });
+  await reordenarPosiciones(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
 
   return {
     message: "Reserva confirmada con éxito",
@@ -480,6 +501,7 @@ const rechazarCupo = async (listaEsperaId, clienteEmail) => {
   const entrada = await cargarEntradaNotificada(listaEsperaId, clienteEmail);
 
   await entrada.update({ estado: "RECHAZADO" });
+  await reordenarPosiciones(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
 
   setImmediate(() => {
     notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
@@ -544,4 +566,5 @@ module.exports = {
   rechazarCupo,
   listarListaEspera,
   getListaEspera,
+  reordenarPosiciones,
 };

@@ -86,16 +86,12 @@ const getReservasActivas = async (req, res, next) => {
         const { sumarUnMes } = require("../../utils/fechas");
 
         for (const sub of activeSubscriptions) {
-          // Excluir al usuario actual si está logueado para que no se bloquee a sí mismo
           if (req.usuario && sub.cliente_email === req.usuario.email) continue;
-
-          // Período de renovación (mes siguiente)
           const inicioRenovacion = sub.periodo_fin;
           const finRenovacion = sumarUnMes(inicioRenovacion);
           const fechasFuturas = fechasDeClaseEnPeriodo(clase.dia_semana, inicioRenovacion, finRenovacion);
 
           for (const f of fechasFuturas) {
-            // Verificar si el cliente ya renovó (ya tiene reserva activa)
             const yaRenovo = await ReservaClase.findOne({
               where: {
                 cliente_email: sub.cliente_email,
@@ -106,13 +102,68 @@ const getReservasActivas = async (req, res, next) => {
             });
 
             if (!yaRenovo) {
-              // Agregar reserva dummy para proteger el cupo
               dummyDtos.push({
                 id: 0,
                 fecha_exacta: f,
                 estado: "ACTIVA",
                 asistio: null,
                 inscripcion_mensual_id: sub.id,
+                inscripcion_individual_id: null,
+                clase: {
+                  id: clase.id,
+                  hora_inicio: clase.hora_inicio,
+                  hora_fin: clase.hora_fin,
+                  cupo: clase.cupo,
+                  actividad: null,
+                  actividad_descripcion: null,
+                  profesor: null,
+                  sala: null
+                }
+              });
+            }
+          }
+        }
+
+        // Agregar también dummys para los bloqueos de lista de espera
+        const { ListaEspera } = require("../../../db");
+        const waitlist = await ListaEspera.findAll({
+          where: {
+            clase_id,
+            estado: { [Op.in]: ["NOTIFICADO", "ESPERANDO"] }
+          }
+        });
+
+        for (const w of waitlist) {
+          // El cupo está reservado temporalmente para quien está en la lista de espera,
+          // por lo que nadie puede reservarlo por el flujo normal.
+          if (w.tipo === "INDIVIDUAL" && w.fecha_exacta) {
+            dummyDtos.push({
+              id: 0,
+              fecha_exacta: w.fecha_exacta,
+              estado: "ACTIVA",
+              asistio: null,
+              inscripcion_mensual_id: null,
+              inscripcion_individual_id: null,
+              clase: {
+                id: clase.id,
+                hora_inicio: clase.hora_inicio,
+                hora_fin: clase.hora_fin,
+                cupo: clase.cupo,
+                actividad: null,
+                actividad_descripcion: null,
+                profesor: null,
+                sala: null
+              }
+            });
+          } else if (w.tipo === "MENSUAL") {
+            const fechasFuturasMensual = fechasDeClaseEnPeriodo(clase.dia_semana, hoy, sumarUnMes(hoy));
+            for (const f of fechasFuturasMensual) {
+              dummyDtos.push({
+                id: 0,
+                fecha_exacta: f,
+                estado: "ACTIVA",
+                asistio: null,
+                inscripcion_mensual_id: null,
                 inscripcion_individual_id: null,
                 clase: {
                   id: clase.id,
