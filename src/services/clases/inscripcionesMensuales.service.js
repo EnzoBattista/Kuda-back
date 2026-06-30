@@ -6,7 +6,7 @@ const { notificarPrimero } = require("./listaEspera.service");
 const { aplicarVale } = require("../pagos/vales.service");
 const { getFechaHoyLocal } = require("../../utils/fechas");
 
-const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA"];
+const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA", "PENDIENTE_PAGO"];
 
 /**
  * Valida las reglas de negocio de una inscripción mensual antes de crear o actualizar.
@@ -156,11 +156,17 @@ const crearInscripcionMensual = async (data) => {
       transaction,
     });
 
+    const requierePago = montoFinal > 0;
+    const estadoInscripcion = requierePago ? "PENDIENTE_PAGO" : "VIGENTE";
+
     const inscripcion = await InscripcionMensual.create(
-      { ...datosInscripcion, monto: montoFinal },
+      { ...datosInscripcion, monto: montoFinal, estado: estadoInscripcion },
       { transaction }
     );
-    await generarReservasMensual(inscripcion, clase, { transaction });
+    await generarReservasMensual(inscripcion, clase, {
+      transaction,
+      estadoReserva: requierePago ? "PENDIENTE_PAGO" : "ACTIVA",
+    });
 
     return InscripcionMensual.findByPk(inscripcion.id, {
       include: [{ model: ReservaClase, as: "reservas" }],

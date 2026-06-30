@@ -1,6 +1,6 @@
 const { DataTypes } = require("sequelize");
 
-const ESTADOS = ["ACTIVA", "CANCELADA"];
+const ESTADOS = ["ACTIVA", "CANCELADA", "PENDIENTE_PAGO"];
 
 module.exports = (sequelize) => {
   const ReservaClase = sequelize.define(
@@ -57,8 +57,17 @@ module.exports = (sequelize) => {
         // Defensa a nivel app del CHECK XOR de la BD: la reserva nació de una
         // inscripción mensual O de una individual, nunca de ambas ni de ninguna.
         exactamenteUnaInscripcion() {
-          const tieneMensual = this.inscripcion_mensual_id != null;
-          const tieneIndividual = this.inscripcion_individual_id != null;
+          const { inscripcion_mensual_id, inscripcion_individual_id } = this;
+          // En updates parciales (p. ej. solo cambiar estado) Sequelize no
+          // hidrata los FK; el CHECK de la BD ya protege la integridad.
+          if (
+            inscripcion_mensual_id === undefined &&
+            inscripcion_individual_id === undefined
+          ) {
+            return;
+          }
+          const tieneMensual = inscripcion_mensual_id != null;
+          const tieneIndividual = inscripcion_individual_id != null;
           if (tieneMensual === tieneIndividual) {
             throw new Error(
               "La reserva debe referenciar exactamente una inscripción (mensual o individual)"

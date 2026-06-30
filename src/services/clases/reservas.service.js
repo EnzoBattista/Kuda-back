@@ -59,13 +59,15 @@ const fechasDeClaseEnPeriodo = (diaSemana, periodoInicio, periodoFin) => {
 
 // ─── Verificaciones de cupo y cancelación ────────────────────────────────────
 
+const ESTADOS_RESERVA_OCUPAN_CUPO = ["ACTIVA", "PENDIENTE_PAGO"];
+
 const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transaction) => {
   const { ReservaClase, InscripcionMensual } = require("../../../db");
 
   const whereReservas = {
     clase_id: claseId,
     fecha_exacta: fecha,
-    estado: "ACTIVA"
+    estado: { [Op.in]: ESTADOS_RESERVA_OCUPAN_CUPO },
   };
   if (clienteEmailExcluir) {
     whereReservas.cliente_email = { [Op.ne]: clienteEmailExcluir };
@@ -134,7 +136,7 @@ const verificarCupo = async (clase, fechaExacta, transaction) => {
 /**
  * 1 reserva: la fecha puntual de la inscripción individual.
  */
-const generarReservasIndividual = async (inscripcion, clase, { transaction }) => {
+const generarReservasIndividual = async (inscripcion, clase, { transaction, estadoReserva = "ACTIVA" }) => {
   if (!clase.activa) {
     throw httpError(409, "La clase no está activa");
   }
@@ -196,7 +198,7 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction }) =>
       cliente_email: inscripcion.cliente_email,
       clase_id: clase.id,
       fecha_exacta: fecha,
-      estado: "ACTIVA",
+      estado: estadoReserva,
       inscripcion_individual_id: inscripcion.id,
     },
     { transaction }
@@ -209,7 +211,7 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction }) =>
  * Estrategia fail-fast: si CUALQUIER fecha requerida no tiene cupo, no se crea
  * ninguna reserva y la inscripción se revierte.
  */
-const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
+const generarReservasMensual = async (inscripcion, clase, { transaction, estadoReserva = "ACTIVA" }) => {
   if (!clase.activa) {
     throw httpError(409, "La clase no está activa");
   }
@@ -314,7 +316,7 @@ const generarReservasMensual = async (inscripcion, clase, { transaction }) => {
       cliente_email: inscripcion.cliente_email,
       clase_id: clase.id,
       fecha_exacta: fecha,
-      estado: "ACTIVA",
+      estado: estadoReserva,
       inscripcion_mensual_id: inscripcion.id,
     })),
     { transaction, validate: true }
