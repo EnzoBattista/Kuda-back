@@ -61,6 +61,64 @@ const fechasDeClaseEnPeriodo = (diaSemana, periodoInicio, periodoFin) => {
 
 const ESTADOS_RESERVA_OCUPAN_CUPO = ["ACTIVA", "PENDIENTE_PAGO"];
 
+const normalizarHoraCmp = (hora) => String(hora ?? "").slice(0, 8);
+
+/** Dos franjas [inicio, fin) se solapan si comparten al menos un minuto. */
+const horariosSeSolapan = (inicioA, finA, inicioB, finB) => {
+  const a0 = normalizarHoraCmp(inicioA);
+  const a1 = normalizarHoraCmp(finA);
+  const b0 = normalizarHoraCmp(inicioB);
+  const b1 = normalizarHoraCmp(finB);
+  return a0 < b1 && a1 > b0;
+};
+
+/**
+ * Otra reserva del cliente el mismo día que se superpone con la clase indicada.
+ * Incluye ACTIVA y PENDIENTE_PAGO (checkout MP en curso).
+ */
+const buscarConflictoHorarioCliente = async ({
+  clienteEmail,
+  fecha,
+  clase,
+  excluirClaseId = null,
+  transaction = undefined,
+}) => {
+  const fechaStr = String(fecha).slice(0, 10);
+  const where = {
+    cliente_email: clienteEmail,
+    fecha_exacta: fechaStr,
+    estado: { [Op.in]: ESTADOS_RESERVA_OCUPAN_CUPO },
+  };
+  if (excluirClaseId != null) {
+    where.clase_id = { [Op.ne]: excluirClaseId };
+  }
+
+  const reservas = await ReservaClase.findAll({
+    where,
+    include: [
+      {
+        model: Clase,
+        as: "clase",
+        attributes: ["id", "hora_inicio", "hora_fin", "nombre"],
+      },
+    ],
+    transaction,
+  });
+
+  return (
+    reservas.find(
+      (r) =>
+        r.clase &&
+        horariosSeSolapan(
+          r.clase.hora_inicio,
+          r.clase.hora_fin,
+          clase.hora_inicio,
+          clase.hora_fin,
+        ),
+    ) ?? null
+  );
+};
+
 const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transaction, incluirEsperando = true) => {
   const { ReservaClase, InscripcionMensual } = require("../../../db");
 
@@ -209,7 +267,7 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction, esta
       cliente_email: inscripcion.cliente_email,
       clase_id: clase.id,
       fecha_exacta: fecha,
-      estado: "ACTIVA",
+      estado: { [Op.in]: ESTADOS_RESERVA_OCUPAN_CUPO },
     },
     transaction,
   });
@@ -217,21 +275,11 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction, esta
     throw httpError(400, "Ya tenés una reserva activa para esta clase en esa fecha");
   }
 
-  const conflictoHorario = await ReservaClase.findOne({
-    where: {
-      cliente_email: inscripcion.cliente_email,
-      fecha_exacta: fecha,
-      estado: "ACTIVA",
-      clase_id: { [Op.ne]: clase.id },
-    },
-    include: [{
-      model: Clase,
-      as: "clase",
-      where: {
-        hora_inicio: { [Op.lt]: clase.hora_fin },
-        hora_fin: { [Op.gt]: clase.hora_inicio },
-      }
-    }],
+  const conflictoHorario = await buscarConflictoHorarioCliente({
+    clienteEmail: inscripcion.cliente_email,
+    fecha,
+    clase,
+    excluirClaseId: clase.id,
     transaction,
   });
   if (conflictoHorario) {
@@ -319,21 +367,11 @@ const generarReservasMensual = async (inscripcion, clase, { transaction, estadoR
   });
 
   for (const fecha of fechasValidas) {
-    const conflictoHorario = await ReservaClase.findOne({
-      where: {
-        cliente_email: inscripcion.cliente_email,
-        fecha_exacta: fecha,
-        estado: "ACTIVA",
-        clase_id: { [Op.ne]: clase.id },
-      },
-      include: [{
-        model: Clase,
-        as: "clase",
-        where: {
-          hora_inicio: { [Op.lt]: clase.hora_fin },
-          hora_fin: { [Op.gt]: clase.hora_inicio },
-        }
-      }],
+    const conflictoHorario = await buscarConflictoHorarioCliente({
+      clienteEmail: inscripcion.cliente_email,
+      fecha,
+      clase,
+      excluirClaseId: clase.id,
       transaction,
     });
     if (conflictoHorario) {
@@ -640,7 +678,10 @@ const cancelarSeñasVencidasConNotificacion = async () => {
 };
 
 module.exports = {
+  ESTADOS_RESERVA_OCUPAN_CUPO,
   fechasDeClaseEnPeriodo,
+  horariosSeSolapan,
+  buscarConflictoHorarioCliente,
   generarReservasIndividual,
   generarReservasMensual,
   cancelarReserva: cancelarReservaConNotificacion,

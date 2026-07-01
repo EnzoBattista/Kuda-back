@@ -148,7 +148,10 @@ const verificarTokenQr = (token) => {
     return payload;
   } catch (err) {
     if (err.status) throw err;
-    throw httpError(400, "QR no es valido");
+    if (err.name === "TokenExpiredError") {
+      throw httpError(400, "El código QR expiró. Pedile al cliente que genere uno nuevo.");
+    }
+    throw httpError(400, "QR no es válido.");
   }
 };
 
@@ -204,7 +207,22 @@ const escanearQr = async (token) => {
     reserva.estado !== "ACTIVA" ||
     reserva.fecha_exacta !== hoyLocalISO()
   ) {
-    throw httpError(400, "QR no es valido");
+    throw httpError(400, "QR no es válido.");
+  }
+
+  if (!reserva.clase?.activa || reserva.clase.dia_semana !== diaSemanaHoy()) {
+    throw httpError(400, "QR no es válido para la clase de hoy.");
+  }
+
+  if (!claseEnVentana(reserva.clase, horaLocalActual())) {
+    throw httpError(400, "El QR no corresponde al turno actual de la clase.");
+  }
+
+  const asistenciaExistente = await Asistencia.findOne({
+    where: { reserva_id: reserva.id, estado: "PRESENTE" },
+  });
+  if (asistenciaExistente || reserva.asistio === true) {
+    throw httpError(409, "Este QR ya fue escaneado. La asistencia ya está registrada.");
   }
 
   const usuario = reserva.cliente?.usuario;
@@ -277,7 +295,7 @@ const registrarAsistencia = async (data, staffEmail) => {
   });
 
   if (asistenciaExistente && estado === "PRESENTE") {
-    throw httpError(409, "La asistencia ya fue registrada para esta reserva");
+    throw httpError(409, "Este QR ya fue escaneado. La asistencia ya está registrada.");
   }
 
   return conn.transaction(async (transaction) => {
@@ -430,9 +448,25 @@ const listarClasesHoy = async () => {
   return { fecha: hoy, clases: resultado };
 };
 
+/** Valida el QR y registra el ingreso en un solo paso (recepción). */
+const confirmarIngresoPorQr = async (token, staffEmail) => {
+  const datos = await escanearQr(token);
+  const resultado = await registrarAsistencia(
+    {
+      reserva_id: datos.reserva_id,
+      email: datos.cliente.email,
+      clase_id: datos.clase.id,
+      estado: "PRESENTE",
+    },
+    staffEmail,
+  );
+  return { ...datos, message: resultado.message };
+};
+
 module.exports = {
   generarQrCliente,
   escanearQr,
+  confirmarIngresoPorQr,
   registrarAsistencia,
   listarHistorial,
   listarClasesHoy,

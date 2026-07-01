@@ -36,10 +36,10 @@ const escanearQr = async (req, res, next) => {
   try {
     const { token } = req.body;
     if (!token) {
-      return res.status(400).json({ message: "QR no es valido" });
+      return res.status(400).json({ message: "QR no es válido." });
     }
 
-    const datos = await asistenciasService.escanearQr(token);
+    const datos = await asistenciasService.confirmarIngresoPorQr(token, req.usuario.email);
     return res.status(200).json(datos);
   } catch (error) {
     if (error.status) {

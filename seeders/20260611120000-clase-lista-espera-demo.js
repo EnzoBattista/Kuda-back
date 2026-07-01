@@ -4,6 +4,8 @@ const bcrypt = require("bcrypt");
 
 const NOMBRE_CLASE_DEMO = "Demo Lista de Espera";
 const CUPO = 10;
+const DIA_SEMANA = "Viernes";
+const DIA_SEMANA_NUM = 5;
 const HORA_INICIO = "18:00:00";
 const HORA_FIN = "19:00:00";
 const FICHA_MEDICA_DEMO = "data:application/pdf;base64,JVBERi0xLjQK";
@@ -23,6 +25,14 @@ const CLIENTES_OCUPANTES = [
 ];
 
 const pad2 = (n) => String(n).padStart(2, "0");
+
+const proximaFecha = (refDate, diaObjetivo) => {
+  const cursor = new Date(refDate);
+  cursor.setHours(0, 0, 0, 0);
+  const diff = (diaObjetivo - cursor.getDay() + 7) % 7;
+  cursor.setDate(cursor.getDate() + diff);
+  return `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}-${pad2(cursor.getDate())}`;
+};
 
 const asegurarClientesDemo = async (queryInterface, now) => {
   const [roles] = await queryInterface.sequelize.query(
@@ -85,14 +95,7 @@ const asegurarClientesDemo = async (queryInterface, now) => {
 module.exports = {
   async up(queryInterface) {
     const now = new Date();
-    const hoy = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
-    const dias = ["Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"];
-    const diaHoy = dias[now.getDay()];
-
-    if (diaHoy === "Domingo") {
-      console.warn("[seeder lista-espera-demo] Hoy es domingo; no se crea la clase demo.");
-      return;
-    }
+    const fechaClase = proximaFecha(now, DIA_SEMANA_NUM);
 
     await asegurarClientesDemo(queryInterface, now);
 
@@ -135,7 +138,7 @@ module.exports = {
         {
           replacements: {
             id: claseId,
-            dia: diaHoy,
+            dia: DIA_SEMANA,
             inicio: HORA_INICIO,
             fin: HORA_FIN,
             cupo: CUPO,
@@ -147,7 +150,7 @@ module.exports = {
       await queryInterface.bulkInsert("clases", [
         {
           nombre: NOMBRE_CLASE_DEMO,
-          dia_semana: diaHoy,
+          dia_semana: DIA_SEMANA,
           hora_inicio: HORA_INICIO,
           hora_fin: HORA_FIN,
           cupo: CUPO,
@@ -190,9 +193,9 @@ module.exports = {
 
       const [reservaExistente] = await queryInterface.sequelize.query(
         `SELECT id FROM reservas_clase
-         WHERE cliente_email = :email AND clase_id = :claseId AND fecha_exacta = :hoy AND estado = 'ACTIVA'
+         WHERE cliente_email = :email AND clase_id = :claseId AND fecha_exacta = :fecha AND estado = 'ACTIVA'
          LIMIT 1`,
-        { replacements: { email, claseId, hoy } },
+        { replacements: { email, claseId, fecha: fechaClase } },
       );
       if (reservaExistente.length > 0) {
         reservasCreadas++;
@@ -204,7 +207,7 @@ module.exports = {
           cliente_email: email,
           actividad_id: actividadId,
           clase_id: claseId,
-          fecha: hoy,
+          fecha: fechaClase,
           modalidad: "COMPLETO",
           estado_seña: null,
           vencimiento_seña: null,
@@ -217,16 +220,16 @@ module.exports = {
 
       const [inscripcion] = await queryInterface.sequelize.query(
         `SELECT id FROM inscripciones_individuales
-         WHERE cliente_email = :email AND clase_id = :claseId AND fecha = :hoy
+         WHERE cliente_email = :email AND clase_id = :claseId AND fecha = :fecha
          ORDER BY id DESC LIMIT 1`,
-        { replacements: { email, claseId, hoy } },
+        { replacements: { email, claseId, fecha: fechaClase } },
       );
 
       await queryInterface.bulkInsert("reservas_clase", [
         {
           cliente_email: email,
           clase_id: claseId,
-          fecha_exacta: hoy,
+          fecha_exacta: fechaClase,
           asistio: null,
           estado: "ACTIVA",
           inscripcion_mensual_id: null,
@@ -239,7 +242,7 @@ module.exports = {
     }
 
     console.info(
-      `[seeder lista-espera-demo] Clase "${NOMBRE_CLASE_DEMO}" (id ${claseId}) — ${hoy} (${diaHoy}) ${HORA_INICIO.slice(0, 5)}–${HORA_FIN.slice(0, 5)}, cupo ${CUPO}/${CUPO}.`,
+      `[seeder lista-espera-demo] Clase "${NOMBRE_CLASE_DEMO}" (id ${claseId}) — ${fechaClase} (${DIA_SEMANA}) ${HORA_INICIO.slice(0, 5)}–${HORA_FIN.slice(0, 5)}, cupo ${CUPO}/${CUPO}.`,
     );
     console.info(
       `[seeder lista-espera-demo] ${reservasCreadas} reservas activas. Entrá con un usuario distinto (ej. enzobat07@gmail.com) y probá "Anotarse en lista de espera".`,
@@ -248,7 +251,7 @@ module.exports = {
 
   async down(queryInterface) {
     const now = new Date();
-    const hoy = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+    const fechaClase = proximaFecha(now, DIA_SEMANA_NUM);
 
     const [clase] = await queryInterface.sequelize.query(
       `SELECT id FROM clases WHERE nombre = :nombre LIMIT 1`,
@@ -264,12 +267,12 @@ module.exports = {
       { replacements: { claseId } },
     );
     await queryInterface.sequelize.query(
-      `DELETE FROM reservas_clase WHERE clase_id = :claseId AND fecha_exacta = :hoy AND cliente_email IN (${emailsSql})`,
-      { replacements: { claseId, hoy } },
+      `DELETE FROM reservas_clase WHERE clase_id = :claseId AND fecha_exacta = :fecha AND cliente_email IN (${emailsSql})`,
+      { replacements: { claseId, fecha: fechaClase } },
     );
     await queryInterface.sequelize.query(
-      `DELETE FROM inscripciones_individuales WHERE clase_id = :claseId AND fecha = :hoy AND cliente_email IN (${emailsSql})`,
-      { replacements: { claseId, hoy } },
+      `DELETE FROM inscripciones_individuales WHERE clase_id = :claseId AND fecha = :fecha AND cliente_email IN (${emailsSql})`,
+      { replacements: { claseId, fecha: fechaClase } },
     );
     await queryInterface.bulkDelete("clases", { nombre: NOMBRE_CLASE_DEMO }, {});
 
