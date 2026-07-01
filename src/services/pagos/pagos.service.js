@@ -12,6 +12,8 @@ const {
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const GIMNASIO = {
   nombre: "CEF Actividades",
   subtitulo: "Centro de bienestar",
@@ -430,7 +432,7 @@ const consultarEstadoPago = async (pagoId, clienteEmail) => {
   const { pago: actualizado, mp_status, mp_status_detail } =
     await sincronizarPagoConMercadoPago(pago);
 
-  if (actualizado.estado === "COMPLETADO" && mp_status === "approved") {
+  if (actualizado.estado === "COMPLETADO") {
     await confirmarInscripcionPorPagoExitoso(actualizado);
   }
 
@@ -463,17 +465,21 @@ const abandonarPago = async (pagoId, clienteEmail) => {
   }
 
   if (pago.estado === "PENDIENTE") {
-    const { pago: sincronizado, mp_status } = await sincronizarPagoConMercadoPago(pago);
-    pago = sincronizado;
-    await pago.reload();
+    for (let intento = 0; intento < 4; intento += 1) {
+      const { pago: sincronizado, mp_status } = await sincronizarPagoConMercadoPago(pago);
+      pago = sincronizado;
+      await pago.reload();
 
-    if (pago.estado === "COMPLETADO" && mp_status === "approved") {
-      await confirmarInscripcionPorPagoExitoso(pago);
-      return {
-        id: pago.id,
-        estado: pago.estado,
-        message: "Tu pago fue registrado exitosamente.",
-      };
+      if (pago.estado === "COMPLETADO" && mp_status === "approved") {
+        await confirmarInscripcionPorPagoExitoso(pago);
+        return {
+          id: pago.id,
+          estado: pago.estado,
+          message: "Tu pago fue registrado exitosamente.",
+        };
+      }
+      if (pago.estado === "RECHAZADO") break;
+      if (intento < 3) await esperar(1500);
     }
   }
 
@@ -509,7 +515,10 @@ const liberarReservaPendiente = async (data, clienteEmail) => {
 
   if (pagoSimulado.origen_id) {
     const reservas = await ReservaClase.findAll({
-      where: { inscripcion_individual_id: pagoSimulado.origen_id, estado: "ACTIVA" },
+      where: {
+        inscripcion_individual_id: pagoSimulado.origen_id,
+        estado: { [Op.in]: ["ACTIVA", "PENDIENTE_PAGO"] },
+      },
       limit: 1,
     });
     if (reservas[0] && reservas[0].cliente_email !== clienteEmail) {

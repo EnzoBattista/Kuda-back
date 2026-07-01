@@ -101,8 +101,11 @@ const crearInscripcionIndividual = async (data) => {
     }
 
     const inscripcion = await InscripcionIndividual.create(datosFinales, { transaction });
-    const requierePago =
-      datosFinales.modalidad === "COMPLETO" && Number(datosFinales.monto_total ?? 0) > 0;
+    const montoACobrar =
+      datosFinales.modalidad === "SEÑA"
+        ? Number(datosFinales.monto_pagado ?? 0)
+        : Number(datosFinales.monto_total ?? 0);
+    const requierePago = montoACobrar > 0;
     await generarReservasIndividual(inscripcion, clase, {
       transaction,
       estadoReserva: requierePago ? "PENDIENTE_PAGO" : "ACTIVA",
