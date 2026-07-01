@@ -10,7 +10,7 @@ const {
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
-const { notificarPrimero } = require("./listaEspera.service");
+const { avanzarFila } = require("./listaEspera.service");
 const { getFechaHoyLocal, getHoraLocal } = require("../../utils/fechas");
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -401,6 +401,8 @@ const generarValeAbonado = async (clienteEmail, claseId, inscripcionMensual, opt
   if (totalReservas <= 0) return null;
 
   const montoVale = Number(inscripcionMensual.monto) / totalReservas;
+  if (isNaN(montoVale) || montoVale <= 0.01) return null;
+  
   const hoyLocalStr = getFechaHoyLocal();
   const [year, month] = hoyLocalStr.split("-").map(Number);
 
@@ -437,6 +439,9 @@ const generarValeAbonado = async (clienteEmail, claseId, inscripcionMensual, opt
  * por defecto: hasta el último día del mes siguiente.
  */
 const generarValeIndividual = async (clienteEmail, claseId, monto, options = {}) => {
+  const montoNumerico = Number(monto);
+  if (isNaN(montoNumerico) || montoNumerico <= 0.01) return null;
+
   const validoDesdeStr = getFechaHoyLocal();
   const [year, month] = validoDesdeStr.split("-").map(Number);
 
@@ -544,20 +549,8 @@ const cancelarReservaConNotificacion = async (reservaId, emailUsuario) => {
   const resultado = await cancelarReserva(reservaId, emailUsuario);
 
   // Disparar notificación de lista de espera de forma async (no bloquea ni propaga errores)
-  setImmediate(async () => {
-    try {
-      const { reserva } = resultado;
-      // Priorizar la lista de espera MENSUAL: intentamos notificar a un mensual primero.
-      // Si se logra notificar (porque todas las fechas del mes pasan a tener cupo), no notificamos a la individual.
-      const notificadoMensual = await notificarPrimero(reserva.clase_id, "MENSUAL");
-      if (!notificadoMensual) {
-        // Si no se notificó a nadie mensual (cola vacía o alguna fecha del mes sigue sin cupo),
-        // notificamos a la lista INDIVIDUAL para la fecha exacta de esta reserva.
-        await notificarPrimero(reserva.clase_id, "INDIVIDUAL", reserva.fecha_exacta);
-      }
-    } catch (err) {
-      console.error("[cancelarReserva] Error al notificar lista de espera:", err.message);
-    }
+  setImmediate(() => {
+    avanzarFila(resultado.reserva.clase_id, resultado.reserva.fecha_exacta);
   });
 
   return resultado;
@@ -624,15 +617,8 @@ const cancelarSeñasVencidasConNotificacion = async () => {
   }
 
   for (const reserva of reservasCanceladas) {
-    setImmediate(async () => {
-      try {
-        const notificadoMensual = await notificarPrimero(reserva.clase_id, "MENSUAL");
-        if (!notificadoMensual) {
-          await notificarPrimero(reserva.clase_id, "INDIVIDUAL", reserva.fecha_exacta);
-        }
-      } catch (err) {
-        console.error("[cancelarSeñasVencidas] Error al notificar lista de espera:", err.message);
-      }
+    setImmediate(() => {
+      avanzarFila(reserva.clase_id, reserva.fecha_exacta);
     });
   }
 

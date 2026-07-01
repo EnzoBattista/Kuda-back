@@ -327,7 +327,7 @@ const cancelarFechaClase = async (claseId, data) => {
         tipoVale = "MENSUAL";
       }
 
-      if (monto > 0) {
+      if (monto > 0.01) {
         await Vale.create(
           {
             cliente_email: reserva.cliente_email,

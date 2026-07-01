@@ -257,7 +257,29 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
   });
 };
 
-
+const avanzarFila = async (claseId, fechaExacta = null) => {
+  try {
+    const notificadoMensual = await notificarPrimero(claseId, "MENSUAL");
+    if (!notificadoMensual) {
+      if (fechaExacta) {
+        await notificarPrimero(claseId, "INDIVIDUAL", fechaExacta);
+      } else {
+        const pendientes = await ListaEspera.findAll({
+          attributes: ['fecha_exacta'],
+          where: { clase_id: claseId, tipo: "INDIVIDUAL", estado: "ESPERANDO" }
+        });
+        const fechasUnicas = [...new Set(pendientes.map(p => p.fecha_exacta))];
+        for (const fecha of fechasUnicas) {
+          if (fecha) {
+            await notificarPrimero(claseId, "INDIVIDUAL", fecha);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[avanzarFila] Error al avanzar fila:", err.message);
+  }
+};
 
 /**
  * Cron job: busca entradas en ESPERANDO de tipo INDIVIDUAL cuya fecha_exacta esté
@@ -330,7 +352,7 @@ const removerDeListaManual = async (listaEsperaId) => {
     if (eraNotificado) {
       // Se ejecuta fuera de la transacción para que el commit ya esté hecho
       setImmediate(() => {
-        notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+        avanzarFila(entrada.clase_id, entrada.fecha_exacta);
       });
     }
 
@@ -359,7 +381,7 @@ const removerDeListaCliente = async (listaEsperaId, clienteEmail) => {
 
     if (eraNotificado) {
       setImmediate(() => {
-        notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+        avanzarFila(entrada.clase_id, entrada.fecha_exacta);
       });
     }
 
@@ -504,7 +526,7 @@ const rechazarCupo = async (listaEsperaId, clienteEmail) => {
   await reordenarPosiciones(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
 
   setImmediate(() => {
-    notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+    avanzarFila(entrada.clase_id, entrada.fecha_exacta);
   });
 
   return {
@@ -567,4 +589,5 @@ module.exports = {
   listarListaEspera,
   getListaEspera,
   reordenarPosiciones,
+  avanzarFila,
 };
