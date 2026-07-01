@@ -4,8 +4,6 @@ const requirePermiso = require("../../middleware/requirePermiso");
 const { PERMISOS } = require("../../constants/permisos");
 const {
   getAllPagos,
-  registrarPago,
-  generarPagoQr,
   createPreference,
   getEstadoPago,
   abandonarPago,
@@ -17,8 +15,6 @@ const {
 const router = express.Router();
 
 router.get("/", auth, requirePermiso(PERMISOS.PAGO_VER_TODOS), getAllPagos);
-router.post("/registrar", auth, requirePermiso(PERMISOS.PAGO_COBRAR), registrarPago);
-router.post("/qr", auth, generarPagoQr);
 router.post("/create-preference", auth, createPreference);
 router.post("/liberar-pendiente", auth, liberarReservaPendiente);
 router.post("/webhook/mercadopago", webhookMercadoPago);

@@ -258,36 +258,6 @@ const listarPagos = async (filtros = {}) => {
   });
 };
 
-const registrarPagoManual = async (data, recepcionistaEmail) => {
-  const monto = validarMonto(data.monto);
-  const metodo = data.metodo;
-
-  if (!["EFECTIVO", "TRANSFERENCIA"].includes(metodo)) {
-    throw httpError(400, "El método de pago manual debe ser EFECTIVO o TRANSFERENCIA");
-  }
-
-  const cliente = await Cliente.findByPk(data.cliente_email);
-  if (!cliente) throw httpError(404, "Cliente no encontrado");
-
-  const origen = data.origen ?? "MANUAL";
-
-  const pago = await Pago.create({
-    cliente_email: data.cliente_email,
-    recepcionista_email: recepcionistaEmail,
-    origen,
-    origen_id: data.origen_id ?? null,
-    reserva_id: data.reserva_id ?? null,
-    inscripcion_mensual_id: data.inscripcion_mensual_id ?? null,
-    concepto: data.concepto?.trim() || "Cobro en mostrador",
-    monto,
-    fecha: data.fecha ? new Date(data.fecha) : new Date(),
-    metodo,
-    estado: "COMPLETADO",
-  });
-
-  return pago;
-};
-
 const crearPreferenciaMercadoPago = async ({
   tituloPlan,
   precio,
@@ -591,67 +561,6 @@ const procesarWebhookMercadoPago = async (req) => {
   return { received: true };
 };
 
-const generarPagoQr = async (data, clienteEmail) => {
-  const monto = validarMonto(data.monto);
-  const email = data.cliente_email || clienteEmail;
-
-  const cliente = await Cliente.findByPk(email);
-  if (!cliente) throw httpError(404, "Cliente no encontrado");
-
-  const concepto = data.concepto?.trim() || "Pago CEF Actividades";
-  const external_reference = `CEF-${Date.now()}-${email.split("@")[0]}`;
-
-  let qrData = `alias: cef.actividades.mp | monto: ${monto} ARS | ref: ${external_reference}`;
-  let mpPreferenceId = null;
-
-  const reservaId = await resolverReservaId(data.reserva_id);
-  const inscripcionMensualId = await resolverInscripcionMensualId(data.inscripcion_mensual_id);
-
-  const pago = await Pago.create({
-    cliente_email: email,
-    origen: data.origen ?? "CLASE_SUELTA",
-    origen_id: data.origen_id ?? null,
-    reserva_id: reservaId,
-    inscripcion_mensual_id: inscripcionMensualId,
-    concepto,
-    monto,
-    metodo: "QR",
-    estado: "PENDIENTE",
-    qr_referencia: external_reference,
-  });
-
-  const mpRef = `pago-${pago.id}`;
-
-  if (process.env.MP_ACCESS_TOKEN) {
-    try {
-      const pref = await crearPreferenciaMercadoPago({
-        tituloPlan: concepto,
-        precio: monto,
-        cliente_email: email,
-        external_reference: mpRef,
-        pago_id: pago.id,
-      });
-      mpPreferenceId = pref.id;
-      qrData = pref.init_point || pref.sandbox_init_point || qrData;
-      await pago.update({
-        mp_payment_id: String(pref.id),
-        qr_referencia: mpRef,
-      });
-    } catch (err) {
-      console.warn("[pagos.qr] MP no disponible, usando QR local:", err.message);
-    }
-  }
-
-  return {
-    pago_id: pago.id,
-    qr_data: qrData,
-    referencia: pago.qr_referencia || external_reference,
-    estado: pago.estado,
-    monto: Number(pago.monto),
-    concepto: pago.concepto,
-  };
-};
-
 const obtenerComprobante = async (id) => {
   const pago = await Pago.findByPk(id, { include: includesDetalle });
 
@@ -693,7 +602,6 @@ const obtenerComprobante = async (id) => {
 
 module.exports = {
   listarPagos,
-  registrarPagoManual,
   crearPreferenciaMercadoPago,
   crearPagoMercadoPago,
   consultarEstadoPago,
@@ -702,7 +610,6 @@ module.exports = {
   procesarWebhookMercadoPago,
   sincronizarPagoConMercadoPago,
   revertirInscripcionPorPagoFallido,
-  generarPagoQr,
   obtenerComprobante,
   mensajeEstadoPago,
   GIMNASIO,

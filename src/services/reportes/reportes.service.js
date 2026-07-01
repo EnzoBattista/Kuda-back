@@ -1,4 +1,4 @@
-const { Op, fn, col, literal } = require("sequelize");
+const { Op, fn, col } = require("sequelize");
 const {
   Usuario,
   Rol,
@@ -150,16 +150,7 @@ const getIngresos = async () => {
     raw: true,
   });
 
-  const porMetodoFilas = await Pago.findAll({
-    attributes: [
-      [col("metodo"), "metodo"],
-      [fn("SUM", col("monto")), "total"],
-    ],
-    where: whereCompletado,
-    group: [col("metodo")],
-    order: [[fn("SUM", col("monto")), "DESC"]],
-    raw: true,
-  });
+  const totalHistorico = await Pago.sum("monto", { where: whereCompletado });
 
   const [anioStr, mesStr] = mesActual.split("-");
   const inicioMesActual = new Date(Number(anioStr), Number(mesStr) - 1, 1);
@@ -188,15 +179,14 @@ const getIngresos = async () => {
       mes,
       total: mapaMes.get(mes) ?? 0,
     })),
-    por_metodo: porMetodoFilas.map((f) => ({
-      metodo: f.metodo,
-      total: toNumber(f.total),
-    })),
-    total_historico: porMetodoFilas.reduce((acc, f) => acc + toNumber(f.total), 0),
+    total_historico: toNumber(totalHistorico),
   };
 };
 
 const getHorariosPopulares = async () => {
+  // Reservas activas por clase vigente. Luego agregamos por día + franja horaria
+  // para conocer la demanda global de cada horario, sumando todas las clases y
+  // actividades que caen en ese mismo día y hora.
   const filas = await ReservaClase.findAll({
     attributes: [
       "clase_id",
@@ -207,49 +197,64 @@ const getHorariosPopulares = async () => {
       {
         model: Clase,
         as: "clase",
-        attributes: ["id", "nombre", "dia_semana", "hora_inicio", "hora_fin", "cupo"],
+        attributes: ["id", "dia_semana", "hora_inicio", "hora_fin", "cupo"],
         // Solo clases vigentes: si la clase se eliminó (activa: false) no debe
         // figurar entre los horarios más seleccionados, aunque conserve reservas
         // viejas en estado ACTIVA. required: true descarta reservas huérfanas.
         where: { activa: true },
         required: true,
-        include: [{ model: Actividad, as: "actividad", attributes: ["nombre"] }],
       },
     ],
     group: [
       "clase_id",
       "clase.id",
-      "clase.nombre",
       "clase.dia_semana",
       "clase.hora_inicio",
       "clase.hora_fin",
       "clase.cupo",
-      "clase->actividad.id",
-      "clase->actividad.nombre",
     ],
-    order: [[literal("total_reservas"), "DESC"]],
-    limit: TOP_HORARIOS,
     subQuery: false,
   });
 
-  return {
-    top: filas.map((f) => {
-      const clase = f.clase;
-      const reservas = Number(f.get("total_reservas"));
-      const cupo = Number(clase?.cupo ?? 0);
-      return {
-        clase_id: f.clase_id,
-        nombre: clase?.actividad?.nombre ?? clase?.nombre ?? "Clase",
-        dia_semana: clase?.dia_semana,
-        hora_inicio: clase?.hora_inicio,
-        hora_fin: clase?.hora_fin,
-        horario: `${clase?.dia_semana ?? ""} ${clase?.hora_inicio ?? ""}`.trim(),
-        total_reservas: reservas,
-        cupo,
-        ocupacion_pct: cupo > 0 ? Math.round((reservas / cupo) * 100) : null,
-      };
-    }),
-  };
+  return { top: agruparPorFranja(filas).slice(0, TOP_HORARIOS) };
+};
+
+// Agrupa reservas (una fila por clase) en franjas día + hora, sumando reservas y
+// cupos de todas las clases que comparten ese horario. Devuelve las franjas
+// ordenadas de mayor a menor demanda.
+const agruparPorFranja = (filas) => {
+  const porFranja = new Map();
+
+  for (const f of filas) {
+    const clase = f.clase;
+    const dia = clase?.dia_semana ?? "";
+    const horaInicio = String(clase?.hora_inicio ?? "").slice(0, 5);
+    const horaFin = String(clase?.hora_fin ?? "").slice(0, 5);
+    const key = `${dia}|${horaInicio}|${horaFin}`;
+
+    const acc = porFranja.get(key) ?? {
+      dia_semana: dia,
+      hora_inicio: horaInicio,
+      hora_fin: horaFin,
+      total_reservas: 0,
+      cupo: 0,
+    };
+    acc.total_reservas += Number(f.get("total_reservas"));
+    acc.cupo += Number(clase?.cupo ?? 0);
+    porFranja.set(key, acc);
+  }
+
+  return [...porFranja.values()]
+    .sort((a, b) => b.total_reservas - a.total_reservas)
+    .map((s) => ({
+      dia_semana: s.dia_semana,
+      hora_inicio: s.hora_inicio,
+      hora_fin: s.hora_fin,
+      horario: `${s.dia_semana} ${s.hora_inicio}${s.hora_fin ? `–${s.hora_fin}` : ""}`.trim(),
+      total_reservas: s.total_reservas,
+      cupo: s.cupo,
+      ocupacion_pct: s.cupo > 0 ? Math.round((s.total_reservas / s.cupo) * 100) : null,
+    }));
 };
 
 const getIngresosMensuales = async ({ anio, actividadId } = {}) => {
@@ -339,7 +344,7 @@ const getIngresosMensuales = async ({ anio, actividadId } = {}) => {
   };
 };
 
-const getHorariosSeleccionados = async ({ anio, actividadId } = {}) => {
+const getHorariosSeleccionados = async ({ anio } = {}) => {
   const year = Number.parseInt(anio, 10);
   if (!Number.isInteger(year)) {
     throw httpError(400, "El año del reporte es obligatorio");
@@ -348,23 +353,8 @@ const getHorariosSeleccionados = async ({ anio, actividadId } = {}) => {
   const inicioAnio = `${year}-01-01`;
   const finAnio = `${year}-12-31`;
 
-  let categoria = { id: null, nombre: "Todas las clases" };
-  // Solo clases vigentes: las eliminadas (activa: false) no figuran en el reporte.
-  const claseWhere = { activa: true };
-
-  if (actividadId != null) {
-    const actividad = await Actividad.findByPk(actividadId, {
-      attributes: ["id", "nombre"],
-    });
-    if (!actividad) {
-      throw httpError(404, "Categoría (actividad) no encontrada");
-    }
-    categoria = { id: actividad.id, nombre: actividad.nombre };
-    claseWhere.actividad_id = actividad.id;
-  }
-
-  // Demanda por horario = reservas del año a cada clase, agrupadas por horario
-  // (clase) y ordenadas de mayor a menor.
+  // Demanda por franja horaria = reservas del año a cada clase vigente,
+  // agrupadas luego por día + hora (todas las clases y actividades juntas).
   const filas = await ReservaClase.findAll({
     attributes: [
       "clase_id",
@@ -378,52 +368,32 @@ const getHorariosSeleccionados = async ({ anio, actividadId } = {}) => {
       {
         model: Clase,
         as: "clase",
-        attributes: ["id", "nombre", "dia_semana", "hora_inicio", "hora_fin", "cupo"],
-        where: claseWhere,
+        // Solo clases vigentes: las eliminadas (activa: false) no figuran.
+        attributes: ["id", "dia_semana", "hora_inicio", "hora_fin", "cupo"],
+        where: { activa: true },
         required: true,
-        include: [{ model: Actividad, as: "actividad", attributes: ["id", "nombre"] }],
       },
     ],
     group: [
       "clase_id",
       "clase.id",
-      "clase.nombre",
       "clase.dia_semana",
       "clase.hora_inicio",
       "clase.hora_fin",
       "clase.cupo",
-      "clase->actividad.id",
-      "clase->actividad.nombre",
     ],
-    order: [[literal("total_reservas"), "DESC"]],
     subQuery: false,
   });
 
-  const horarios = filas.map((f) => {
-    const clase = f.clase;
-    const horaInicio = String(clase?.hora_inicio ?? "").slice(0, 5);
-    const horaFin = String(clase?.hora_fin ?? "").slice(0, 5);
-    return {
-      clase_id: f.clase_id,
-      actividad: clase?.actividad?.nombre ?? clase?.nombre ?? "Clase",
-      nombre: clase?.nombre,
-      dia_semana: clase?.dia_semana,
-      hora_inicio: horaInicio,
-      hora_fin: horaFin,
-      horario: `${clase?.dia_semana ?? ""} ${horaInicio}${horaFin ? `-${horaFin}` : ""}`.trim(),
-      cupo: Number(clase?.cupo ?? 0),
-      total_reservas: Number(f.get("total_reservas")),
-    };
-  });
+  const horarios = agruparPorFranja(filas);
 
   return {
     anio: year,
-    categoria,
     hay_datos: horarios.length > 0,
     mensaje:
       horarios.length > 0
         ? null
-        : `No hubo inscripciones a la categoría "${categoria.nombre}" durante el ${year}.`,
+        : `No hubo reservas registradas durante el ${year}.`,
     horarios,
   };
 };
