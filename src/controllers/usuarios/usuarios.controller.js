@@ -20,12 +20,18 @@ const getAllUsuarios = async (req, res, next) => {
 
     if (estado === "ACTIVO") {
       where.activo = true;
+      where.email = { [Op.notLike]: '%_deleted_%' };
     } else if (estado === "PENDIENTE") {
       where.activo = false;
       where.tokenConfirmacion = { [Op.not]: null };
+    } else if (estado === "DESACTIVADO") {
+      where.activo = false;
+      where.tokenConfirmacion = null;
+      where.email = { [Op.notLike]: '%_deleted_%' };
     } else if (estado === "ELIMINADO") {
       where.activo = false;
       where.tokenConfirmacion = null;
+      where.email = { [Op.like]: '%_deleted_%' };
     }
 
     if (q && q.trim()) {
@@ -37,6 +43,16 @@ const getAllUsuarios = async (req, res, next) => {
         { dni: { [Op.iLike]: term } },
       ];
     }
+
+    // Excluir clientes pendientes con token expirado (> 48h)
+    where[Op.and] = [
+      {
+        [Op.or]: [
+          { tokenConfirmacion: null },
+          { tokenExpiracion: { [Op.gt]: new Date() } }
+        ]
+      }
+    ];
 
     const includeRol = { model: Rol, as: "rol" };
     if (rol && rol.trim()) {
@@ -111,9 +127,28 @@ const deleteUsuario = async (req, res, next) => {
   }
 };
 
+const toggleEstadoUsuario = async (req, res, next) => {
+  try {
+    const usuario = await Usuario.findByPk(req.params.email);
+    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    if (usuario.email.includes("_deleted_")) {
+      return res.status(400).json({ message: "No se puede cambiar el estado de un usuario eliminado" });
+    }
+
+    usuario.activo = !usuario.activo;
+    await usuario.save();
+
+    return res.status(200).json({ message: `Usuario ${usuario.activo ? 'activado' : 'desactivado'} con éxito`, usuario: usuario.toJSON() });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getAllUsuarios,
   getUsuarioByEmail,
   updateUsuario,
   deleteUsuario,
+  toggleEstadoUsuario,
 };

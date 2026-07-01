@@ -137,7 +137,9 @@ const registrarCliente = async ({
   const emailExistente = await Usuario.findOne({ where: { email } });
   let reusarUsuario = false;
   if (emailExistente) {
-    if (!emailExistente.activo && !emailExistente.tokenConfirmacion) {
+    const isEliminado = !emailExistente.activo && !emailExistente.tokenConfirmacion;
+    const isPendienteExpirado = !emailExistente.activo && emailExistente.tokenConfirmacion && emailExistente.tokenExpiracion < new Date();
+    if (isEliminado || isPendienteExpirado) {
       reusarUsuario = true;
     } else {
       throw httpError(400, "El email ya se encuentra registrado.");

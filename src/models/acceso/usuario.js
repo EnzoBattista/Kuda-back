@@ -75,12 +75,14 @@ module.exports = (sequelize) => {
     const values = { ...this.get() };
     delete values.password;
     
-    if (values.activo) {
+    if (values.email && values.email.includes("_deleted_")) {
+      values.estado = "ELIMINADO";
+    } else if (values.activo) {
       values.estado = "ACTIVO";
     } else if (values.tokenConfirmacion) {
       values.estado = "PENDIENTE";
     } else {
-      values.estado = "ELIMINADO";
+      values.estado = "DESACTIVADO";
     }
     
     // Provide a clean email for UI display if it was deleted
