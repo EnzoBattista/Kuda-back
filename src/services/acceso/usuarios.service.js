@@ -26,7 +26,9 @@ const crearUsuario = async (data) => {
   if (data.email) {
     const emailExistente = await Usuario.findOne({ where: { email: data.email } });
     if (emailExistente) {
-      if (!emailExistente.activo && !emailExistente.tokenConfirmacion) {
+      const isEliminado = !emailExistente.activo && !emailExistente.tokenConfirmacion;
+      const isPendienteExpirado = !emailExistente.activo && emailExistente.tokenConfirmacion && emailExistente.tokenExpiracion < new Date();
+      if (isEliminado || isPendienteExpirado) {
         usuarioReusar = emailExistente;
       } else {
         throw httpError(400, "El email ingresado ya se encuentra registrado");
@@ -36,7 +38,11 @@ const crearUsuario = async (data) => {
 
   if (data.dni) {
     const usuariosDni = await Usuario.findAll({ where: { dni: data.dni } });
-    const conflictoDni = usuariosDni.find(u => (u.activo || u.tokenConfirmacion) && (!usuarioReusar || u.email !== usuarioReusar.email));
+    const conflictoDni = usuariosDni.find(u => {
+      const isPendienteExpirado = !u.activo && u.tokenConfirmacion && u.tokenExpiracion < new Date();
+      const isActiveOrPending = u.activo || (u.tokenConfirmacion && !isPendienteExpirado);
+      return isActiveOrPending && (!usuarioReusar || u.email !== usuarioReusar.email);
+    });
     if (conflictoDni) {
       throw httpError(400, "El DNI ingresado ya se encuentra registrado");
     }
@@ -60,7 +66,11 @@ const actualizarUsuario = async (usuario, data) => {
     }
 
     const usuariosDni = await Usuario.findAll({ where: { dni: data.dni } });
-    const conflictoDni = usuariosDni.find(u => (u.activo || u.tokenConfirmacion) && u.email !== usuario.email);
+    const conflictoDni = usuariosDni.find(u => {
+      const isPendienteExpirado = !u.activo && u.tokenConfirmacion && u.tokenExpiracion < new Date();
+      const isActiveOrPending = u.activo || (u.tokenConfirmacion && !isPendienteExpirado);
+      return isActiveOrPending && u.email !== usuario.email;
+    });
     if (conflictoDni) throw httpError(400, "El DNI ingresado ya se encuentra registrado");
   }
   return usuario.update(data);
@@ -70,22 +80,29 @@ const darDeBajaUsuario = async (email) => {
   const usuario = await Usuario.findByPk(email);
   if (!usuario) throw httpError(404, "Usuario no encontrado");
 
-  // Estado ELIMINADO = inactivo y sin token de confirmación pendiente. Solo
-  // rechazamos si ya está eliminado; un usuario PENDIENTE (inactivo pero con
-  // token) sí se puede dar de baja para que pase a ELIMINADO.
-  const yaEliminado = !usuario.activo && !usuario.tokenConfirmacion;
+  // Verificamos si ya está eliminado fijándonos si su email ya tiene la marca
+  const yaEliminado = usuario.email.includes("_deleted_");
   if (yaEliminado) throw httpError(410, "Usuario ya dado de baja");
 
-  // Dejarlo en ELIMINADO: inactivo y sin token pendiente (cubre tanto a los
-  // ACTIVO como a los PENDIENTE).
+  const originalEmail = usuario.email;
+  const suffix = `_deleted_${Date.now()}`;
+  const newEmail = `${originalEmail}${suffix}`;
+
+  await Usuario.update(
+    {
+      activo: false,
+      tokenConfirmacion: null,
+      tokenExpiracion: null,
+      email: newEmail,
+    },
+    { where: { email: originalEmail } }
+  );
+
+  // Actualizar la instancia local por si se usa después
+  usuario.email = newEmail;
   usuario.activo = false;
   usuario.tokenConfirmacion = null;
   usuario.tokenExpiracion = null;
-  // Rename the email to allow new registrations with the same email
-  const originalEmail = usuario.email;
-  const suffix = `_deleted_${Date.now()}`;
-  usuario.email = `${originalEmail}${suffix}`;
-  await usuario.save();
 
   // Cancelar las inscripciones mensuales activas del usuario (si es cliente)
   await InscripcionMensual.update(
