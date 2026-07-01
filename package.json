@@ -6,7 +6,13 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "jest --runInBand --detectOpenHandles --forceExit",
+    "seed:all": "sequelize-cli db:seed:all",
+    "seed:undo": "sequelize-cli db:seed:undo:all",
+    "seed:demo-full": "node scripts/seed-demo-full.js",
     "seed:lista-espera-demo": "sequelize-cli db:seed --seed 20260611120000-clase-lista-espera-demo.js",
+    "seed:test-reservas": "sequelize-cli db:seed --seed 20260625200000-test-reservas-lista-espera.js",
+    "seed:escenarios": "sequelize-cli db:seed --seed 20260626000000-demo-escenarios-barbaros.js",
+    "seed:vales": "sequelize-cli db:seed --seed 20260627120000-vales-demo.js",
     "seed:cliente-suspendido": "sequelize-cli db:seed --seed 20260611180000-cliente-suspendido-demo.js",
     "seed:reset-passwords": "sequelize-cli db:seed --seed 20260611190000-reset-demo-passwords.js"
   },

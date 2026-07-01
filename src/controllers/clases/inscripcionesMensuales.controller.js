@@ -1,5 +1,5 @@
 const { InscripcionMensual, Cliente, Actividad, Clase, ReservaClase } = require("../../../db");
-const { sumarUnMes } = require("../../utils/fechas");
+const { sumarUnMes, sumarDias } = require("../../utils/fechas");
 const {
   crearInscripcionMensual,
   actualizarInscripcionMensual,
@@ -104,7 +104,7 @@ const renovarInscripcionMensual = async (req, res, next) => {
         .json({ message: `No se puede renovar una inscripción en estado ${inscripcion.estado}` });
     }
 
-    const nuevoPeriodoInicio = inscripcion.periodo_fin;
+    const nuevoPeriodoInicio = sumarDias(inscripcion.periodo_fin, 1);
     const nuevoPeriodoFin = sumarUnMes(nuevoPeriodoInicio);
 
     const actividad = await Actividad.findByPk(inscripcion.actividad_id);

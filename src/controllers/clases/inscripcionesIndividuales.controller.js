@@ -65,9 +65,9 @@ const createInscripcionIndividual = async (req, res, next) => {
     if (modalidad === "SEÑA") {
       data.estado_seña = "PENDIENTE";
       data.vencimiento_seña = vencimiento_seña;
-      data.monto_pagado = Number(monto_total) / 2;
+      data.monto_pagado = 0;
     } else {
-      data.monto_pagado = monto_total;
+      data.monto_pagado = 0;
     }
 
     const item = await crearInscripcionIndividual(data);

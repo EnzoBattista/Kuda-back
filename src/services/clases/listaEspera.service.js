@@ -475,14 +475,14 @@ const confirmarCupo = async (listaEsperaId, clienteEmail, options = {}) => {
     if (modalidad === "SEÑA") {
       data.estado_seña = "PENDIENTE";
       data.vencimiento_seña = vencimiento_seña;
-      data.monto_pagado = Number(montoTotal) / 2;
-    } else {
-      data.monto_pagado = montoTotal;
     }
 
     const inscripcion = await crearInscripcionIndividual(data);
     reservaId = inscripcion.reservas?.[0]?.id ?? null;
-    montoPagado = Number(inscripcion.monto_pagado ?? 0);
+    montoPagado =
+      modalidad === "SEÑA"
+        ? Number((montoTotal / 2).toFixed(2))
+        : Number(montoTotal);
     inscripcionIndividualId = inscripcion.id;
   } else {
     const periodoInicio = getFechaHoyLocal();

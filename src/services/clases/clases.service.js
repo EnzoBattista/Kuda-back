@@ -20,7 +20,6 @@ const DIAS_SEMANA = [
   "Jueves",
   "Viernes",
   "Sabado",
-  "Domingo",
 ];
 
 const validarExistenciasYSolapamientos = async (data, excludeClaseId = null, { isModify = false } = {}) => {
@@ -32,9 +31,6 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null, { i
   if (dia_semana !== undefined && !DIAS_SEMANA.includes(dia_semana)) {
     throw httpError(400, "Día de la semana no válido");
   }
-  if (dia_semana === "Domingo") {
-    throw httpError(400, "No se pueden agendar clases los días Domingo");
-  }
 
   if (hora_inicio && hora_fin && hora_fin <= hora_inicio) {
     throw httpError(400, "La hora de fin debe ser posterior a la hora de inicio");
@@ -42,6 +38,17 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null, { i
 
   if (hora_inicio && hora_inicio.slice(0, 5) < "07:00") {
     throw httpError(400, "La clase no puede iniciar antes de las 07:00hs");
+  }
+
+  if (hora_inicio) {
+    const [, minInicio] = hora_inicio.split(":").map(Number);
+    const horaInicioH = Number(hora_inicio.slice(0, 2));
+    if (minInicio !== 0) {
+      throw httpError(400, "La hora de inicio debe ser en punto (ej. 09:00)");
+    }
+    if (horaInicioH < 7 || horaInicioH > 21) {
+      throw httpError(400, "La hora de inicio debe estar entre las 07:00 y las 21:00");
+    }
   }
 
   if (hora_fin && hora_fin.slice(0, 5) > "22:00") {
@@ -305,7 +312,10 @@ const cancelarFechaClase = async (claseId, data) => {
           reserva.inscripcion_individual_id,
           { transaction }
         );
-        if (ins) monto = Number(ins.monto_pagado);
+        if (ins) {
+          const { obtenerMontoEfectivamentePagadoIndividual } = require("./reservas.service");
+          monto = await obtenerMontoEfectivamentePagadoIndividual(ins, transaction);
+        }
         tipoVale = "INDIVIDUAL";
       } else if (reserva.inscripcion_mensual_id) {
         const ins = await InscripcionMensual.findByPk(

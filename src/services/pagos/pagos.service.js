@@ -312,9 +312,19 @@ const crearPreferenciaMercadoPago = async ({
       sandbox_init_point: preference.sandbox_init_point,
     };
   } catch (err) {
+    const esRed =
+      ["ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "ENETUNREACH"].includes(
+        String(err?.code || err?.cause?.code || "").toUpperCase(),
+      ) ||
+      /mercadopago|getaddrinfo|network|fetch failed|socket/i.test(
+        String(err?.message || err?.cause?.message || ""),
+      );
+
     throw httpError(
       502,
-      err?.message || "No se pudo crear la preferencia de Mercado Pago",
+      esRed
+        ? "No pudimos conectarnos con Mercado Pago. Intentá nuevamente en unos minutos"
+        : "No se pudo iniciar el pago con Mercado Pago. Intentá nuevamente en unos minutos",
     );
   }
 };
@@ -488,10 +498,15 @@ const abandonarPago = async (pagoId, clienteEmail) => {
     await revertirInscripcionPorPagoFallido(pago);
   }
 
+  const mensajeAbandono =
+    pago.origen === "SALDO_SEÑA"
+      ? "El pago no se completó. La seña sigue pendiente."
+      : "El pago no se completó. La reserva fue liberada.";
+
   return {
     id: pago.id,
     estado: pago.estado,
-    message: "El pago no se completó. La reserva fue liberada.",
+    message: mensajeAbandono,
   };
 };
 

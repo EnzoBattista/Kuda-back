@@ -2,21 +2,20 @@
 
 const bcrypt = require("bcrypt");
 
+const {
+  obtenerActividad,
+  upsertClase,
+  obtenerSala,
+  obtenerProfesor,
+  fechaIso,
+  sumarMeses,
+} = require("../lib/demo-helpers");
+
 const EMAIL = "clientesuspendido@test.com";
 const PASSWORD = "12345678";
+const CLASE_REFERENCIA = "Yoga — Jueves 17:00";
 
-const pad2 = (n) => String(n).padStart(2, "0");
-
-const fechaIso = (date) =>
-  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-
-const sumarMeses = (date, meses) => {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + meses);
-  return d;
-};
-
-/** Cliente con mensualidad SUSPENDIDA (falta de pago) para probar QR y otros flujos. */
+/** Cliente con mensualidad SUSPENDIDA en clase de horario fijo. */
 module.exports = {
   async up(queryInterface) {
     const now = new Date();
@@ -72,21 +71,28 @@ module.exports = {
       );
     }
 
-    const [actividades] = await queryInterface.sequelize.query(
-      `SELECT id, precio FROM actividades WHERE nombre = 'Yoga' LIMIT 1`,
-    );
-    const [clases] = await queryInterface.sequelize.query(
-      `SELECT id FROM clases WHERE activa = true AND "deletedAt" IS NULL ORDER BY id DESC LIMIT 1`,
-    );
-
-    if (!actividades[0] || !clases[0]) {
-      console.warn("[seeder cliente-suspendido] Faltan actividades o clases activas.");
+    const actividad = await obtenerActividad(queryInterface, "Yoga");
+    const salaId = await obtenerSala(queryInterface, "A-01");
+    const profesorId = await obtenerProfesor(queryInterface, 0);
+    if (!actividad || !salaId || !profesorId) {
+      console.warn("[seeder cliente-suspendido] Faltan dependencias base.");
       return;
     }
 
-    const actividadId = actividades[0].id;
-    const claseId = clases[0].id;
-    const precio = actividades[0].precio ?? 25000;
+    const claseId = await upsertClase(
+      queryInterface,
+      {
+        nombre: CLASE_REFERENCIA,
+        dia_semana: "Jueves",
+        hora_inicio: "17:00:00",
+        hora_fin: "18:00:00",
+        cupo: 15,
+        actividad_id: actividad.id,
+        sala_id: salaId,
+        profesor_id: profesorId,
+      },
+      now,
+    );
 
     const periodoFin = sumarMeses(now, -1);
     const periodoInicio = sumarMeses(periodoFin, -1);
@@ -115,7 +121,7 @@ module.exports = {
             id: inscripcionExistente[0].id,
             inicio: periodoInicioIso,
             fin: periodoFinIso,
-            monto: precio,
+            monto: actividad.precio,
             now,
           },
         },
@@ -124,13 +130,13 @@ module.exports = {
       await queryInterface.bulkInsert("inscripciones_mensuales", [
         {
           cliente_email: EMAIL,
-          actividad_id: actividadId,
+          actividad_id: actividad.id,
           clase_id: claseId,
           periodo_inicio: periodoInicioIso,
           periodo_fin: periodoFinIso,
           dia_vencimiento: periodoFinIso,
           estado: "SUSPENDIDA",
-          monto: precio,
+          monto: actividad.precio,
           createdAt: now,
           updatedAt: now,
         },
@@ -138,19 +144,12 @@ module.exports = {
     }
 
     console.info(
-      `[seeder cliente-suspendido] Usuario ${EMAIL} / ${PASSWORD} — mensualidad SUSPENDIDA (clase id ${claseId}).`,
-    );
-    console.info(
-      "[seeder cliente-suspendido] Probá Generar QR: debe informar suspensión por falta de pago.",
+      `[seeder cliente-suspendido] ${EMAIL} / ${PASSWORD} — SUSPENDIDA en "${CLASE_REFERENCIA}" (id ${claseId}).`,
     );
   },
 
   async down(queryInterface) {
-    await queryInterface.bulkDelete(
-      "inscripciones_mensuales",
-      { cliente_email: EMAIL },
-      {},
-    );
+    await queryInterface.bulkDelete("inscripciones_mensuales", { cliente_email: EMAIL }, {});
     await queryInterface.bulkDelete("clientes", { usuario_email: EMAIL }, {});
     await queryInterface.bulkDelete("usuarios", { email: EMAIL }, {});
   },

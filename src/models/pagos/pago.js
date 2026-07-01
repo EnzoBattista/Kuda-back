@@ -84,19 +84,41 @@ module.exports = (sequelize) => {
   Pago.ESTADOS = ESTADOS;
 
   const completarSenaSiCorresponde = async (pago, options) => {
-    if (pago.estado === "COMPLETADO" && (pago.origen === "SALDO_SEÑA" || pago.origen === "SEÑA") && pago.origen_id) {
-      try {
-        const { InscripcionIndividual } = sequelize.models;
-        const ins = await InscripcionIndividual.findByPk(pago.origen_id, { transaction: options.transaction });
-        if (ins && ins.estado_seña === "PENDIENTE") {
+    if (pago.estado !== "COMPLETADO" || !pago.origen_id) return;
+    if (!["SALDO_SEÑA", "SEÑA", "CLASE_SUELTA"].includes(pago.origen)) return;
+
+    try {
+      const { InscripcionIndividual } = sequelize.models;
+      const ins = await InscripcionIndividual.findByPk(pago.origen_id, {
+        transaction: options.transaction,
+      });
+      if (!ins) return;
+
+      const montoCobrado = Number(pago.monto);
+      if (!(montoCobrado > 0)) return;
+
+      if (pago.origen === "SALDO_SEÑA") {
+        if (ins.modalidad === "SEÑA" && ins.estado_seña === "PENDIENTE") {
           ins.estado_seña = "COMPLETADA";
-          ins.monto_pagado = ins.monto_total;
+          ins.monto_pagado = Number((Number(ins.monto_pagado || 0) + montoCobrado).toFixed(2));
           await ins.save({ transaction: options.transaction });
-          console.log(`[pago.hook] Seña completada automáticamente para inscripción ${pago.origen_id}`);
         }
-      } catch (err) {
-        console.error("[pago.hook] Error al completar seña automáticamente:", err.message);
+        return;
       }
+
+      if (pago.origen === "SEÑA") {
+        if (ins.modalidad !== "SEÑA") return;
+        ins.monto_pagado = montoCobrado;
+        await ins.save({ transaction: options.transaction });
+        return;
+      }
+
+      if (pago.origen === "CLASE_SUELTA" && ins.modalidad === "COMPLETO") {
+        ins.monto_pagado = montoCobrado;
+        await ins.save({ transaction: options.transaction });
+      }
+    } catch (err) {
+      console.error("[pago.hook] Error al actualizar seña:", err.message);
     }
   };
 

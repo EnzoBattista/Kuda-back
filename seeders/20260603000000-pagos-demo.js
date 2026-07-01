@@ -1,9 +1,17 @@
 "use strict";
 
-/** Pagos demo para listado y comprobantes. */
+/** Pagos demo idempotentes para listado y comprobantes (solo Mercado Pago). */
 module.exports = {
   async up(queryInterface) {
     const now = new Date();
+    const conceptos = [
+      "Clase Yoga — Mercado Pago",
+      "Mensualidad Pilates — Mercado Pago",
+      "Clase Yoga — pago mostrador",
+      "Mensualidad Pilates — transferencia",
+    ];
+
+    await queryInterface.bulkDelete("pagos", { concepto: conceptos }, {});
 
     const [clientes] = await queryInterface.sequelize.query(
       `SELECT "usuario_email" FROM clientes WHERE "usuario_email" IN ('cliente1@test.com','cliente2@test.com')`,
@@ -19,11 +27,11 @@ module.exports = {
     const pagos = [
       {
         cliente_email: emails[0],
-        recepcionista_email: "recepcion1@test.com",
+        recepcionista_email: null,
         origen: "CLASE_SUELTA",
-        origen_id: 1,
-        concepto: "Clase Yoga — Mercado Pago",
-        monto: 8500,
+        origen_id: null,
+        concepto: conceptos[0],
+        monto: 3330,
         fecha: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
         metodo: "MERCADO_PAGO",
         estado: "COMPLETADO",
@@ -32,11 +40,11 @@ module.exports = {
       },
       {
         cliente_email: emails[1] ?? emails[0],
-        recepcionista_email: "recepcion1@test.com",
+        recepcionista_email: null,
         origen: "MENSUALIDAD",
-        origen_id: 1,
-        concepto: "Mensualidad Pilates — Mercado Pago",
-        monto: 32000,
+        origen_id: null,
+        concepto: conceptos[1],
+        monto: 10000,
         fecha: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
         metodo: "MERCADO_PAGO",
         estado: "COMPLETADO",
@@ -46,7 +54,7 @@ module.exports = {
     ];
 
     await queryInterface.bulkInsert("pagos", pagos);
-    console.info("[seeder pagos-demo] 2 pagos demo insertados.");
+    console.info("[seeder pagos-demo] 2 pagos demo insertados (idempotente).");
   },
 
   async down(queryInterface) {
@@ -56,7 +64,6 @@ module.exports = {
         concepto: [
           "Clase Yoga — Mercado Pago",
           "Mensualidad Pilates — Mercado Pago",
-          // Conceptos previos (metodos EFECTIVO/TRANSFERENCIA) para limpiar bases ya sembradas
           "Clase Yoga — pago mostrador",
           "Mensualidad Pilates — transferencia",
         ],

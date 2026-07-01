@@ -2,7 +2,7 @@ const { Op } = require("sequelize");
 const { ReservaClase, Clase, Actividad, Profesor, Sala, Vale, CancelacionClase, InscripcionMensual } = require("../../../db");
 const { cancelarReserva } = require("../../services/clases/reservas.service");
 const { toReservaDTO } = require("../../dtos/reservas.dto");
-const { getFechaHoyLocal } = require("../../utils/fechas");
+const { getFechaHoyLocal, sumarUnMes, sumarDias } = require("../../utils/fechas");
 
 /**
  * Para cada reserva CANCELADA, mira si hay una CancelacionClase para
@@ -78,16 +78,15 @@ const getReservasActivas = async (req, res, next) => {
           where: {
             clase_id,
             estado: ["VIGENTE", "EN_GRACIA"],
-            periodo_fin: { [Op.gt]: hoy }
+            periodo_fin: { [Op.gte]: hoy }
           }
         });
 
         const { fechasDeClaseEnPeriodo } = require("../../services/clases/reservas.service");
-        const { sumarUnMes } = require("../../utils/fechas");
 
         for (const sub of activeSubscriptions) {
           if (req.usuario && sub.cliente_email === req.usuario.email) continue;
-          const inicioRenovacion = sub.periodo_fin;
+          const inicioRenovacion = sumarDias(String(sub.periodo_fin).slice(0, 10), 1);
           const finRenovacion = sumarUnMes(inicioRenovacion);
           const fechasFuturas = fechasDeClaseEnPeriodo(clase.dia_semana, inicioRenovacion, finRenovacion);
 

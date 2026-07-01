@@ -7,11 +7,12 @@ const {
   Vale,
   Clase,
   Actividad,
+  Pago,
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { avanzarFila } = require("./listaEspera.service");
-const { getFechaHoyLocal, getHoraLocal } = require("../../utils/fechas");
+const { getFechaHoyLocal, getHoraLocal, sumarDias, sumarUnMes } = require("../../utils/fechas");
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -39,7 +40,8 @@ const aISO = (fecha) => fecha.toISOString().slice(0, 10);
 
 /**
  * Todas las fechas (YYYY-MM-DD) que caen en `diaSemana` dentro del período
- * [inicio, fin). El fin se trata como exclusivo.
+ * [inicio, fin] inclusive (hasta el mismo día del mes siguiente).
+ * Máximo 5 ocurrencias por período mensual.
  */
 const fechasDeClaseEnPeriodo = (diaSemana, periodoInicio, periodoFin) => {
   const objetivo = DIA_SEMANA_A_NUMERO[diaSemana];
@@ -49,10 +51,16 @@ const fechasDeClaseEnPeriodo = (diaSemana, periodoInicio, periodoFin) => {
 
   const fin = aFechaUTC(periodoFin);
   const fechas = [];
-  for (let d = aFechaUTC(periodoInicio); d < fin; d.setUTCDate(d.getUTCDate() + 1)) {
+  for (let d = aFechaUTC(periodoInicio); d <= fin; d.setUTCDate(d.getUTCDate() + 1)) {
     if (d.getUTCDay() === objetivo) {
       fechas.push(aISO(d));
     }
+  }
+  if (fechas.length > 5) {
+    throw httpError(
+      500,
+      `El período mensual generó ${fechas.length} clases (máximo 5). Revisá periodo_inicio y periodo_fin.`,
+    );
   }
   return fechas;
 };
@@ -132,29 +140,36 @@ const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transac
   }
   const activas = await ReservaClase.count({ where: whereReservas, transaction });
 
-  // Caso 1: abonados cuyo período CUBRE la fecha consultada (periodo_inicio <= fecha < periodo_fin).
-  // Estos ya tienen reservas ACTIVA generadas, pero se verifica por si alguno no las tiene aún.
+  // Caso 1: abonados cuyo período CUBRE la fecha consultada (periodo_inicio <= fecha <= periodo_fin).
   const abonadosVigentes = await InscripcionMensual.findAll({
     where: {
       clase_id: claseId,
       estado: ["VIGENTE", "EN_GRACIA"],
       periodo_inicio: { [Op.lte]: fecha },
-      periodo_fin: { [Op.gt]: fecha }
+      periodo_fin: { [Op.gte]: fecha }
     },
     transaction
   });
 
-  // Caso 2: abonados vigentes cuyo período termina ANTES de la fecha, pero cuyo mes de renovación
-  // (periodo_fin → periodo_fin + 1 mes) SÍ incluye la fecha. Estos tienen preferencia de cupo
-  // para la renovación y aún no han reservado concretamente esa fecha.
+  // Caso 2: abonados vigentes cuyo período actual ya no cubre la fecha, pero la fecha
+  // cae en el mes de renovación (día siguiente a periodo_fin hasta el mismo día del mes siguiente).
   const hoy = getFechaHoyLocal();
-  const abonadosProximosARenovar = await InscripcionMensual.findAll({
+  const claseRow = await Clase.findByPk(claseId, { attributes: ["dia_semana"], transaction });
+  const candidatosRenovacion = await InscripcionMensual.findAll({
     where: {
       clase_id: claseId,
       estado: ["VIGENTE", "EN_GRACIA"],
-      periodo_fin: { [Op.gt]: hoy, [Op.lte]: fecha }
+      periodo_fin: { [Op.gte]: hoy },
     },
-    transaction
+    transaction,
+  });
+  const abonadosProximosARenovar = candidatosRenovacion.filter((abono) => {
+    const finPer = String(abono.periodo_fin).slice(0, 10);
+    if (fecha <= finPer) return false;
+    const inicioRenov = sumarDias(finPer, 1);
+    const finRenov = sumarUnMes(inicioRenov);
+    const fechasRenov = fechasDeClaseEnPeriodo(claseRow.dia_semana, inicioRenov, finRenov);
+    return fechasRenov.includes(fecha);
   });
 
   const emailsContados = new Set();
@@ -421,6 +436,37 @@ const horasHastaClase = (fechaExacta, horaInicio) => {
 };
 
 /**
+ * Monto realmente cobrado en una inscripción individual (suma de pagos COMPLETADO).
+ * Si no hay pagos en MP, usa monto_pagado salvo seña pendiente sin cobro registrado.
+ */
+const obtenerMontoEfectivamentePagadoIndividual = async (inscripcion, transaction) => {
+  if (!inscripcion) return 0;
+
+  const pagos = await Pago.findAll({
+    where: {
+      origen_id: inscripcion.id,
+      origen: { [Op.in]: ["CLASE_SUELTA", "SEÑA", "SALDO_SEÑA"] },
+      estado: "COMPLETADO",
+    },
+    transaction,
+  });
+
+  const totalDesdePagos = pagos.reduce((sum, p) => sum + Number(p.monto), 0);
+  if (totalDesdePagos > 0.01) {
+    return Number(totalDesdePagos.toFixed(2));
+  }
+
+  const pagado = Number(inscripcion.monto_pagado ?? 0);
+  const total = Number(inscripcion.monto_total ?? 0);
+
+  if (inscripcion.modalidad === "SEÑA" && inscripcion.estado_seña === "PENDIENTE") {
+    return 0;
+  }
+
+  return Math.min(Math.max(0, pagado), total > 0 ? total : pagado);
+};
+
+/**
  * Genera el cupón de descuento para un cliente abonado que cancela con +24hs.
  * Reglas:
  *  - Monto = monto pagado de la mensualidad / cantidad de clases del período.
@@ -565,9 +611,11 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
         let montoVale = 0;
         if (inscripcion) {
           await inscripcion.update({ estado_seña: null }, { transaction });
-          montoVale = Number(inscripcion.monto_pagado);
+          montoVale = await obtenerMontoEfectivamentePagadoIndividual(inscripcion, transaction);
         }
-        vale = await generarValeIndividual(emailUsuario, reserva.clase_id, montoVale, { transaction });
+        if (montoVale > 0.01) {
+          vale = await generarValeIndividual(emailUsuario, reserva.clase_id, montoVale, { transaction });
+        }
         mensaje = "Clase cancelada con exito.";
       } else {
         mensaje = "Clase cancelada con exito.";
@@ -672,5 +720,6 @@ module.exports = {
   generarReservasMensual,
   cancelarReserva: cancelarReservaConNotificacion,
   obtenerCuposOcupados,
+  obtenerMontoEfectivamentePagadoIndividual,
   cancelarSeñasVencidas: cancelarSeñasVencidasConNotificacion,
 };
