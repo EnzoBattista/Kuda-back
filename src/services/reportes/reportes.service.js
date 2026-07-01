@@ -150,16 +150,7 @@ const getIngresos = async () => {
     raw: true,
   });
 
-  const porMetodoFilas = await Pago.findAll({
-    attributes: [
-      [col("metodo"), "metodo"],
-      [fn("SUM", col("monto")), "total"],
-    ],
-    where: whereCompletado,
-    group: [col("metodo")],
-    order: [[fn("SUM", col("monto")), "DESC"]],
-    raw: true,
-  });
+  const totalHistorico = await Pago.sum("monto", { where: whereCompletado });
 
   const [anioStr, mesStr] = mesActual.split("-");
   const inicioMesActual = new Date(Number(anioStr), Number(mesStr) - 1, 1);
@@ -188,11 +179,7 @@ const getIngresos = async () => {
       mes,
       total: mapaMes.get(mes) ?? 0,
     })),
-    por_metodo: porMetodoFilas.map((f) => ({
-      metodo: f.metodo,
-      total: toNumber(f.total),
-    })),
-    total_historico: porMetodoFilas.reduce((acc, f) => acc + toNumber(f.total), 0),
+    total_historico: toNumber(totalHistorico),
   };
 };
 
