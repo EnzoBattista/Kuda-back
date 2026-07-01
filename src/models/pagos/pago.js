@@ -1,7 +1,7 @@
 const { DataTypes } = require("sequelize");
 
 const ORIGENES = ["MENSUALIDAD", "CLASE_SUELTA", "SEÑA", "SALDO_SEÑA", "MANUAL"];
-const METODOS = ["EFECTIVO", "TRANSFERENCIA", "MERCADO_PAGO", "QR"];
+const METODOS = ["MERCADO_PAGO"];
 const ESTADOS = ["PENDIENTE", "COMPLETADO", "RECHAZADO"];
 
 module.exports = (sequelize) => {
