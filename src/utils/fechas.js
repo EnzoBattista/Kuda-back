@@ -17,6 +17,12 @@ const sumarUnMes = (fechaIso) => {
   return cursor.toISOString().slice(0, 10);
 };
 
+/** Último día del mes calendario que contiene la fecha (YYYY-MM-DD). */
+const finDeMesCalendario = (fechaIso) => {
+  const [y, m] = String(fechaIso).slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+};
+
 /** Suma días en UTC (evita desfases por zona horaria). */
 const sumarDias = (fechaIso, dias) => {
   const [y, m, d] = String(fechaIso).slice(0, 10).split("-").map(Number);
@@ -85,4 +91,12 @@ const getHoraLocal = () => {
   return formatter.format(d);
 };
 
-module.exports = { calcularEdad, sumarUnMes, sumarDias, fechasDelMesPorDia, getFechaHoyLocal, getHoraLocal };
+module.exports = {
+  calcularEdad,
+  sumarUnMes,
+  sumarDias,
+  finDeMesCalendario,
+  fechasDelMesPorDia,
+  getFechaHoyLocal,
+  getHoraLocal,
+};

@@ -12,7 +12,7 @@ const {
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { avanzarFila } = require("./listaEspera.service");
-const { getFechaHoyLocal, getHoraLocal, sumarDias, sumarUnMes } = require("../../utils/fechas");
+const { getFechaHoyLocal, getHoraLocal, sumarDias, finDeMesCalendario } = require("../../utils/fechas");
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -144,7 +144,7 @@ const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transac
   const abonadosVigentes = await InscripcionMensual.findAll({
     where: {
       clase_id: claseId,
-      estado: ["VIGENTE", "EN_GRACIA"],
+      estado: ["VIGENTE", "EN_GRACIA", "PENDIENTE_PAGO"],
       periodo_inicio: { [Op.lte]: fecha },
       periodo_fin: { [Op.gte]: fecha }
     },
@@ -167,7 +167,7 @@ const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transac
     const finPer = String(abono.periodo_fin).slice(0, 10);
     if (fecha <= finPer) return false;
     const inicioRenov = sumarDias(finPer, 1);
-    const finRenov = sumarUnMes(inicioRenov);
+    const finRenov = finDeMesCalendario(inicioRenov);
     const fechasRenov = fechasDeClaseEnPeriodo(claseRow.dia_semana, inicioRenov, finRenov);
     return fechasRenov.includes(fecha);
   });

@@ -19,6 +19,7 @@ const cronRouter = require("./cron.routes");
 const reportesRouter = require("./reportes/reportes.routes");
 const notificacionesRouter = require("./notificaciones/notificaciones.routes");
 const asistenciasRouter = require("./asistencias/asistencias.routes");
+const configuracionRouter = require("./sistema/configuracion.routes");
 
 router.get("/", (_req, res) => {
   res.json({
@@ -61,5 +62,6 @@ router.use("/api/cron", cronRouter);
 router.use("/api/reportes", reportesRouter);
 router.use("/api/notificaciones", notificacionesRouter);
 router.use("/api/asistencias", asistenciasRouter);
+router.use("/api/configuracion", configuracionRouter);
 
 module.exports = router;

@@ -1,14 +1,18 @@
-const { InscripcionMensual, Cliente, Actividad, Clase, ReservaClase } = require("../../../db");
-const { sumarUnMes, sumarDias } = require("../../utils/fechas");
+const { InscripcionMensual, Cliente, Actividad, Clase, ReservaClase, Pago, Sala } = require("../../../db");
+const { Op } = require("sequelize");
+const { finDeMesCalendario } = require("../../utils/fechas");
 const {
   crearInscripcionMensual,
   actualizarInscripcionMensual,
 } = require("../../services/clases/inscripcionesMensuales.service");
+const { enriquecerInscripcionMensual } = require("../../services/clases/mensualidadesLifecycle.service");
+const { crearPagoMercadoPago } = require("../../services/pagos/pagos.service");
+const { getDiasGraciaMensual } = require("../../services/sistema/configuracion.service");
 
 const includes = [
   { model: Cliente, as: "cliente" },
   { model: Actividad, as: "actividad" },
-  { model: Clase, as: "clase" },
+  { model: Clase, as: "clase", include: [{ model: Sala, as: "sala" }] },
   { model: ReservaClase, as: "reservas", attributes: ["id", "fecha_exacta", "estado"] },
 ];
 
@@ -24,7 +28,13 @@ const getAllInscripcionesMensuales = async (req, res, next) => {
       include: includes,
       order: [["periodo_inicio", "DESC"]],
     });
-    return res.status(200).json(inscripciones);
+
+    const diasGracia = await getDiasGraciaMensual();
+    const enriquecidas = await Promise.all(
+      inscripciones.map((ins) => enriquecerInscripcionMensual(ins, diasGracia)),
+    );
+
+    return res.status(200).json(enriquecidas);
   } catch (error) {
     return next(error);
   }
@@ -34,7 +44,8 @@ const getInscripcionMensualById = async (req, res, next) => {
   try {
     const inscripcion = await InscripcionMensual.findByPk(req.params.id, { include: includes });
     if (!inscripcion) return res.status(404).json({ message: "Inscripción mensual no encontrada" });
-    return res.status(200).json(inscripcion);
+    const enriquecida = await enriquecerInscripcionMensual(inscripcion);
+    return res.status(200).json(enriquecida);
   } catch (error) {
     return next(error);
   }
@@ -55,7 +66,7 @@ const createInscripcionMensual = async (req, res, next) => {
       });
     }
 
-    const periodo_fin = sumarUnMes(periodo_inicio);
+    const periodo_fin = finDeMesCalendario(periodo_inicio);
 
     const inscripcion = await crearInscripcionMensual({
       cliente_email,
@@ -81,6 +92,11 @@ const cancelarInscripcionMensual = async (req, res, next) => {
     if (inscripcion.estado === "CANCELADA" || inscripcion.estado === "FINALIZADA") {
       return res.status(409).json({ message: `La inscripción ya está ${inscripcion.estado}` });
     }
+    if (["PENDIENTE_PAGO", "EN_GRACIA"].includes(inscripcion.estado) && inscripcion.inscripcion_anterior_id) {
+      return res.status(409).json({
+        message: "No podés cancelar un mes precargado impago. Regularizá el pago o esperá el vencimiento de gracia.",
+      });
+    }
     await actualizarInscripcionMensual(inscripcion, { estado: "CANCELADA" });
     return res.status(200).json(inscripcion);
   } catch (error) {
@@ -89,38 +105,92 @@ const cancelarInscripcionMensual = async (req, res, next) => {
 };
 
 /**
- * POST /inscripciones-mensuales/:id/renovar
- * Crea una nueva inscripción para el siguiente período y genera sus reservas.
+ * POST /inscripciones-mensuales/:id/pagar
+ * Inicia pago MP sobre una mensualidad precargada (PENDIENTE_PAGO / EN_GRACIA).
+ */
+const pagarInscripcionMensual = async (req, res, next) => {
+  try {
+    const inscripcion = await InscripcionMensual.findByPk(req.params.id, {
+      include: [{ model: Actividad, as: "actividad" }],
+    });
+    if (!inscripcion) return res.status(404).json({ message: "Inscripción mensual no encontrada" });
+
+    if (!["PENDIENTE_PAGO", "EN_GRACIA"].includes(inscripcion.estado)) {
+      return res.status(409).json({
+        message: "Esta mensualidad no requiere pago o ya fue abonada",
+      });
+    }
+
+    const clienteEmail = req.usuario?.email ?? req.body.cliente_email;
+    if (inscripcion.cliente_email !== clienteEmail) {
+      return res.status(403).json({ message: "No tenés permiso para pagar esta mensualidad" });
+    }
+
+    const enriquecida = await enriquecerInscripcionMensual(inscripcion);
+    if (!enriquecida.mostrar_pagar_mes) {
+      return res.status(409).json({
+        message: "El pago del mes siguiente estará disponible tras la última clase del período actual",
+      });
+    }
+
+    const pagoPendiente = await Pago.findOne({
+      where: {
+        inscripcion_mensual_id: inscripcion.id,
+        estado: "PENDIENTE",
+      },
+      order: [["id", "DESC"]],
+    });
+    if (pagoPendiente) {
+      const { consultarEstadoPago } = require("../../services/pagos/pagos.service");
+      const estado = await consultarEstadoPago(pagoPendiente.id, clienteEmail);
+      if (estado.estado === "PENDIENTE") {
+        return res.status(409).json({ message: "Ya tenés un pago pendiente para esta mensualidad" });
+      }
+    }
+
+    const actividadNombre = inscripcion.actividad?.nombre ?? "Actividad";
+    const titulo = `Mensualidad ${actividadNombre} — ${String(inscripcion.periodo_inicio).slice(0, 10)}`;
+
+    const resultado = await crearPagoMercadoPago(
+      {
+        inscripcion_mensual_id: inscripcion.id,
+        origen: "MENSUALIDAD",
+        monto: Number(inscripcion.monto),
+        tituloPlan: titulo,
+        cliente_email: clienteEmail,
+      },
+      clienteEmail,
+    );
+
+    return res.status(201).json(resultado);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * @deprecated Usar POST /:id/pagar sobre la mensualidad precargada.
  */
 const renovarInscripcionMensual = async (req, res, next) => {
   try {
     const inscripcion = await InscripcionMensual.findByPk(req.params.id);
     if (!inscripcion) return res.status(404).json({ message: "Inscripción mensual no encontrada" });
 
-    const estadosNoRenovables = ["CANCELADA", "FINALIZADA"];
-    if (estadosNoRenovables.includes(inscripcion.estado)) {
-      return res
-        .status(409)
-        .json({ message: `No se puede renovar una inscripción en estado ${inscripcion.estado}` });
-    }
-
-    const nuevoPeriodoInicio = sumarDias(inscripcion.periodo_fin, 1);
-    const nuevoPeriodoFin = sumarUnMes(nuevoPeriodoInicio);
-
-    const actividad = await Actividad.findByPk(inscripcion.actividad_id);
-
-    const nuevaInscripcion = await crearInscripcionMensual({
-      cliente_email: inscripcion.cliente_email,
-      actividad_id: inscripcion.actividad_id,
-      clase_id: inscripcion.clase_id,
-      periodo_inicio: nuevoPeriodoInicio,
-      periodo_fin: nuevoPeriodoFin,
-      dia_vencimiento: nuevoPeriodoFin,
-      monto: actividad ? actividad.precio : inscripcion.monto,
-      estado: "VIGENTE",
+    const pendiente = await InscripcionMensual.findOne({
+      where: {
+        inscripcion_anterior_id: inscripcion.id,
+        estado: { [Op.in]: ["PENDIENTE_PAGO", "EN_GRACIA"] },
+      },
     });
 
-    return res.status(201).json(nuevaInscripcion);
+    if (pendiente) {
+      req.params.id = String(pendiente.id);
+      return pagarInscripcionMensual(req, res, next);
+    }
+
+    return res.status(409).json({
+      message: "No hay mensualidad precargada para renovar. El mes siguiente se reserva automáticamente al abonar.",
+    });
   } catch (error) {
     return next(error);
   }
@@ -131,5 +201,6 @@ module.exports = {
   getInscripcionMensualById,
   createInscripcionMensual,
   cancelarInscripcionMensual,
+  pagarInscripcionMensual,
   renovarInscripcionMensual,
 };

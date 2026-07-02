@@ -10,7 +10,7 @@ const {
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
-const { sumarUnMes, getFechaHoyLocal } = require("../../utils/fechas");
+const { finDeMesCalendario, getFechaHoyLocal } = require("../../utils/fechas");
 const { notificarCupoDisponible } = require("../notificaciones/email.listaEspera.service");
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ const anotarseEnLista = async (clienteEmail, claseId, tipo, fechaExacta = null) 
     if (tipo === "MENSUAL") {
       const { fechasDeClaseEnPeriodo } = require("./reservas.service");
       const hoy = getFechaHoyLocal();
-      const fin = sumarUnMes(hoy);
+      const fin = finDeMesCalendario(hoy);
       const fechasPeriodo = fechasDeClaseEnPeriodo(clase.dia_semana, hoy, fin);
       
       const { obtenerCuposOcupados } = require("./reservas.service");
@@ -222,7 +222,7 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
       const claseCompleta = await Clase.findByPk(claseId, { attributes: ["cupo", "dia_semana"], transaction });
       if (!claseCompleta) return null;
       const hoy = getFechaHoyLocal();
-      const fin = sumarUnMes(hoy);
+      const fin = finDeMesCalendario(hoy);
       const fechas = fechasDeClaseEnPeriodo(claseCompleta.dia_semana, hoy, fin);
       
       // Para mensualidad, se requiere que TODAS las fechas del periodo tengan cupo disponible
@@ -486,7 +486,7 @@ const confirmarCupo = async (listaEsperaId, clienteEmail, options = {}) => {
     inscripcionIndividualId = inscripcion.id;
   } else {
     const periodoInicio = getFechaHoyLocal();
-    const periodoFin = sumarUnMes(periodoInicio);
+    const periodoFin = finDeMesCalendario(periodoInicio);
     const inscripcion = await crearInscripcionMensual({
       cliente_email: clienteEmail,
       actividad_id: actividad.id,

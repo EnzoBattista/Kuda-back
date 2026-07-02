@@ -7,6 +7,7 @@ const {
   getInscripcionMensualById,
   createInscripcionMensual,
   cancelarInscripcionMensual,
+  pagarInscripcionMensual,
   renovarInscripcionMensual,
 } = require("../../controllers/clases/inscripcionesMensuales.controller");
 
@@ -20,6 +21,12 @@ router.patch(
   auth,
   requirePermiso(PERMISOS.CLASE_RESERVAR),
   cancelarInscripcionMensual
+);
+router.post(
+  "/:id/pagar",
+  auth,
+  requirePermiso(PERMISOS.CLASE_RESERVAR),
+  pagarInscripcionMensual
 );
 router.post(
   "/:id/renovar",

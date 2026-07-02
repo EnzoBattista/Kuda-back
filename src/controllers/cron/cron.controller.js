@@ -1,5 +1,6 @@
 const { liberarCuposDiferidos } = require("../../services/clases/listaEspera.service");
 const { cancelarSeñasVencidas } = require("../../services/clases/reservas.service");
+const { procesarCicloVidaMensualidades } = require("../../services/clases/mensualidadesLifecycle.service");
 
 const verificarListaEspera = async (req, res) => {
   // Verifica que el request provenga de Vercel Cron
@@ -13,7 +14,8 @@ const verificarListaEspera = async (req, res) => {
   try {
     await cancelarSeñasVencidas();
     await liberarCuposDiferidos();
-    return res.status(200).json({ message: "Job ejecutado exitosamente" });
+    const mensualidades = await procesarCicloVidaMensualidades();
+    return res.status(200).json({ message: "Job ejecutado exitosamente", mensualidades });
   } catch (err) {
     console.error("[Cron Job] Error al liberar cupos diferidos:", err.message);
     return res.status(500).json({ message: "Error interno en el cron job" });

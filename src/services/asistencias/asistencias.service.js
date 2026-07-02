@@ -13,6 +13,7 @@ const {
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
+const { sumarDias, getFechaHoyLocal } = require("../../utils/fechas");
 
 const DIAS_SEMANA = [
   "Domingo",
@@ -78,32 +79,31 @@ const fotoPerfilCliente = (cliente, usuario) => {
 };
 
 const validarMoraCliente = async (clienteEmail) => {
-  const mensualidad = await InscripcionMensual.findOne({
-    where: {
-      cliente_email: clienteEmail,
-      estado: { [Op.in]: ["VIGENTE", "EN_GRACIA", "SUSPENDIDA"] },
-    },
-    order: [["periodo_fin", "DESC"]],
+  const { getDiasGraciaMensual } = require("../sistema/configuracion.service");
+  const { obtenerInscripcionAnterior } = require("../clases/mensualidadesLifecycle.service");
+  const diasGraciaMax = await getDiasGraciaMensual();
+  const hoy = getFechaHoyLocal();
+
+  const suspendida = await InscripcionMensual.findOne({
+    where: { cliente_email: clienteEmail, estado: "SUSPENDIDA" },
   });
-
-  if (!mensualidad) return;
-
-  if (mensualidad.estado === "SUSPENDIDA") {
-    throw httpError(
-      403,
-      "Su mensualidad se encuentra suspendida por falta de pago.",
-    );
+  if (suspendida) {
+    throw httpError(403, "Su mensualidad se encuentra suspendida por falta de pago.");
   }
 
-  if (mensualidad.estado === "EN_GRACIA") {
-    const hoy = new Date();
-    const fin = new Date(mensualidad.periodo_fin);
-    const diasGracia = (hoy - fin) / (1000 * 60 * 60 * 24);
-    if (diasGracia > 10) {
-      throw httpError(
-        403,
-        "Su mensualidad se encuentra suspendida por falta de pago.",
-      );
+  const enGracia = await InscripcionMensual.findOne({
+    where: { cliente_email: clienteEmail, estado: "EN_GRACIA" },
+    order: [["periodo_inicio", "DESC"]],
+  });
+
+  if (enGracia) {
+    const anterior = await obtenerInscripcionAnterior(enGracia);
+    const anclaGracia = anterior
+      ? String(anterior.periodo_fin).slice(0, 10)
+      : String(enGracia.periodo_fin).slice(0, 10);
+    const finGracia = sumarDias(anclaGracia, diasGraciaMax);
+    if (hoy > finGracia) {
+      throw httpError(403, "Su mensualidad se encuentra suspendida por falta de pago.");
     }
   }
 };

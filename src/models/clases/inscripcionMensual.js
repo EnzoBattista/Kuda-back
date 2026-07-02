@@ -47,6 +47,11 @@ module.exports = (sequelize) => {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
       },
+      inscripcion_anterior_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: "inscripciones_mensuales", key: "id" },
+      },
     },
     {
       tableName: "inscripciones_mensuales",
@@ -60,6 +65,10 @@ module.exports = (sequelize) => {
     InscripcionMensual.belongsTo(models.Cliente, { foreignKey: "cliente_email", as: "cliente" });
     InscripcionMensual.belongsTo(models.Actividad, { foreignKey: "actividad_id", as: "actividad" });
     InscripcionMensual.belongsTo(models.Clase, { foreignKey: "clase_id", as: "clase" });
+    InscripcionMensual.belongsTo(models.InscripcionMensual, {
+      foreignKey: "inscripcion_anterior_id",
+      as: "inscripcionAnterior",
+    });
   };
 
   return InscripcionMensual;

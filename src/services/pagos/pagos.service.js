@@ -126,10 +126,14 @@ const confirmarInscripcionPorPagoExitoso = async (pago) => {
   if (pago.origen === "SALDO_SEÑA") return;
 
   await conn.transaction(async (transaction) => {
+    let inscripcionActivada = null;
+
     if (pago.inscripcion_mensual_id) {
       const ins = await InscripcionMensual.findByPk(pago.inscripcion_mensual_id, { transaction });
-      if (ins?.estado === "PENDIENTE_PAGO") {
+      if (ins?.estado === "PENDIENTE_PAGO" || ins?.estado === "EN_GRACIA") {
         await ins.update({ estado: "VIGENTE" }, { transaction });
+        await ins.reload({ transaction });
+        inscripcionActivada = ins;
       }
       if (ins) {
         await ReservaClase.update(
@@ -171,6 +175,11 @@ const confirmarInscripcionPorPagoExitoso = async (pago) => {
         await reserva.update({ estado: "ACTIVA" }, { transaction, validate: false });
       }
     }
+
+    if (inscripcionActivada) {
+      const { crearProximaMensualidadPendiente } = require("../clases/inscripcionesMensuales.service");
+      await crearProximaMensualidadPendiente(inscripcionActivada, transaction);
+    }
   });
 };
 
@@ -188,7 +197,8 @@ const revertirInscripcionPorPagoFallido = async (pago) => {
   await conn.transaction(async (transaction) => {
     if (pago.inscripcion_mensual_id) {
       const ins = await InscripcionMensual.findByPk(pago.inscripcion_mensual_id, { transaction });
-      if (ins && !["CANCELADA", "FINALIZADA"].includes(ins.estado)) {
+      // Renovación mensual precargada: mantener cupo si falla el pago.
+      if (ins && !ins.inscripcion_anterior_id && !["CANCELADA", "FINALIZADA"].includes(ins.estado)) {
         await ReservaClase.update(
           { estado: "CANCELADA" },
           {

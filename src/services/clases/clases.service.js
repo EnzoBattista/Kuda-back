@@ -431,7 +431,7 @@ const verificarConflictoMensual = async (claseId, clienteEmail) => {
     obtenerCuposOcupados,
     buscarConflictoHorarioCliente,
   } = require("./reservas.service");
-  const { sumarUnMes } = require("../../utils/fechas");
+  const { finDeMesCalendario } = require("../../utils/fechas");
   const { validarMoraCliente } = require("../asistencias/asistencias.service");
 
   try {
@@ -451,7 +451,7 @@ const verificarConflictoMensual = async (claseId, clienteEmail) => {
   if (!clase) throw httpError(404, "Clase no encontrada");
 
   const hoy = getFechaHoyLocal();
-  const fin = sumarUnMes(hoy);
+  const fin = finDeMesCalendario(hoy);
   const fechas = fechasDeClaseEnPeriodo(clase.dia_semana, hoy, fin);
 
   // Buscar si el cliente ya tiene reservas individuales en este período para fusionarlas
