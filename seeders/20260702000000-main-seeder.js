@@ -312,49 +312,37 @@ module.exports = {
 
     console.log("Seeding Clases...");
     // 9. Clases
+    const clasesAInsertar = [
+      { nombre: "Yoga — Lunes 09:00", actividad: "Yoga", dia: "Lunes", inicio: "09:00:00", fin: "10:00:00", cupo: 15 },
+      { nombre: "Pilates — Martes 10:00", actividad: "Pilates", dia: "Martes", inicio: "10:00:00", fin: "11:00:00", cupo: 12 },
+      { nombre: "Funcional — Lunes 09:00", actividad: "Funcional", dia: "Lunes", inicio: "09:00:00", fin: "10:00:00", cupo: 15 },
+      { nombre: "Funcional — Miercoles 11:00", actividad: "Funcional", dia: "Miercoles", inicio: "11:00:00", fin: "12:00:00", cupo: 15 },
+      { nombre: "Yoga — Jueves 17:00", actividad: "Yoga", dia: "Jueves", inicio: "17:00:00", fin: "18:00:00", cupo: 20 },
+      { nombre: "Yoga — Jueves 19:00", actividad: "Yoga", dia: "Jueves", inicio: "19:00:00", fin: "20:00:00", cupo: 10 },
+      { nombre: "Yoga — Jueves 20:00", actividad: "Yoga", dia: "Jueves", inicio: "20:00:00", fin: "21:00:00", cupo: 10 },
+      { nombre: "Pilates — Viernes 08:00", actividad: "Pilates", dia: "Viernes", inicio: "08:00:00", fin: "09:00:00", cupo: 12 },
+      { nombre: "Funcional — Martes 18:00", actividad: "Funcional", dia: "Martes", inicio: "18:00:00", fin: "19:00:00", cupo: 14 },
+      { nombre: "Pilates — Jueves 09:00", actividad: "Pilates", dia: "Jueves", inicio: "09:00:00", fin: "10:00:00", cupo: 12 },
+      { nombre: "Funcional — Sabado 20:00", actividad: "Funcional", dia: "Sabado", inicio: "20:00:00", fin: "21:00:00", cupo: 18 },
+      { nombre: "Yoga — Viernes 19:00", actividad: "Yoga", dia: "Viernes", inicio: "19:00:00", fin: "20:00:00", cupo: 10 },
+      { nombre: "Pilates — Miercoles 07:00", actividad: "Pilates", dia: "Miercoles", inicio: "07:00:00", fin: "08:00:00", cupo: 10 },
+    ];
+
     await queryInterface.bulkInsert(
       "clases",
-      [
-        {
-          nombre: "Yoga — Lunes 09:00",
-          dia_semana: "Lunes",
-          hora_inicio: "09:00:00",
-          hora_fin: "10:00:00",
-          cupo: 15,
-          activa: true,
-          actividad_id: actIdPorNombre["Yoga"],
-          sala_id: salaId,
-          profesor_id: profesorId,
-          createdAt: now,
-          updatedAt: now,
-        },
-        {
-          nombre: "Pilates — Martes 10:00",
-          dia_semana: "Martes",
-          hora_inicio: "10:00:00",
-          hora_fin: "11:00:00",
-          cupo: 12,
-          activa: true,
-          actividad_id: actIdPorNombre["Pilates"],
-          sala_id: salaId,
-          profesor_id: profesorId,
-          createdAt: now,
-          updatedAt: now,
-        },
-        {
-          nombre: "Funcional — Lunes 09:00",
-          dia_semana: "Lunes",
-          hora_inicio: "09:00:00",
-          hora_fin: "10:00:00",
-          cupo: 15,
-          activa: true,
-          actividad_id: actIdPorNombre["Funcional"],
-          sala_id: salaId,
-          profesor_id: profesorId,
-          createdAt: now,
-          updatedAt: now,
-        },
-      ],
+      clasesAInsertar.map(c => ({
+        nombre: c.nombre,
+        dia_semana: c.dia,
+        hora_inicio: c.inicio,
+        hora_fin: c.fin,
+        cupo: c.cupo,
+        activa: true,
+        actividad_id: actIdPorNombre[c.actividad],
+        sala_id: salaId,
+        profesor_id: profesorId,
+        createdAt: now,
+        updatedAt: now,
+      })),
       {}
     );
 
