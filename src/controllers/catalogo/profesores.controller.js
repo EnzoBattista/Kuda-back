@@ -14,6 +14,15 @@ const createProfesor = async (req, res, next) => {
       });
     }
 
+    if (email) {
+      const existingEmail = await Profesor.findOne({ where: { email } });
+      if (existingEmail) {
+        return res.status(409).json({
+          message: "El email ya se encuentra registrado por otro profesor",
+        });
+      }
+    }
+
     if (!actividades || actividades.length === 0) {
       return res.status(400).json({
         message: "El profesor debe dictar al menos una actividad",
@@ -84,6 +93,15 @@ const updateProfesor = async (req, res, next) => {
       if (existingProfesor && existingProfesor.id !== parseInt(id)) {
         return res.status(409).json({
           message: "El profesor con este número de documento ya se encuentra registrado",
+        });
+      }
+    }
+
+    if (email && email !== profesor.email) {
+      const existingEmail = await Profesor.findOne({ where: { email } });
+      if (existingEmail && existingEmail.id !== parseInt(id)) {
+        return res.status(409).json({
+          message: "El email ya se encuentra registrado por otro profesor",
         });
       }
     }

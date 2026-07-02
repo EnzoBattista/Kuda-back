@@ -1,6 +1,7 @@
 const { Op } = require("sequelize");
-const { Usuario, Rol } = require("../../../db");
+const { Usuario, Rol, Cliente } = require("../../../db");
 const { actualizarUsuario, darDeBajaUsuario } = require("../../services/acceso/usuarios.service");
+const sgMail = require("@sendgrid/mail");
 
 const parseBool = (valor) => {
   if (valor === undefined) return undefined;
@@ -138,6 +139,27 @@ const toggleEstadoUsuario = async (req, res, next) => {
 
     usuario.activo = !usuario.activo;
     await usuario.save();
+
+    // Notificar al cliente
+    const cliente = await Cliente.findByPk(usuario.email);
+    if (cliente && process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM) {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      const estadoStr = usuario.activo ? 'activada' : 'desactivada';
+      const mensaje = `Hola ${usuario.nombre}, te informamos que tu cuenta en CEF Actividades ha sido ${estadoStr}.`;
+      await sgMail.send({
+        to: usuario.email,
+        from: process.env.EMAIL_FROM,
+        subject: `Tu cuenta ha sido ${estadoStr} - CEF Actividades`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+            <h2 style="color: #003366;">Actualización de cuenta</h2>
+            <p>${mensaje}</p>
+          </div>
+        `,
+      }).catch(err => console.error("Error enviando email de estado de cuenta:", err));
+    } else if (cliente) {
+      console.log(`[toggleEstadoUsuario] email mock: Tu cuenta ha sido ${usuario.activo ? 'activada' : 'desactivada'}`);
+    }
 
     return res.status(200).json({ message: `Usuario ${usuario.activo ? 'activado' : 'desactivado'} con éxito`, usuario: usuario.toJSON() });
   } catch (error) {
