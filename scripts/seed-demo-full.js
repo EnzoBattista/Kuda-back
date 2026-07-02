@@ -25,9 +25,6 @@ const { conn } = require("../db");
 const SEEDERS = [
   "20260505000000-roles-permisos.js",
   "20260503000000-actividades-salas.js",
-  "20260507000000-profesores.js",
-  "20260509000000-clases.js",
-  "20260510000000-recepcionista-clase-gestionar.js",
   "20260701160000-demo-full-manual.js",
 ];
 

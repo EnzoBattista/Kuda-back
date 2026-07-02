@@ -78,7 +78,7 @@ const enriquecerInscripcionMensual = async (inscripcion, diasGracia = null) => {
   return plain;
 };
 
-const enviarRecordatorioPago = async (inscripcion, cliente) => {
+const enviarRecordatorioPago = async (inscripcion, cliente, diasGracia) => {
   if (!cliente?.notificaciones_activas) return false;
 
   const canales = normalizarCanales(cliente.canales_notificacion);
@@ -90,8 +90,23 @@ const enviarRecordatorioPago = async (inscripcion, cliente) => {
     ? `${cliente.usuario.nombre} ${cliente.usuario.apellido}`.trim()
     : inscripcion.cliente_email;
 
+  const anterior = await obtenerInscripcionAnterior(inscripcion);
+  const periodoFinGracia = anterior
+    ? String(anterior.periodo_fin).slice(0, 10)
+    : String(inscripcion.periodo_fin).slice(0, 10);
+
+  const finGracia = calcularFinGracia(periodoFinGracia, diasGracia);
+  const hoy = getFechaHoyLocal();
+
+  const diff = Math.ceil(
+    (new Date(`${finGracia}T12:00:00`) - new Date(`${hoy}T12:00:00`)) / (1000 * 60 * 60 * 24),
+  );
+  const diasRestantes = Math.max(0, diff);
+
   const asunto = "Recordatorio de pago — mensualidad CEF Actividades";
-  const mensaje = `Hola ${nombre}, te recordamos que tenés pendiente el pago de tu mensualidad de ${actividad?.nombre ?? "actividad"} correspondiente al período ${String(inscripcion.periodo_inicio).slice(0, 10)} – ${String(inscripcion.periodo_fin).slice(0, 10)}. Ingresá a Mis Reservas para abonar con Mercado Pago.`;
+  const mensaje = `Hola! ${nombre}
+Te recordamos que te quedan ${diasRestantes} días para abonar la reserva para el siguiente mes de ${actividad?.nombre ?? "actividad"}. De lo contrario, se cancelará la reserva a esa mensualidad automáticamente.
+CEF Actividades`;
 
   if (process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM) {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -100,11 +115,9 @@ const enviarRecordatorioPago = async (inscripcion, cliente) => {
       from: process.env.EMAIL_FROM,
       subject: asunto,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; white-space: pre-wrap;">
           <h2 style="color: #003366;">Recordatorio de pago</h2>
           <p>${mensaje}</p>
-          <hr>
-          <p style="font-size: 12px; color: #666;">CEF Actividades — Centro de bienestar</p>
         </div>
       `,
     });
@@ -204,7 +217,7 @@ const procesarCicloVidaMensualidades = async () => {
 
     const diaRecordatorio = sumarDias(inicioGracia, Number(recordatorioPagoDia) - 1);
     if (diaRecordatorio === hoy) {
-      const enviado = await enviarRecordatorioPago(ins, ins.cliente);
+      const enviado = await enviarRecordatorioPago(ins, ins.cliente, diasGracia);
       if (enviado) recordatorios += 1;
     }
   }

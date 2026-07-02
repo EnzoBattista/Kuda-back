@@ -131,6 +131,28 @@ const checkConflicto = async (req, res, next) => {
   }
 };
 
+const getInscriptosClase = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { InscripcionMensual, Cliente } = require("../../../db");
+    const { Op } = require("sequelize");
+
+    const inscriptos = await InscripcionMensual.findAll({
+      where: {
+        clase_id: id,
+        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA", "PENDIENTE_PAGO"] }
+      },
+      include: [
+        { model: Cliente, as: "cliente" }
+      ]
+    });
+
+    return res.status(200).json(inscriptos);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getAllClases,
   createClase,
@@ -139,4 +161,5 @@ module.exports = {
   deleteClase,
   cancelarFechaClase,
   checkConflicto,
+  getInscriptosClase,
 };

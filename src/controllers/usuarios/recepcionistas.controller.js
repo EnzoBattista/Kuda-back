@@ -12,6 +12,14 @@ const createRecepcionista = async (req, res, next) => {
   try {
     const datos = pickCampos(req.body);
 
+    if (!datos.email || !datos.email.trim()) {
+      throw httpError(400, "El email es obligatorio");
+    }
+
+    if (!datos.telefono || !datos.telefono.trim()) {
+      throw httpError(400, "El teléfono es obligatorio");
+    }
+
     if (!datos.password || datos.password.length < 8) {
       throw httpError(400, "La contraseña debe tener al menos 8 caracteres");
     }
@@ -101,6 +109,10 @@ const updateRecepcionista = async (req, res, next) => {
       if (dniExistente && dniExistente.email !== email) {
         throw httpError(409, "El DNI ya se encuentra registrado");
       }
+    }
+
+    if (datos.telefono !== undefined && (!datos.telefono || !datos.telefono.trim())) {
+      throw httpError(400, "El teléfono no puede estar vacío");
     }
 
     // Validar contraseña si se envía
