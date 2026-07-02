@@ -11,6 +11,17 @@ const sgMail = require("@sendgrid/mail");
  * @param {number} params.horasLimite
  */
 const notificarCupoDisponible = async ({ email, nombre, nombreClase, tipo, fechaExacta }) => {
+  try {
+    const { Cliente } = require("../../../db");
+    const cliente = await Cliente.findByPk(email);
+    if (cliente && !cliente.notificaciones_activas) {
+      console.log(`[listaEspera.email] Se omite el envío a ${email} porque tiene las notificaciones desactivadas.`);
+      return;
+    }
+  } catch (error) {
+    console.error("[listaEspera.email] Error al verificar preferencias de notificaciones del cliente:", error.message);
+  }
+
   if (!process.env.SENDGRID_API_KEY || !process.env.EMAIL_FROM) {
     console.warn("[listaEspera.email] SendGrid no configurado, se omite el envío.");
     return;
@@ -72,6 +83,17 @@ const notificarCupoDisponible = async ({ email, nombre, nombreClase, tipo, fecha
  * Notifica al cliente que su tiempo para confirmar el lugar expiró.
  */
 const notificarExpiracion = async ({ email, nombre, nombreClase }) => {
+  try {
+    const { Cliente } = require("../../../db");
+    const cliente = await Cliente.findByPk(email);
+    if (cliente && !cliente.notificaciones_activas) {
+      console.log(`[listaEspera.email] Se omite el envío de expiración a ${email} porque tiene las notificaciones desactivadas.`);
+      return;
+    }
+  } catch (error) {
+    console.error("[listaEspera.email] Error al verificar preferencias de notificaciones del cliente:", error.message);
+  }
+
   if (!process.env.SENDGRID_API_KEY || !process.env.EMAIL_FROM) return;
 
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
