@@ -6,7 +6,6 @@ const {
   USUARIOS_TESTING,
   CLASE_LISTA_ESPERA,
   CUPO_LISTA_ESPERA,
-  FECHA_DEMO_JUEVES,
   VALIDEZ_VALES_JULIO,
   VALES_POR_ACTIVIDAD,
   sembrarDemoFullManual,
@@ -39,8 +38,7 @@ module.exports = {
     console.info("");
     console.info(`  Lista de espera: "${CLASE_LISTA_ESPERA}"`);
     console.info(`    Fecha llena:   ${listaEspera.fecha} (${listaEspera.cupo}/${listaEspera.cupo})`);
-    console.info(`    Cupo técnico:  ocupante1@yopmail.com … ocupante${CUPO_LISTA_ESPERA}@yopmail.com`);
-    console.info("    (solo llenan el cupo; no usar en flujos de demo)");
+    console.info(`    Credencial para cancelar/probar: ocupante10@yopmail.com / ${DEMO_PASSWORD}`);
     console.info("");
     console.info("  Doc: docs/SEED-MANUAL-TESTING.md");
     console.info("══════════════════════════════════════════════════════");
