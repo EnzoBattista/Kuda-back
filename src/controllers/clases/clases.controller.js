@@ -134,10 +134,10 @@ const checkConflicto = async (req, res, next) => {
 const getInscriptosClase = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { InscripcionMensual, Cliente, Usuario } = require("../../../db");
+    const { InscripcionMensual, InscripcionIndividual, Cliente, Usuario } = require("../../../db");
     const { Op } = require("sequelize");
 
-    const inscriptos = await InscripcionMensual.findAll({
+    const mensuales = await InscripcionMensual.findAll({
       where: {
         clase_id: id,
         estado: { [Op.in]: ["VIGENTE", "EN_GRACIA", "PENDIENTE_PAGO"] }
@@ -146,17 +146,29 @@ const getInscriptosClase = async (req, res, next) => {
         {
           model: Cliente,
           as: "cliente",
-          include: [
-            {
-              model: Usuario,
-              as: "usuario"
-            }
-          ]
+          include: [{ model: Usuario, as: "usuario" }]
         }
       ]
     });
 
-    const mapped = inscriptos.map((item) => {
+    const individuales = await InscripcionIndividual.findAll({
+      where: {
+        clase_id: id,
+        [Op.or]: [
+          { modalidad: "COMPLETO" },
+          { modalidad: "SEÑA", estado_seña: { [Op.in]: ["PENDIENTE", "COMPLETADA"] } }
+        ]
+      },
+      include: [
+        {
+          model: Cliente,
+          as: "cliente",
+          include: [{ model: Usuario, as: "usuario" }]
+        }
+      ]
+    });
+
+    const mappedMensuales = mensuales.map((item) => {
       const plain = item.toJSON();
       if (plain.cliente && plain.cliente.usuario) {
         plain.cliente.nombre = plain.cliente.usuario.nombre;
@@ -164,8 +176,23 @@ const getInscriptosClase = async (req, res, next) => {
         plain.cliente.email = plain.cliente.usuario.email;
         plain.cliente.telefono = plain.cliente.usuario.telefono;
       }
+      plain.tipo = "Mensual";
       return plain;
     });
+
+    const mappedIndividuales = individuales.map((item) => {
+      const plain = item.toJSON();
+      if (plain.cliente && plain.cliente.usuario) {
+        plain.cliente.nombre = plain.cliente.usuario.nombre;
+        plain.cliente.apellido = plain.cliente.usuario.apellido;
+        plain.cliente.email = plain.cliente.usuario.email;
+        plain.cliente.telefono = plain.cliente.usuario.telefono;
+      }
+      plain.tipo = "Individual";
+      return plain;
+    });
+
+    const mapped = [...mappedMensuales, ...mappedIndividuales];
 
     return res.status(200).json(mapped);
   } catch (error) {
