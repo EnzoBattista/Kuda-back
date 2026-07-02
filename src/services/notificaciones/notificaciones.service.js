@@ -73,12 +73,12 @@ const enviarNotificacionManual = async ({ cliente_email, asunto, mensaje }) => {
   if (!cliente?.usuario) throw httpError(404, "Cliente no encontrado");
 
   if (!cliente.notificaciones_activas) {
-    throw httpError(400, "El cliente tiene las notificaciones desactivadas");
+    return { success: true, message: "El cliente tiene las notificaciones desactivadas, no se envió el correo" };
   }
 
   const canales = normalizarCanales(cliente.canales_notificacion);
   if (!canales.email) {
-    throw httpError(400, "El cliente no tiene habilitado el canal de email");
+    return { success: true, message: "El cliente no tiene habilitado el canal de email, no se envió el correo" };
   }
 
   const nombre = `${cliente.usuario.nombre} ${cliente.usuario.apellido}`.trim();

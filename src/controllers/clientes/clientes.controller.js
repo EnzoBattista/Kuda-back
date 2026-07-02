@@ -123,13 +123,15 @@ const deleteCliente = async (req, res, next) => {
     // Get user to use name in email
     const usuario = await Usuario.findByPk(email);
     if (!usuario) return res.status(404).json({ message: "Cliente (Usuario) no encontrado" });
+
+    const cliente = await Cliente.findByPk(email);
     
     // Use the service to safely deactivate and cancel subscriptions
     await darDeBajaUsuario(email);
 
     // Send email notification
     const sgMail = require("@sendgrid/mail");
-    if (process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM) {
+    if (cliente && cliente.notificaciones_activas && process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM) {
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       try {
         await sgMail.send({
