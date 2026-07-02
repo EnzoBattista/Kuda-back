@@ -47,6 +47,13 @@ module.exports = (sequelize) => {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
       },
+      dias_gracia: {
+        // Snapshot de los días de gracia configurados al momento de generar la
+        // inscripción. Se fija acá para que cambiar la config del sistema solo
+        // afecte a los meses siguientes y nunca a quien ya está en gracia.
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       inscripcion_anterior_id: {
         type: DataTypes.INTEGER,
         allowNull: true,

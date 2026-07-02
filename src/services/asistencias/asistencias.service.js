@@ -101,7 +101,7 @@ const validarMoraCliente = async (clienteEmail) => {
     const anclaGracia = anterior
       ? String(anterior.periodo_fin).slice(0, 10)
       : String(enGracia.periodo_fin).slice(0, 10);
-    const finGracia = sumarDias(anclaGracia, diasGraciaMax);
+    const finGracia = sumarDias(anclaGracia, enGracia.dias_gracia ?? diasGraciaMax);
     if (hoy > finGracia) {
       throw httpError(403, "Su mensualidad se encuentra suspendida por falta de pago.");
     }

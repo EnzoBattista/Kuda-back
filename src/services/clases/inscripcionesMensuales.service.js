@@ -5,6 +5,7 @@ const { generarReservasMensual, fechasDeClaseEnPeriodo } = require("./reservas.s
 const { notificarPrimero } = require("./listaEspera.service");
 const { aplicarVale } = require("../pagos/vales.service");
 const { getFechaHoyLocal, sumarDias, finDeMesCalendario } = require("../../utils/fechas");
+const { getDiasGraciaMensual } = require("../sistema/configuracion.service");
 
 const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA", "PENDIENTE_PAGO"];
 
@@ -97,6 +98,10 @@ const crearProximaMensualidadPendiente = async (inscripcionVigente, transaction 
     const actividad = await Actividad.findByPk(vigente.actividad_id, { transaction: tx });
     const monto = actividad ? Number(actividad.precio) : Number(vigente.monto);
 
+    // Congelamos los días de gracia vigentes al generar esta mensualidad: si el
+    // admin los cambia después, esta reserva conserva los que tenía.
+    const diasGracia = await getDiasGraciaMensual();
+
     const proxima = await InscripcionMensual.create(
       {
         cliente_email: vigente.cliente_email,
@@ -107,6 +112,7 @@ const crearProximaMensualidadPendiente = async (inscripcionVigente, transaction 
         dia_vencimiento: periodoFin,
         monto,
         estado: "PENDIENTE_PAGO",
+        dias_gracia: diasGracia,
         inscripcion_anterior_id: vigente.id,
       },
       { transaction: tx },
@@ -327,6 +333,22 @@ const actualizarInscripcionMensual = async (inscripcion, data) => {
           },
           transaction,
         });
+      } else {
+        // Cancelación de un mes impago (en gracia / precargado): las reservas
+        // ACTIVA ya se cancelaron ordenadamente arriba (con vale si correspondía).
+        // Las PENDIENTE_PAGO nunca se abonaron, así que se cancelan sin reintegro
+        // para liberar el cupo.
+        await ReservaClase.update(
+          { estado: "CANCELADA" },
+          {
+            where: {
+              inscripcion_mensual_id: inscripcion.id,
+              estado: "PENDIENTE_PAGO",
+            },
+            transaction,
+            validate: false,
+          },
+        );
       }
 
       // Si no es cancelación/suspensión, regenerar reservas con nuevos parámetros

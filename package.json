@@ -10,6 +10,7 @@
     "seed:undo": "sequelize-cli db:seed:undo:all",
     "seed:demo-full": "node scripts/seed-demo-full.js",
     "seed:manual-testing": "node scripts/seed-demo-full.js",
+    "seed:gracia-demo": "node scripts/seed-gracia-demo.js",
     "seed:mensualidad-demo": "sequelize-cli db:seed --seed 20260701150000-mensualidades-anticipadas-demo.js",
     "seed:lista-espera-demo": "sequelize-cli db:seed --seed 20260611120000-clase-lista-espera-demo.js",
     "seed:test-reservas": "sequelize-cli db:seed --seed 20260625200000-test-reservas-lista-espera.js",
