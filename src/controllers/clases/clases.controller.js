@@ -136,19 +136,46 @@ const getInscriptosClase = async (req, res, next) => {
     const { id } = req.params;
     const { InscripcionMensual, InscripcionIndividual, Cliente, Usuario } = require("../../../db");
     const { Op } = require("sequelize");
+    const { getDiasGraciaMensual } = require("../../services/sistema/configuracion.service");
+    const { getFechaHoyLocal, sumarDias } = require("../../utils/fechas");
+
+    const ESTADOS_MENSUAL_VISIBLES = ["VIGENTE", "EN_GRACIA", "PENDIENTE_PAGO"];
+
+    const hoy = getFechaHoyLocal();
+    const diasGracia = await getDiasGraciaMensual();
 
     const mensuales = await InscripcionMensual.findAll({
       where: {
         clase_id: id,
-        estado: { [Op.in]: ["VIGENTE", "EN_GRACIA", "PENDIENTE_PAGO"] }
+        estado: { [Op.in]: ESTADOS_MENSUAL_VISIBLES }
       },
       include: [
         {
           model: Cliente,
           as: "cliente",
           include: [{ model: Usuario, as: "usuario" }]
-        }
+        },
+        { model: InscripcionMensual, as: "inscripcionAnterior" }
       ]
+    });
+
+    // La reserva del mes siguiente se genera como PENDIENTE_PAGO al confirmar una
+    // mensualidad. Solo debe mostrarse cuando la inscripción activa (anterior) ya no se
+    // muestra, y únicamente hasta que venzan los días de gracia configurados.
+    const mensualesVisibles = mensuales.filter((item) => {
+      const esRenovacionImpaga =
+        ["PENDIENTE_PAGO", "EN_GRACIA"].includes(item.estado) && item.inscripcion_anterior_id;
+      if (!esRenovacionImpaga) return true;
+
+      const anterior = item.inscripcionAnterior;
+      const activaVisible = anterior && ESTADOS_MENSUAL_VISIBLES.includes(anterior.estado);
+      if (activaVisible) return false;
+
+      const periodoFin = anterior
+        ? String(anterior.periodo_fin).slice(0, 10)
+        : String(item.periodo_fin).slice(0, 10);
+      const finGracia = sumarDias(periodoFin, item.dias_gracia ?? diasGracia);
+      return hoy <= finGracia;
     });
 
     const individuales = await InscripcionIndividual.findAll({
@@ -168,7 +195,7 @@ const getInscriptosClase = async (req, res, next) => {
       ]
     });
 
-    const mappedMensuales = mensuales.map((item) => {
+    const mappedMensuales = mensualesVisibles.map((item) => {
       const plain = item.toJSON();
       if (plain.cliente && plain.cliente.usuario) {
         plain.cliente.nombre = plain.cliente.usuario.nombre;

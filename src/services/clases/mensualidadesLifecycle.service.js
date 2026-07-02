@@ -40,8 +40,10 @@ const calcularFinGracia = (periodoFinAnterior, diasGracia) =>
 
 const enriquecerInscripcionMensual = async (inscripcion, diasGracia = null) => {
   const hoy = getFechaHoyLocal();
-  const dias = diasGracia ?? (await getDiasGraciaMensual());
   const plain = inscripcion.toJSON ? inscripcion.toJSON() : { ...inscripcion };
+  // Priorizamos los días de gracia congelados en la propia inscripción; solo
+  // caemos al valor global (o config actual) para filas viejas sin snapshot.
+  const dias = plain.dias_gracia ?? diasGracia ?? (await getDiasGraciaMensual());
 
   const ultimaClase = await ultimaClaseEfectiva(plain.id);
   plain.ultima_clase_efectiva = ultimaClase;
@@ -175,7 +177,7 @@ const procesarCicloVidaMensualidades = async () => {
     const periodoFinGracia = anterior
       ? String(anterior.periodo_fin).slice(0, 10)
       : String(ins.periodo_fin).slice(0, 10);
-    const finGracia = calcularFinGracia(periodoFinGracia, diasGracia);
+    const finGracia = calcularFinGracia(periodoFinGracia, ins.dias_gracia ?? diasGracia);
 
     if (hoy > finGracia) {
       await conn.transaction(async (transaction) => {
@@ -217,7 +219,7 @@ const procesarCicloVidaMensualidades = async () => {
 
     const diaRecordatorio = sumarDias(inicioGracia, Number(recordatorioPagoDia) - 1);
     if (diaRecordatorio === hoy) {
-      const enviado = await enviarRecordatorioPago(ins, ins.cliente, diasGracia);
+      const enviado = await enviarRecordatorioPago(ins, ins.cliente, ins.dias_gracia ?? diasGracia);
       if (enviado) recordatorios += 1;
     }
   }
