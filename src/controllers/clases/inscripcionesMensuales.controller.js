@@ -92,11 +92,9 @@ const cancelarInscripcionMensual = async (req, res, next) => {
     if (inscripcion.estado === "CANCELADA" || inscripcion.estado === "FINALIZADA") {
       return res.status(409).json({ message: `La inscripción ya está ${inscripcion.estado}` });
     }
-    if (["PENDIENTE_PAGO", "EN_GRACIA"].includes(inscripcion.estado) && inscripcion.inscripcion_anterior_id) {
-      return res.status(409).json({
-        message: "No podés cancelar un mes precargado impago. Regularizá el pago o esperá el vencimiento de gracia.",
-      });
-    }
+    // Un mes precargado impago (PENDIENTE_PAGO / EN_GRACIA) puede cancelarse: como
+    // no fue abonado, no se reintegra nada. Sus reservas impagas se liberan en el
+    // servicio sin generar vales.
     await actualizarInscripcionMensual(inscripcion, { estado: "CANCELADA" });
     return res.status(200).json(inscripcion);
   } catch (error) {

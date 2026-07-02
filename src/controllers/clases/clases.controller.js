@@ -138,6 +138,7 @@ const getInscriptosClase = async (req, res, next) => {
     const { Op } = require("sequelize");
     const { getDiasGraciaMensual } = require("../../services/sistema/configuracion.service");
     const { getFechaHoyLocal, sumarDias } = require("../../utils/fechas");
+    const { ultimaClaseEfectiva } = require("../../services/clases/mensualidadesLifecycle.service");
 
     const ESTADOS_MENSUAL_VISIBLES = ["VIGENTE", "EN_GRACIA", "PENDIENTE_PAGO"];
 
@@ -159,24 +160,36 @@ const getInscriptosClase = async (req, res, next) => {
       ]
     });
 
-    // La reserva del mes siguiente se genera como PENDIENTE_PAGO al confirmar una
-    // mensualidad. Solo debe mostrarse cuando la inscripción activa (anterior) ya no se
-    // muestra, y únicamente hasta que venzan los días de gracia configurados.
-    const mensualesVisibles = mensuales.filter((item) => {
+    // Flujo: mientras la mensualidad activa tenga clases que todavía no
+    // terminaron, se muestra la activa; cuando termina su última reserva activa,
+    // pasa a mostrarse la mensualidad siguiente como pendiente de pago (hasta que
+    // venza la gracia o se pague, momento en el que vuelve a ser activa).
+    const mensualesVisibles = [];
+    for (const item of mensuales) {
       const esRenovacionImpaga =
         ["PENDIENTE_PAGO", "EN_GRACIA"].includes(item.estado) && item.inscripcion_anterior_id;
-      if (!esRenovacionImpaga) return true;
 
+      if (!esRenovacionImpaga) {
+        // Activa: se muestra mientras le queden clases por ocurrir. Si su última
+        // clase ya pasó, la ocultamos (su sucesora la reemplaza), aunque el job
+        // todavía no la haya marcado FINALIZADA.
+        const ultima = await ultimaClaseEfectiva(item.id);
+        if (!ultima || ultima >= hoy) mensualesVisibles.push(item);
+        continue;
+      }
+
+      // Renovación impaga: se muestra recién cuando la última clase activa de la
+      // inscripción anterior ya terminó, y solo hasta que venza la gracia.
       const anterior = item.inscripcionAnterior;
-      const activaVisible = anterior && ESTADOS_MENSUAL_VISIBLES.includes(anterior.estado);
-      if (activaVisible) return false;
+      const ultimaAnterior = anterior ? await ultimaClaseEfectiva(anterior.id) : null;
+      if (ultimaAnterior && ultimaAnterior >= hoy) continue;
 
       const periodoFin = anterior
         ? String(anterior.periodo_fin).slice(0, 10)
         : String(item.periodo_fin).slice(0, 10);
       const finGracia = sumarDias(periodoFin, item.dias_gracia ?? diasGracia);
-      return hoy <= finGracia;
-    });
+      if (hoy <= finGracia) mensualesVisibles.push(item);
+    }
 
     const individuales = await InscripcionIndividual.findAll({
       where: {

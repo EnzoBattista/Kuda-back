@@ -333,6 +333,22 @@ const actualizarInscripcionMensual = async (inscripcion, data) => {
           },
           transaction,
         });
+      } else {
+        // Cancelación de un mes impago (en gracia / precargado): las reservas
+        // ACTIVA ya se cancelaron ordenadamente arriba (con vale si correspondía).
+        // Las PENDIENTE_PAGO nunca se abonaron, así que se cancelan sin reintegro
+        // para liberar el cupo.
+        await ReservaClase.update(
+          { estado: "CANCELADA" },
+          {
+            where: {
+              inscripcion_mensual_id: inscripcion.id,
+              estado: "PENDIENTE_PAGO",
+            },
+            transaction,
+            validate: false,
+          },
+        );
       }
 
       // Si no es cancelación/suspensión, regenerar reservas con nuevos parámetros

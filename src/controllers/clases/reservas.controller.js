@@ -77,20 +77,41 @@ const getReservasActivas = async (req, res, next) => {
         const activeSubscriptions = await InscripcionMensual.findAll({
           where: {
             clase_id,
-            estado: ["VIGENTE", "EN_GRACIA"],
+            // EN_GRACIA y PENDIENTE_PAGO también ocupan cupo: el cliente conserva el
+            // lugar aunque sus reservas del período todavía estén en PENDIENTE_PAGO
+            // (la renovación "oculta" hasta que termina la última clase del mes actual).
+            estado: ["VIGENTE", "EN_GRACIA", "PENDIENTE_PAGO"],
             periodo_fin: { [Op.gte]: hoy }
           }
         });
 
         const { fechasDeClaseEnPeriodo } = require("../../services/clases/reservas.service");
 
-        for (const sub of activeSubscriptions) {
-          if (req.usuario && sub.cliente_email === req.usuario.email) continue;
-          const inicioRenovacion = sumarDias(String(sub.periodo_fin).slice(0, 10), 1);
-          const finRenovacion = finDeMesCalendario(inicioRenovacion);
-          const fechasFuturas = fechasDeClaseEnPeriodo(clase.dia_semana, inicioRenovacion, finRenovacion);
+        // Evita contar dos veces al mismo cliente en la misma fecha cuando su lugar
+        // surge de más de un abono (ej. período actual + su ventana de renovación).
+        const dummiesPorClienteFecha = new Set();
 
-          for (const f of fechasFuturas) {
+        for (const sub of activeSubscriptions) {
+          // La ocupación mostrada refleja los lugares realmente tomados, incluido el
+          // del propio cliente que consulta: si ya tiene un abono acá, su lugar cuenta
+          // igual que el de cualquier otro (la elegibilidad para reservar la resuelve
+          // el front con abonoClaseVigente/yaReservada, no este conteo).
+
+          // Fechas en que este abono ocupa cupo: lo que resta de su período actual
+          // (reservas que pueden estar PENDIENTE_PAGO) más su ventana de renovación.
+          const finActual = String(sub.periodo_fin).slice(0, 10);
+          const inicioActual = String(sub.periodo_inicio).slice(0, 10);
+          const desdeActual = inicioActual > hoy ? inicioActual : hoy;
+          const fechasActuales = fechasDeClaseEnPeriodo(clase.dia_semana, desdeActual, finActual);
+
+          const inicioRenovacion = sumarDias(finActual, 1);
+          const finRenovacion = finDeMesCalendario(inicioRenovacion);
+          const fechasRenovacion = fechasDeClaseEnPeriodo(clase.dia_semana, inicioRenovacion, finRenovacion);
+
+          for (const f of [...fechasActuales, ...fechasRenovacion]) {
+            const clave = `${sub.cliente_email}|${f}`;
+            if (dummiesPorClienteFecha.has(clave)) continue;
+
             const yaRenovo = await ReservaClase.findOne({
               where: {
                 cliente_email: sub.cliente_email,
@@ -101,6 +122,7 @@ const getReservasActivas = async (req, res, next) => {
             });
 
             if (!yaRenovo) {
+              dummiesPorClienteFecha.add(clave);
               dummyDtos.push({
                 id: 0,
                 fecha_exacta: f,

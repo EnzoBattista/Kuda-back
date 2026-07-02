@@ -31,9 +31,12 @@ const {
   conn,
   InscripcionMensual,
   ReservaClase,
+  InscripcionIndividual,
+  Pago,
   Clase,
   Actividad,
 } = require("../db");
+const { Op } = require("sequelize");
 const {
   crearProximaMensualidadPendiente,
 } = require("../src/services/clases/inscripcionesMensuales.service");
@@ -67,15 +70,34 @@ const VIERNES_JUNIO = [
     const actividad = await Actividad.findByPk(clase.actividad_id);
     const monto = actividad ? Number(actividad.precio) : 10000;
 
-    // Idempotencia: limpiar cualquier corrida previa de este escenario.
-    const previas = await InscripcionMensual.findAll({
+    // Idempotencia + regla de negocio: dejamos al cliente SIN nada previo en esta
+    // clase. Una mensual y una individual no pueden coexistir en la misma clase,
+    // así que borramos ambas (con sus reservas y pagos) antes de armar el escenario.
+    const previasMensuales = await InscripcionMensual.findAll({
       where: { cliente_email: CLIENTE, clase_id: clase.id },
     });
-    const idsPrevios = previas.map((p) => p.id);
-    if (idsPrevios.length) {
-      await ReservaClase.destroy({ where: { inscripcion_mensual_id: idsPrevios } });
-      await InscripcionMensual.destroy({ where: { id: idsPrevios } });
-      console.log(`→ Limpiadas ${idsPrevios.length} inscripción(es) previa(s) del escenario.`);
+    const idsMensuales = previasMensuales.map((p) => p.id);
+    if (idsMensuales.length) {
+      await Pago.destroy({ where: { inscripcion_mensual_id: idsMensuales } });
+      await ReservaClase.destroy({ where: { inscripcion_mensual_id: idsMensuales } });
+      await InscripcionMensual.destroy({ where: { id: idsMensuales } });
+      console.log(`→ Limpiadas ${idsMensuales.length} mensualidad(es) previa(s).`);
+    }
+
+    const previasIndiv = await InscripcionIndividual.findAll({
+      where: { cliente_email: CLIENTE, clase_id: clase.id },
+    });
+    const idsIndiv = previasIndiv.map((p) => p.id);
+    if (idsIndiv.length) {
+      await Pago.destroy({
+        where: {
+          origen_id: { [Op.in]: idsIndiv },
+          origen: { [Op.in]: ["CLASE_SUELTA", "SEÑA", "SALDO_SEÑA"] },
+        },
+      });
+      await ReservaClase.destroy({ where: { inscripcion_individual_id: idsIndiv } });
+      await InscripcionIndividual.destroy({ where: { id: idsIndiv } });
+      console.log(`→ Limpiada(s) ${idsIndiv.length} inscripción(es) individual(es) en la misma clase.`);
     }
 
     // 1. Mensualidad de junio ya finalizada, con sus clases cumplidas.
