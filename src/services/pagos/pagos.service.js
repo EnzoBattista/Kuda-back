@@ -256,7 +256,10 @@ const listarPagos = async (filtros = {}) => {
 
   if (cliente_email) where.cliente_email = cliente_email;
   if (metodo) where.metodo = metodo;
-  if (estado) where.estado = estado;
+  // Un pago solo existe como registro cuando se resolvió: COMPLETADO (pago
+  // exitoso) o RECHAZADO (pago fallido). Los PENDIENTE son checkouts de Mercado
+  // Pago todavía sin confirmar, así que no se listan.
+  where.estado = estado || { [Op.in]: ["COMPLETADO", "RECHAZADO"] };
   if (desde || hasta) {
     where.fecha = {};
     if (desde) where.fecha[Op.gte] = new Date(`${desde}T00:00:00`);
