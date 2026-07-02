@@ -142,7 +142,7 @@ const toggleEstadoUsuario = async (req, res, next) => {
 
     // Notificar al cliente
     const cliente = await Cliente.findByPk(usuario.email);
-    if (cliente && process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM) {
+    if (cliente && cliente.notificaciones_activas && process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM) {
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       const estadoStr = usuario.activo ? 'activada' : 'desactivada';
       const mensaje = `Hola ${usuario.nombre}, te informamos que tu cuenta en CEF Actividades ha sido ${estadoStr}.`;
