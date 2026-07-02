@@ -34,13 +34,7 @@ module.exports = {
       console.info(`    Cliente:       ${c.email}`);
     }
     console.info("");
-    console.info(`  Vales:           ${vales} (${USUARIOS_TESTING.clientes.length} clientes × ${VALES_POR_ACTIVIDAD.length} actividades)`);
-    console.info(`  Vigencia vales:  ${VALIDEZ_VALES_JULIO.valido_desde} → ${VALIDEZ_VALES_JULIO.valido_hasta}`);
-    console.info("");
-    console.info(`  Lista de espera: "${CLASE_LISTA_ESPERA}"`);
-    console.info(`    Fecha llena:   ${listaEspera.fecha} (${listaEspera.cupo}/${listaEspera.cupo})`);
-    console.info(`    Cupo técnico:  ocupante1@yopmail.com … ocupante${CUPO_LISTA_ESPERA}@yopmail.com`);
-    console.info("    (solo llenan el cupo; no usar en flujos de demo)");
+    console.info("  (Profesores, clases, vales y reservas NO fueron generados según lo solicitado).");
     console.info("");
     console.info("  Doc: docs/SEED-MANUAL-TESTING.md");
     console.info("══════════════════════════════════════════════════════");
