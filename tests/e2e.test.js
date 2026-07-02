@@ -22,7 +22,7 @@ beforeAll(async () => {
   await seedRoles.up(conn.getQueryInterface());
 
   // Crear usuario admin
-  const rolAdmin = await conn.models.Rol.findOne({ where: { nombre: "ADMIN" } });
+  const rolAdmin = await conn.models.Rol.findOne({ where: { nombre: "DUEÑO" } });
   await conn.models.Usuario.create({
     email: adminEmail,
     dni: "11111111",
@@ -81,7 +81,7 @@ describe("Flujo E2E Kuda-back", () => {
 
       // Verificamos la información del usuario logueado
       expect(res.body.usuario.email).toBe(adminEmail);
-      expect(res.body.usuario.rol.nombre).toBe("ADMIN");
+      expect(res.body.usuario.rol.nombre).toBe("DUEÑO");
 
       adminToken = res.body.token;
     });
@@ -158,7 +158,7 @@ describe("Flujo E2E Kuda-back", () => {
       console.log("=== LISTADO DE EMPLEADOS ===", JSON.stringify(lista.body, null, 2));
 
       expect(lista.statusCode).toBe(200);
-      expect(lista.body.every((e) => ["ADMIN", "RECEPCIONISTA"].includes(e.rol.nombre))).toBe(true);
+      expect(lista.body.every((e) => ["DUEÑO", "RECEPCIONISTA"].includes(e.rol.nombre))).toBe(true);
       expect(lista.body.some((e) => e.email === "recep@test.com")).toBe(true);
       expect(lista.body.some((e) => e.email === clienteEmail)).toBe(false);
 

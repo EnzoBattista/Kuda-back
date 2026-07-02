@@ -12,6 +12,8 @@ const {
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
 
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const GIMNASIO = {
   nombre: "CEF Actividades",
   subtitulo: "Centro de bienestar",
@@ -124,10 +126,14 @@ const confirmarInscripcionPorPagoExitoso = async (pago) => {
   if (pago.origen === "SALDO_SEÑA") return;
 
   await conn.transaction(async (transaction) => {
+    let inscripcionActivada = null;
+
     if (pago.inscripcion_mensual_id) {
       const ins = await InscripcionMensual.findByPk(pago.inscripcion_mensual_id, { transaction });
-      if (ins?.estado === "PENDIENTE_PAGO") {
+      if (ins?.estado === "PENDIENTE_PAGO" || ins?.estado === "EN_GRACIA") {
         await ins.update({ estado: "VIGENTE" }, { transaction });
+        await ins.reload({ transaction });
+        inscripcionActivada = ins;
       }
       if (ins) {
         await ReservaClase.update(
@@ -169,6 +175,11 @@ const confirmarInscripcionPorPagoExitoso = async (pago) => {
         await reserva.update({ estado: "ACTIVA" }, { transaction, validate: false });
       }
     }
+
+    if (inscripcionActivada) {
+      const { crearProximaMensualidadPendiente } = require("../clases/inscripcionesMensuales.service");
+      await crearProximaMensualidadPendiente(inscripcionActivada, transaction);
+    }
   });
 };
 
@@ -186,7 +197,8 @@ const revertirInscripcionPorPagoFallido = async (pago) => {
   await conn.transaction(async (transaction) => {
     if (pago.inscripcion_mensual_id) {
       const ins = await InscripcionMensual.findByPk(pago.inscripcion_mensual_id, { transaction });
-      if (ins && !["CANCELADA", "FINALIZADA"].includes(ins.estado)) {
+      // Renovación mensual precargada: mantener cupo si falla el pago.
+      if (ins && !ins.inscripcion_anterior_id && !["CANCELADA", "FINALIZADA"].includes(ins.estado)) {
         await ReservaClase.update(
           { estado: "CANCELADA" },
           {
@@ -258,36 +270,6 @@ const listarPagos = async (filtros = {}) => {
   });
 };
 
-const registrarPagoManual = async (data, recepcionistaEmail) => {
-  const monto = validarMonto(data.monto);
-  const metodo = data.metodo;
-
-  if (!["EFECTIVO", "TRANSFERENCIA"].includes(metodo)) {
-    throw httpError(400, "El método de pago manual debe ser EFECTIVO o TRANSFERENCIA");
-  }
-
-  const cliente = await Cliente.findByPk(data.cliente_email);
-  if (!cliente) throw httpError(404, "Cliente no encontrado");
-
-  const origen = data.origen ?? "MANUAL";
-
-  const pago = await Pago.create({
-    cliente_email: data.cliente_email,
-    recepcionista_email: recepcionistaEmail,
-    origen,
-    origen_id: data.origen_id ?? null,
-    reserva_id: data.reserva_id ?? null,
-    inscripcion_mensual_id: data.inscripcion_mensual_id ?? null,
-    concepto: data.concepto?.trim() || "Cobro en mostrador",
-    monto,
-    fecha: data.fecha ? new Date(data.fecha) : new Date(),
-    metodo,
-    estado: "COMPLETADO",
-  });
-
-  return pago;
-};
-
 const crearPreferenciaMercadoPago = async ({
   tituloPlan,
   precio,
@@ -340,9 +322,19 @@ const crearPreferenciaMercadoPago = async ({
       sandbox_init_point: preference.sandbox_init_point,
     };
   } catch (err) {
+    const esRed =
+      ["ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "ENETUNREACH"].includes(
+        String(err?.code || err?.cause?.code || "").toUpperCase(),
+      ) ||
+      /mercadopago|getaddrinfo|network|fetch failed|socket/i.test(
+        String(err?.message || err?.cause?.message || ""),
+      );
+
     throw httpError(
       502,
-      err?.message || "No se pudo crear la preferencia de Mercado Pago",
+      esRed
+        ? "No pudimos conectarnos con Mercado Pago. Intentá nuevamente en unos minutos"
+        : "No se pudo iniciar el pago con Mercado Pago. Intentá nuevamente en unos minutos",
     );
   }
 };
@@ -460,7 +452,7 @@ const consultarEstadoPago = async (pagoId, clienteEmail) => {
   const { pago: actualizado, mp_status, mp_status_detail } =
     await sincronizarPagoConMercadoPago(pago);
 
-  if (actualizado.estado === "COMPLETADO" && mp_status === "approved") {
+  if (actualizado.estado === "COMPLETADO") {
     await confirmarInscripcionPorPagoExitoso(actualizado);
   }
 
@@ -493,17 +485,21 @@ const abandonarPago = async (pagoId, clienteEmail) => {
   }
 
   if (pago.estado === "PENDIENTE") {
-    const { pago: sincronizado, mp_status } = await sincronizarPagoConMercadoPago(pago);
-    pago = sincronizado;
-    await pago.reload();
+    for (let intento = 0; intento < 4; intento += 1) {
+      const { pago: sincronizado, mp_status } = await sincronizarPagoConMercadoPago(pago);
+      pago = sincronizado;
+      await pago.reload();
 
-    if (pago.estado === "COMPLETADO" && mp_status === "approved") {
-      await confirmarInscripcionPorPagoExitoso(pago);
-      return {
-        id: pago.id,
-        estado: pago.estado,
-        message: "Tu pago fue registrado exitosamente.",
-      };
+      if (pago.estado === "COMPLETADO" && mp_status === "approved") {
+        await confirmarInscripcionPorPagoExitoso(pago);
+        return {
+          id: pago.id,
+          estado: pago.estado,
+          message: "Tu pago fue registrado exitosamente.",
+        };
+      }
+      if (pago.estado === "RECHAZADO") break;
+      if (intento < 3) await esperar(1500);
     }
   }
 
@@ -512,10 +508,15 @@ const abandonarPago = async (pagoId, clienteEmail) => {
     await revertirInscripcionPorPagoFallido(pago);
   }
 
+  const mensajeAbandono =
+    pago.origen === "SALDO_SEÑA"
+      ? "El pago no se completó. La seña sigue pendiente."
+      : "El pago no se completó. La reserva fue liberada.";
+
   return {
     id: pago.id,
     estado: pago.estado,
-    message: "El pago no se completó. La reserva fue liberada.",
+    message: mensajeAbandono,
   };
 };
 
@@ -539,7 +540,10 @@ const liberarReservaPendiente = async (data, clienteEmail) => {
 
   if (pagoSimulado.origen_id) {
     const reservas = await ReservaClase.findAll({
-      where: { inscripcion_individual_id: pagoSimulado.origen_id, estado: "ACTIVA" },
+      where: {
+        inscripcion_individual_id: pagoSimulado.origen_id,
+        estado: { [Op.in]: ["ACTIVA", "PENDIENTE_PAGO"] },
+      },
       limit: 1,
     });
     if (reservas[0] && reservas[0].cliente_email !== clienteEmail) {
@@ -591,67 +595,6 @@ const procesarWebhookMercadoPago = async (req) => {
   return { received: true };
 };
 
-const generarPagoQr = async (data, clienteEmail) => {
-  const monto = validarMonto(data.monto);
-  const email = data.cliente_email || clienteEmail;
-
-  const cliente = await Cliente.findByPk(email);
-  if (!cliente) throw httpError(404, "Cliente no encontrado");
-
-  const concepto = data.concepto?.trim() || "Pago CEF Actividades";
-  const external_reference = `CEF-${Date.now()}-${email.split("@")[0]}`;
-
-  let qrData = `alias: cef.actividades.mp | monto: ${monto} ARS | ref: ${external_reference}`;
-  let mpPreferenceId = null;
-
-  const reservaId = await resolverReservaId(data.reserva_id);
-  const inscripcionMensualId = await resolverInscripcionMensualId(data.inscripcion_mensual_id);
-
-  const pago = await Pago.create({
-    cliente_email: email,
-    origen: data.origen ?? "CLASE_SUELTA",
-    origen_id: data.origen_id ?? null,
-    reserva_id: reservaId,
-    inscripcion_mensual_id: inscripcionMensualId,
-    concepto,
-    monto,
-    metodo: "QR",
-    estado: "PENDIENTE",
-    qr_referencia: external_reference,
-  });
-
-  const mpRef = `pago-${pago.id}`;
-
-  if (process.env.MP_ACCESS_TOKEN) {
-    try {
-      const pref = await crearPreferenciaMercadoPago({
-        tituloPlan: concepto,
-        precio: monto,
-        cliente_email: email,
-        external_reference: mpRef,
-        pago_id: pago.id,
-      });
-      mpPreferenceId = pref.id;
-      qrData = pref.init_point || pref.sandbox_init_point || qrData;
-      await pago.update({
-        mp_payment_id: String(pref.id),
-        qr_referencia: mpRef,
-      });
-    } catch (err) {
-      console.warn("[pagos.qr] MP no disponible, usando QR local:", err.message);
-    }
-  }
-
-  return {
-    pago_id: pago.id,
-    qr_data: qrData,
-    referencia: pago.qr_referencia || external_reference,
-    estado: pago.estado,
-    monto: Number(pago.monto),
-    concepto: pago.concepto,
-  };
-};
-
 const obtenerComprobante = async (id) => {
   const pago = await Pago.findByPk(id, { include: includesDetalle });
 
@@ -693,7 +636,6 @@ const obtenerComprobante = async (id) => {
 
 module.exports = {
   listarPagos,
-  registrarPagoManual,
   crearPreferenciaMercadoPago,
   crearPagoMercadoPago,
   consultarEstadoPago,
@@ -702,7 +644,6 @@ module.exports = {
   procesarWebhookMercadoPago,
   sincronizarPagoConMercadoPago,
   revertirInscripcionPorPagoFallido,
-  generarPagoQr,
   obtenerComprobante,
   mensajeEstadoPago,
   GIMNASIO,

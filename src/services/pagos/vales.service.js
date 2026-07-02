@@ -38,6 +38,9 @@ const aplicarVale = async ({
   if (vale.usado_en_pago_id != null) {
     throw httpError(409, "El cupón ya fue utilizado");
   }
+  if (tipo_inscripcion && vale.tipo !== tipo_inscripcion) {
+    throw httpError(409, "El cupón no es válido para este tipo de inscripción");
+  }
   if (vale.clase_id != null && vale.clase_id !== clase_id) {
     const { Clase } = require("../../../db");
     const claseOriginal = await Clase.findByPk(vale.clase_id, { transaction });

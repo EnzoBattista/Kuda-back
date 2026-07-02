@@ -20,7 +20,7 @@ const getHistorial = async (req, res, next) => {
     if (items.length === 0) {
       return res.status(200).json({
         message: esStaff
-          ? "No hay registros de asistencia."
+          ? "Aún no se registró asistencia a ninguna clase."
           : "Aún no asistió a ninguna clase.",
         items: [],
       });
@@ -36,10 +36,10 @@ const escanearQr = async (req, res, next) => {
   try {
     const { token } = req.body;
     if (!token) {
-      return res.status(400).json({ message: "QR no es valido" });
+      return res.status(400).json({ message: "El código QR no es válido" });
     }
 
-    const datos = await asistenciasService.escanearQr(token);
+    const datos = await asistenciasService.confirmarIngresoPorQr(token, req.usuario.email);
     return res.status(200).json(datos);
   } catch (error) {
     if (error.status) {
@@ -58,7 +58,14 @@ const registrarAsistencia = async (req, res, next) => {
     }
 
     const resultado = await asistenciasService.registrarAsistencia(
-      { reserva_id, email, clase_id, estado, motivo_denegado },
+      {
+        reserva_id,
+        email,
+        clase_id,
+        estado,
+        motivo_denegado,
+        manual: Boolean(req.body.manual),
+      },
       req.usuario.email,
     );
 

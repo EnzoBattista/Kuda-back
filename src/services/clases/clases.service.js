@@ -20,7 +20,6 @@ const DIAS_SEMANA = [
   "Jueves",
   "Viernes",
   "Sabado",
-  "Domingo",
 ];
 
 const validarExistenciasYSolapamientos = async (data, excludeClaseId = null, { isModify = false } = {}) => {
@@ -32,9 +31,6 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null, { i
   if (dia_semana !== undefined && !DIAS_SEMANA.includes(dia_semana)) {
     throw httpError(400, "Día de la semana no válido");
   }
-  if (dia_semana === "Domingo") {
-    throw httpError(400, "No se pueden agendar clases los días Domingo");
-  }
 
   if (hora_inicio && hora_fin && hora_fin <= hora_inicio) {
     throw httpError(400, "La hora de fin debe ser posterior a la hora de inicio");
@@ -42,6 +38,17 @@ const validarExistenciasYSolapamientos = async (data, excludeClaseId = null, { i
 
   if (hora_inicio && hora_inicio.slice(0, 5) < "07:00") {
     throw httpError(400, "La clase no puede iniciar antes de las 07:00hs");
+  }
+
+  if (hora_inicio) {
+    const [, minInicio] = hora_inicio.split(":").map(Number);
+    const horaInicioH = Number(hora_inicio.slice(0, 2));
+    if (minInicio !== 0) {
+      throw httpError(400, "La hora de inicio debe ser en punto (ej. 09:00)");
+    }
+    if (horaInicioH < 7 || horaInicioH > 21) {
+      throw httpError(400, "La hora de inicio debe estar entre las 07:00 y las 21:00");
+    }
   }
 
   if (hora_fin && hora_fin.slice(0, 5) > "22:00") {
@@ -305,7 +312,10 @@ const cancelarFechaClase = async (claseId, data) => {
           reserva.inscripcion_individual_id,
           { transaction }
         );
-        if (ins) monto = Number(ins.monto_pagado);
+        if (ins) {
+          const { obtenerMontoEfectivamentePagadoIndividual } = require("./reservas.service");
+          monto = await obtenerMontoEfectivamentePagadoIndividual(ins, transaction);
+        }
         tipoVale = "INDIVIDUAL";
       } else if (reserva.inscripcion_mensual_id) {
         const ins = await InscripcionMensual.findByPk(
@@ -327,7 +337,7 @@ const cancelarFechaClase = async (claseId, data) => {
         tipoVale = "MENSUAL";
       }
 
-      if (monto > 0) {
+      if (monto > 0.01) {
         await Vale.create(
           {
             cliente_email: reserva.cliente_email,
@@ -356,6 +366,10 @@ const cancelarFechaClase = async (claseId, data) => {
  * Retorna un objeto { conflicto: boolean, tipo: null|'MISMA_CLASE'|'HORARIO', mensaje: string }
  */
 const verificarConflictoReserva = async (claseId, fecha, clienteEmail) => {
+  const {
+    ESTADOS_RESERVA_OCUPAN_CUPO,
+    buscarConflictoHorarioCliente,
+  } = require("./reservas.service");
   const { validarMoraCliente } = require("../asistencias/asistencias.service");
   try {
     await validarMoraCliente(clienteEmail);
@@ -380,7 +394,7 @@ const verificarConflictoReserva = async (claseId, fecha, clienteEmail) => {
       cliente_email: clienteEmail,
       clase_id: claseId,
       fecha_exacta: fechaStr,
-      estado: "ACTIVA",
+      estado: { [Op.in]: ESTADOS_RESERVA_OCUPAN_CUPO },
     },
   });
   if (mismaClase) {
@@ -391,21 +405,11 @@ const verificarConflictoReserva = async (claseId, fecha, clienteEmail) => {
     };
   }
 
-  const conflictoHorario = await ReservaClase.findOne({
-    where: {
-      cliente_email: clienteEmail,
-      fecha_exacta: fechaStr,
-      estado: "ACTIVA",
-      clase_id: { [Op.ne]: claseId },
-    },
-    include: [{
-      model: Clase,
-      as: "clase",
-      where: {
-        hora_inicio: { [Op.lt]: clase.hora_fin },
-        hora_fin: { [Op.gt]: clase.hora_inicio },
-      },
-    }],
+  const conflictoHorario = await buscarConflictoHorarioCliente({
+    clienteEmail,
+    fecha: fechaStr,
+    clase,
+    excluirClaseId: claseId,
   });
   if (conflictoHorario) {
     return {
@@ -421,8 +425,13 @@ const verificarConflictoReserva = async (claseId, fecha, clienteEmail) => {
 const verificarConflictoMensual = async (claseId, clienteEmail) => {
   const { Clase, ReservaClase, conn } = require("../../../db");
   const { Op } = require("sequelize");
-  const { fechasDeClaseEnPeriodo, obtenerCuposOcupados } = require("./reservas.service");
-  const { sumarUnMes } = require("../../utils/fechas");
+  const {
+    ESTADOS_RESERVA_OCUPAN_CUPO,
+    fechasDeClaseEnPeriodo,
+    obtenerCuposOcupados,
+    buscarConflictoHorarioCliente,
+  } = require("./reservas.service");
+  const { finDeMesCalendario } = require("../../utils/fechas");
   const { validarMoraCliente } = require("../asistencias/asistencias.service");
 
   try {
@@ -442,7 +451,7 @@ const verificarConflictoMensual = async (claseId, clienteEmail) => {
   if (!clase) throw httpError(404, "Clase no encontrada");
 
   const hoy = getFechaHoyLocal();
-  const fin = sumarUnMes(hoy);
+  const fin = finDeMesCalendario(hoy);
   const fechas = fechasDeClaseEnPeriodo(clase.dia_semana, hoy, fin);
 
   // Buscar si el cliente ya tiene reservas individuales en este período para fusionarlas
@@ -460,21 +469,11 @@ const verificarConflictoMensual = async (claseId, clienteEmail) => {
 
   // 1. Verificar si hay conflicto de horario (reserva activa en otra clase a la misma hora)
   for (const fecha of fechasAChequear) {
-    const conflictoHorario = await ReservaClase.findOne({
-      where: {
-        cliente_email: clienteEmail,
-        fecha_exacta: fecha,
-        estado: "ACTIVA",
-        clase_id: { [Op.ne]: claseId },
-      },
-      include: [{
-        model: Clase,
-        as: "clase",
-        where: {
-          hora_inicio: { [Op.lt]: clase.hora_fin },
-          hora_fin: { [Op.gt]: clase.hora_inicio },
-        },
-      }],
+    const conflictoHorario = await buscarConflictoHorarioCliente({
+      clienteEmail,
+      fecha,
+      clase,
+      excluirClaseId: claseId,
     });
     if (conflictoHorario) {
       return {

@@ -35,19 +35,12 @@ const actualizarPreferencias = async (email, body) => {
   const prevActivo = cliente.notificaciones_activas;
   const prevCanales = normalizarCanales(cliente.canales_notificacion);
 
-  const { notificaciones_activas, canales_notificacion, recordatorio_pago_dia } = body;
+  const { notificaciones_activas, canales_notificacion } = body;
 
   const nuevosCanales = {
     ...prevCanales,
     ...(canales_notificacion && typeof canales_notificacion === "object" ? canales_notificacion : {}),
   };
-
-  if (recordatorio_pago_dia !== undefined) {
-    if (recordatorio_pago_dia !== null && (recordatorio_pago_dia < 0 || recordatorio_pago_dia > 10)) {
-      throw httpError(400, "El recordatorio debe estar dentro de los 10 días de gracia para pagar");
-    }
-    nuevosCanales.recordatorio_pago_dia = recordatorio_pago_dia;
-  }
 
   const nuevoActivo =
     notificaciones_activas !== undefined ? Boolean(notificaciones_activas) : prevActivo;
@@ -60,12 +53,6 @@ const actualizarPreferencias = async (email, body) => {
   let message = "Preferencias de notificaciones actualizadas";
   if (nuevoActivo && !prevActivo) message = "Notificaciones activadas";
   else if (!nuevoActivo && prevActivo) message = "Notificaciones desactivadas";
-  else if (
-    recordatorio_pago_dia !== undefined &&
-    recordatorio_pago_dia !== prevCanales.recordatorio_pago_dia
-  ) {
-    message = "Recordatorio modificado";
-  }
 
   return {
     message,

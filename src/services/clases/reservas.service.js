@@ -7,11 +7,12 @@ const {
   Vale,
   Clase,
   Actividad,
+  Pago,
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
-const { notificarPrimero } = require("./listaEspera.service");
-const { getFechaHoyLocal, getHoraLocal } = require("../../utils/fechas");
+const { avanzarFila } = require("./listaEspera.service");
+const { getFechaHoyLocal, getHoraLocal, sumarDias, finDeMesCalendario } = require("../../utils/fechas");
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -39,7 +40,8 @@ const aISO = (fecha) => fecha.toISOString().slice(0, 10);
 
 /**
  * Todas las fechas (YYYY-MM-DD) que caen en `diaSemana` dentro del período
- * [inicio, fin). El fin se trata como exclusivo.
+ * [inicio, fin] inclusive (hasta el mismo día del mes siguiente).
+ * Máximo 5 ocurrencias por período mensual.
  */
 const fechasDeClaseEnPeriodo = (diaSemana, periodoInicio, periodoFin) => {
   const objetivo = DIA_SEMANA_A_NUMERO[diaSemana];
@@ -49,10 +51,16 @@ const fechasDeClaseEnPeriodo = (diaSemana, periodoInicio, periodoFin) => {
 
   const fin = aFechaUTC(periodoFin);
   const fechas = [];
-  for (let d = aFechaUTC(periodoInicio); d < fin; d.setUTCDate(d.getUTCDate() + 1)) {
+  for (let d = aFechaUTC(periodoInicio); d <= fin; d.setUTCDate(d.getUTCDate() + 1)) {
     if (d.getUTCDay() === objetivo) {
       fechas.push(aISO(d));
     }
+  }
+  if (fechas.length > 5) {
+    throw httpError(
+      500,
+      `El período mensual generó ${fechas.length} clases (máximo 5). Revisá periodo_inicio y periodo_fin.`,
+    );
   }
   return fechas;
 };
@@ -60,6 +68,64 @@ const fechasDeClaseEnPeriodo = (diaSemana, periodoInicio, periodoFin) => {
 // ─── Verificaciones de cupo y cancelación ────────────────────────────────────
 
 const ESTADOS_RESERVA_OCUPAN_CUPO = ["ACTIVA", "PENDIENTE_PAGO"];
+
+const normalizarHoraCmp = (hora) => String(hora ?? "").slice(0, 8);
+
+/** Dos franjas [inicio, fin) se solapan si comparten al menos un minuto. */
+const horariosSeSolapan = (inicioA, finA, inicioB, finB) => {
+  const a0 = normalizarHoraCmp(inicioA);
+  const a1 = normalizarHoraCmp(finA);
+  const b0 = normalizarHoraCmp(inicioB);
+  const b1 = normalizarHoraCmp(finB);
+  return a0 < b1 && a1 > b0;
+};
+
+/**
+ * Otra reserva del cliente el mismo día que se superpone con la clase indicada.
+ * Incluye ACTIVA y PENDIENTE_PAGO (checkout MP en curso).
+ */
+const buscarConflictoHorarioCliente = async ({
+  clienteEmail,
+  fecha,
+  clase,
+  excluirClaseId = null,
+  transaction = undefined,
+}) => {
+  const fechaStr = String(fecha).slice(0, 10);
+  const where = {
+    cliente_email: clienteEmail,
+    fecha_exacta: fechaStr,
+    estado: { [Op.in]: ESTADOS_RESERVA_OCUPAN_CUPO },
+  };
+  if (excluirClaseId != null) {
+    where.clase_id = { [Op.ne]: excluirClaseId };
+  }
+
+  const reservas = await ReservaClase.findAll({
+    where,
+    include: [
+      {
+        model: Clase,
+        as: "clase",
+        attributes: ["id", "hora_inicio", "hora_fin", "nombre"],
+      },
+    ],
+    transaction,
+  });
+
+  return (
+    reservas.find(
+      (r) =>
+        r.clase &&
+        horariosSeSolapan(
+          r.clase.hora_inicio,
+          r.clase.hora_fin,
+          clase.hora_inicio,
+          clase.hora_fin,
+        ),
+    ) ?? null
+  );
+};
 
 const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transaction, incluirEsperando = true) => {
   const { ReservaClase, InscripcionMensual } = require("../../../db");
@@ -74,29 +140,36 @@ const obtenerCuposOcupados = async (claseId, fecha, clienteEmailExcluir, transac
   }
   const activas = await ReservaClase.count({ where: whereReservas, transaction });
 
-  // Caso 1: abonados cuyo período CUBRE la fecha consultada (periodo_inicio <= fecha < periodo_fin).
-  // Estos ya tienen reservas ACTIVA generadas, pero se verifica por si alguno no las tiene aún.
+  // Caso 1: abonados cuyo período CUBRE la fecha consultada (periodo_inicio <= fecha <= periodo_fin).
   const abonadosVigentes = await InscripcionMensual.findAll({
     where: {
       clase_id: claseId,
-      estado: ["VIGENTE", "EN_GRACIA"],
+      estado: ["VIGENTE", "EN_GRACIA", "PENDIENTE_PAGO"],
       periodo_inicio: { [Op.lte]: fecha },
-      periodo_fin: { [Op.gt]: fecha }
+      periodo_fin: { [Op.gte]: fecha }
     },
     transaction
   });
 
-  // Caso 2: abonados vigentes cuyo período termina ANTES de la fecha, pero cuyo mes de renovación
-  // (periodo_fin → periodo_fin + 1 mes) SÍ incluye la fecha. Estos tienen preferencia de cupo
-  // para la renovación y aún no han reservado concretamente esa fecha.
+  // Caso 2: abonados vigentes cuyo período actual ya no cubre la fecha, pero la fecha
+  // cae en el mes de renovación (día siguiente a periodo_fin hasta el mismo día del mes siguiente).
   const hoy = getFechaHoyLocal();
-  const abonadosProximosARenovar = await InscripcionMensual.findAll({
+  const claseRow = await Clase.findByPk(claseId, { attributes: ["dia_semana"], transaction });
+  const candidatosRenovacion = await InscripcionMensual.findAll({
     where: {
       clase_id: claseId,
       estado: ["VIGENTE", "EN_GRACIA"],
-      periodo_fin: { [Op.gt]: hoy, [Op.lte]: fecha }
+      periodo_fin: { [Op.gte]: hoy },
     },
-    transaction
+    transaction,
+  });
+  const abonadosProximosARenovar = candidatosRenovacion.filter((abono) => {
+    const finPer = String(abono.periodo_fin).slice(0, 10);
+    if (fecha <= finPer) return false;
+    const inicioRenov = sumarDias(finPer, 1);
+    const finRenov = finDeMesCalendario(inicioRenov);
+    const fechasRenov = fechasDeClaseEnPeriodo(claseRow.dia_semana, inicioRenov, finRenov);
+    return fechasRenov.includes(fecha);
   });
 
   const emailsContados = new Set();
@@ -209,7 +282,7 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction, esta
       cliente_email: inscripcion.cliente_email,
       clase_id: clase.id,
       fecha_exacta: fecha,
-      estado: "ACTIVA",
+      estado: { [Op.in]: ESTADOS_RESERVA_OCUPAN_CUPO },
     },
     transaction,
   });
@@ -217,21 +290,11 @@ const generarReservasIndividual = async (inscripcion, clase, { transaction, esta
     throw httpError(400, "Ya tenés una reserva activa para esta clase en esa fecha");
   }
 
-  const conflictoHorario = await ReservaClase.findOne({
-    where: {
-      cliente_email: inscripcion.cliente_email,
-      fecha_exacta: fecha,
-      estado: "ACTIVA",
-      clase_id: { [Op.ne]: clase.id },
-    },
-    include: [{
-      model: Clase,
-      as: "clase",
-      where: {
-        hora_inicio: { [Op.lt]: clase.hora_fin },
-        hora_fin: { [Op.gt]: clase.hora_inicio },
-      }
-    }],
+  const conflictoHorario = await buscarConflictoHorarioCliente({
+    clienteEmail: inscripcion.cliente_email,
+    fecha,
+    clase,
+    excluirClaseId: clase.id,
     transaction,
   });
   if (conflictoHorario) {
@@ -319,21 +382,11 @@ const generarReservasMensual = async (inscripcion, clase, { transaction, estadoR
   });
 
   for (const fecha of fechasValidas) {
-    const conflictoHorario = await ReservaClase.findOne({
-      where: {
-        cliente_email: inscripcion.cliente_email,
-        fecha_exacta: fecha,
-        estado: "ACTIVA",
-        clase_id: { [Op.ne]: clase.id },
-      },
-      include: [{
-        model: Clase,
-        as: "clase",
-        where: {
-          hora_inicio: { [Op.lt]: clase.hora_fin },
-          hora_fin: { [Op.gt]: clase.hora_inicio },
-        }
-      }],
+    const conflictoHorario = await buscarConflictoHorarioCliente({
+      clienteEmail: inscripcion.cliente_email,
+      fecha,
+      clase,
+      excluirClaseId: clase.id,
       transaction,
     });
     if (conflictoHorario) {
@@ -383,6 +436,37 @@ const horasHastaClase = (fechaExacta, horaInicio) => {
 };
 
 /**
+ * Monto realmente cobrado en una inscripción individual (suma de pagos COMPLETADO).
+ * Si no hay pagos en MP, usa monto_pagado salvo seña pendiente sin cobro registrado.
+ */
+const obtenerMontoEfectivamentePagadoIndividual = async (inscripcion, transaction) => {
+  if (!inscripcion) return 0;
+
+  const pagos = await Pago.findAll({
+    where: {
+      origen_id: inscripcion.id,
+      origen: { [Op.in]: ["CLASE_SUELTA", "SEÑA", "SALDO_SEÑA"] },
+      estado: "COMPLETADO",
+    },
+    transaction,
+  });
+
+  const totalDesdePagos = pagos.reduce((sum, p) => sum + Number(p.monto), 0);
+  if (totalDesdePagos > 0.01) {
+    return Number(totalDesdePagos.toFixed(2));
+  }
+
+  const pagado = Number(inscripcion.monto_pagado ?? 0);
+  const total = Number(inscripcion.monto_total ?? 0);
+
+  if (inscripcion.modalidad === "SEÑA" && inscripcion.estado_seña === "PENDIENTE") {
+    return 0;
+  }
+
+  return Math.min(Math.max(0, pagado), total > 0 ? total : pagado);
+};
+
+/**
  * Genera el cupón de descuento para un cliente abonado que cancela con +24hs.
  * Reglas:
  *  - Monto = monto pagado de la mensualidad / cantidad de clases del período.
@@ -401,6 +485,8 @@ const generarValeAbonado = async (clienteEmail, claseId, inscripcionMensual, opt
   if (totalReservas <= 0) return null;
 
   const montoVale = Number(inscripcionMensual.monto) / totalReservas;
+  if (isNaN(montoVale) || montoVale <= 0.01) return null;
+  
   const hoyLocalStr = getFechaHoyLocal();
   const [year, month] = hoyLocalStr.split("-").map(Number);
 
@@ -437,6 +523,9 @@ const generarValeAbonado = async (clienteEmail, claseId, inscripcionMensual, opt
  * por defecto: hasta el último día del mes siguiente.
  */
 const generarValeIndividual = async (clienteEmail, claseId, monto, options = {}) => {
+  const montoNumerico = Number(monto);
+  if (isNaN(montoNumerico) || montoNumerico <= 0.01) return null;
+
   const validoDesdeStr = getFechaHoyLocal();
   const [year, month] = validoDesdeStr.split("-").map(Number);
 
@@ -522,9 +611,11 @@ const cancelarReserva = async (reservaId, emailUsuario) => {
         let montoVale = 0;
         if (inscripcion) {
           await inscripcion.update({ estado_seña: null }, { transaction });
-          montoVale = Number(inscripcion.monto_pagado);
+          montoVale = await obtenerMontoEfectivamentePagadoIndividual(inscripcion, transaction);
         }
-        vale = await generarValeIndividual(emailUsuario, reserva.clase_id, montoVale, { transaction });
+        if (montoVale > 0.01) {
+          vale = await generarValeIndividual(emailUsuario, reserva.clase_id, montoVale, { transaction });
+        }
         mensaje = "Clase cancelada con exito.";
       } else {
         mensaje = "Clase cancelada con exito.";
@@ -544,20 +635,8 @@ const cancelarReservaConNotificacion = async (reservaId, emailUsuario) => {
   const resultado = await cancelarReserva(reservaId, emailUsuario);
 
   // Disparar notificación de lista de espera de forma async (no bloquea ni propaga errores)
-  setImmediate(async () => {
-    try {
-      const { reserva } = resultado;
-      // Priorizar la lista de espera MENSUAL: intentamos notificar a un mensual primero.
-      // Si se logra notificar (porque todas las fechas del mes pasan a tener cupo), no notificamos a la individual.
-      const notificadoMensual = await notificarPrimero(reserva.clase_id, "MENSUAL");
-      if (!notificadoMensual) {
-        // Si no se notificó a nadie mensual (cola vacía o alguna fecha del mes sigue sin cupo),
-        // notificamos a la lista INDIVIDUAL para la fecha exacta de esta reserva.
-        await notificarPrimero(reserva.clase_id, "INDIVIDUAL", reserva.fecha_exacta);
-      }
-    } catch (err) {
-      console.error("[cancelarReserva] Error al notificar lista de espera:", err.message);
-    }
+  setImmediate(() => {
+    avanzarFila(resultado.reserva.clase_id, resultado.reserva.fecha_exacta);
   });
 
   return resultado;
@@ -624,15 +703,8 @@ const cancelarSeñasVencidasConNotificacion = async () => {
   }
 
   for (const reserva of reservasCanceladas) {
-    setImmediate(async () => {
-      try {
-        const notificadoMensual = await notificarPrimero(reserva.clase_id, "MENSUAL");
-        if (!notificadoMensual) {
-          await notificarPrimero(reserva.clase_id, "INDIVIDUAL", reserva.fecha_exacta);
-        }
-      } catch (err) {
-        console.error("[cancelarSeñasVencidas] Error al notificar lista de espera:", err.message);
-      }
+    setImmediate(() => {
+      avanzarFila(reserva.clase_id, reserva.fecha_exacta);
     });
   }
 
@@ -640,10 +712,14 @@ const cancelarSeñasVencidasConNotificacion = async () => {
 };
 
 module.exports = {
+  ESTADOS_RESERVA_OCUPAN_CUPO,
   fechasDeClaseEnPeriodo,
+  horariosSeSolapan,
+  buscarConflictoHorarioCliente,
   generarReservasIndividual,
   generarReservasMensual,
   cancelarReserva: cancelarReservaConNotificacion,
   obtenerCuposOcupados,
+  obtenerMontoEfectivamentePagadoIndividual,
   cancelarSeñasVencidas: cancelarSeñasVencidasConNotificacion,
 };

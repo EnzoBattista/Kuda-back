@@ -13,6 +13,7 @@ const {
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
+const { sumarDias, getFechaHoyLocal } = require("../../utils/fechas");
 
 const DIAS_SEMANA = [
   "Domingo",
@@ -27,6 +28,11 @@ const DIAS_SEMANA = [
 const QR_TIPO = "qr_acceso";
 const QR_EXPIRES_IN = process.env.QR_EXPIRES_IN || "15m";
 const MINUTOS_ANTES_CLASE = 30;
+const MINUTOS_DESPUES_INICIO = 30;
+
+const MSG_QR_INVALIDO = "El código QR no es válido";
+const MSG_QR_VENCIDO = "El código QR está vencido";
+const MSG_ASISTENCIA_OK = "Asistencia registrada con éxito";
 
 const AVATAR_DEFAULT = (email, nombre = "Cliente") =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=1e40af&color=fff&size=256`;
@@ -54,6 +60,14 @@ const restarMinutos = (hora, minutos) => {
   return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
 };
 
+const sumarMinutos = (hora, minutos) => {
+  const [h, m] = normalizarHora(hora).split(":").map(Number);
+  const total = h * 60 + m + minutos;
+  const nh = Math.floor((total % 1440) / 60);
+  const nm = total % 60;
+  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
+};
+
 const compararHoras = (a, b) => normalizarHora(a).localeCompare(normalizarHora(b));
 
 const diaSemanaHoy = () => DIAS_SEMANA[new Date().getDay()];
@@ -65,40 +79,42 @@ const fotoPerfilCliente = (cliente, usuario) => {
 };
 
 const validarMoraCliente = async (clienteEmail) => {
-  const mensualidad = await InscripcionMensual.findOne({
-    where: {
-      cliente_email: clienteEmail,
-      estado: { [Op.in]: ["VIGENTE", "EN_GRACIA", "SUSPENDIDA"] },
-    },
-    order: [["periodo_fin", "DESC"]],
+  const { getDiasGraciaMensual } = require("../sistema/configuracion.service");
+  const { obtenerInscripcionAnterior } = require("../clases/mensualidadesLifecycle.service");
+  const diasGraciaMax = await getDiasGraciaMensual();
+  const hoy = getFechaHoyLocal();
+
+  const suspendida = await InscripcionMensual.findOne({
+    where: { cliente_email: clienteEmail, estado: "SUSPENDIDA" },
   });
-
-  if (!mensualidad) return;
-
-  if (mensualidad.estado === "SUSPENDIDA") {
-    throw httpError(
-      403,
-      "Su mensualidad se encuentra suspendida por falta de pago.",
-    );
+  if (suspendida) {
+    throw httpError(403, "Su mensualidad se encuentra suspendida por falta de pago.");
   }
 
-  if (mensualidad.estado === "EN_GRACIA") {
-    const hoy = new Date();
-    const fin = new Date(mensualidad.periodo_fin);
-    const diasGracia = (hoy - fin) / (1000 * 60 * 60 * 24);
-    if (diasGracia > 10) {
-      throw httpError(
-        403,
-        "Su mensualidad se encuentra suspendida por falta de pago.",
-      );
+  const enGracia = await InscripcionMensual.findOne({
+    where: { cliente_email: clienteEmail, estado: "EN_GRACIA" },
+    order: [["periodo_inicio", "DESC"]],
+  });
+
+  if (enGracia) {
+    const anterior = await obtenerInscripcionAnterior(enGracia);
+    const anclaGracia = anterior
+      ? String(anterior.periodo_fin).slice(0, 10)
+      : String(enGracia.periodo_fin).slice(0, 10);
+    const finGracia = sumarDias(anclaGracia, diasGraciaMax);
+    if (hoy > finGracia) {
+      throw httpError(403, "Su mensualidad se encuentra suspendida por falta de pago.");
     }
   }
 };
 
 const claseEnVentana = (clase, horaActual) => {
   const inicioVentana = restarMinutos(clase.hora_inicio, MINUTOS_ANTES_CLASE);
-  const fin = normalizarHora(clase.hora_fin);
-  return compararHoras(horaActual, inicioVentana) >= 0 && compararHoras(horaActual, fin) <= 0;
+  const finVentana = sumarMinutos(clase.hora_inicio, MINUTOS_DESPUES_INICIO);
+  return (
+    compararHoras(horaActual, inicioVentana) >= 0 &&
+    compararHoras(horaActual, finVentana) <= 0
+  );
 };
 
 const ordenarPorHorario = (a, b) =>
@@ -143,12 +159,15 @@ const verificarTokenQr = (token) => {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     if (payload.type !== QR_TIPO || !payload.email || !payload.reserva_id) {
-      throw httpError(400, "QR no es valido");
+      throw httpError(400, MSG_QR_INVALIDO);
     }
     return payload;
   } catch (err) {
     if (err.status) throw err;
-    throw httpError(400, "QR no es valido");
+    if (err.name === "TokenExpiredError") {
+      throw httpError(400, MSG_QR_VENCIDO);
+    }
+    throw httpError(400, MSG_QR_INVALIDO);
   }
 };
 
@@ -163,7 +182,7 @@ const generarQrCliente = async (clienteEmail) => {
 
   const reserva = await buscarReservaTurnoActual(clienteEmail);
   if (!reserva) {
-    throw httpError(400, "No posee reserva activa para el turno actual.");
+    throw httpError(400, "No posee reserva activa dentro del horario actual.");
   }
 
   const token = generarTokenQr(clienteEmail, reserva.id);
@@ -204,7 +223,22 @@ const escanearQr = async (token) => {
     reserva.estado !== "ACTIVA" ||
     reserva.fecha_exacta !== hoyLocalISO()
   ) {
-    throw httpError(400, "QR no es valido");
+    throw httpError(400, MSG_QR_INVALIDO);
+  }
+
+  if (!reserva.clase?.activa || reserva.clase.dia_semana !== diaSemanaHoy()) {
+    throw httpError(400, MSG_QR_INVALIDO);
+  }
+
+  if (!claseEnVentana(reserva.clase, horaLocalActual())) {
+    throw httpError(400, MSG_QR_VENCIDO);
+  }
+
+  const asistenciaExistente = await Asistencia.findOne({
+    where: { reserva_id: reserva.id, estado: "PRESENTE" },
+  });
+  if (asistenciaExistente || reserva.asistio === true) {
+    throw httpError(409, MSG_QR_VENCIDO);
   }
 
   const usuario = reserva.cliente?.usuario;
@@ -231,7 +265,8 @@ const escanearQr = async (token) => {
 };
 
 const registrarAsistencia = async (data, staffEmail) => {
-  const { reserva_id, email, clase_id, estado, motivo_denegado } = data;
+  const { reserva_id, email, clase_id, estado, motivo_denegado, manual = false } = data;
+  const mensajeManualExito = "Asistencia registrada con éxito";
 
   if (!["PRESENTE", "DENEGADO", "AUSENTE"].includes(estado)) {
     throw httpError(400, "Estado de asistencia inválido");
@@ -254,7 +289,7 @@ const registrarAsistencia = async (data, staffEmail) => {
     throw httpError(404, "Reserva no encontrada o no coincide con los datos enviados");
   }
 
-  if (estado === "PRESENTE" || estado === "AUSENTE") {
+  if (!manual && (estado === "PRESENTE" || estado === "AUSENTE")) {
     const cliente = await Cliente.findByPk(email);
     if (!cliente?.fichaMedica) {
       throw httpError(400, "El cliente debe tener su ficha médica cargada obligatoriamente");
@@ -273,26 +308,48 @@ const registrarAsistencia = async (data, staffEmail) => {
   }
 
   const asistenciaExistente = await Asistencia.findOne({
-    where: { reserva_id: reserva.id, estado: "PRESENTE" },
+    where: { reserva_id: reserva.id },
+    order: [["createdAt", "DESC"]],
   });
 
-  if (asistenciaExistente && estado === "PRESENTE") {
-    throw httpError(409, "La asistencia ya fue registrada para esta reserva");
+  if (!manual && asistenciaExistente?.estado === "PRESENTE" && estado === "PRESENTE") {
+    throw httpError(409, "Este QR ya fue escaneado. La asistencia ya está registrada.");
+  }
+
+  if (manual && asistenciaExistente?.estado === estado) {
+    return {
+      message: mensajeManualExito,
+      asistencia: asistenciaExistente,
+    };
   }
 
   return conn.transaction(async (transaction) => {
-    const asistencia = await Asistencia.create(
-      {
-        reserva_id: reserva.id,
-        cliente_email: email,
-        clase_id: reserva.clase_id,
-        fecha: reserva.fecha_exacta,
-        estado,
-        motivo_denegado: estado === "DENEGADO" ? motivo_denegado.trim() : null,
-        registrado_por_email: staffEmail ?? null,
-      },
-      { transaction },
-    );
+    let asistencia = asistenciaExistente;
+
+    if (manual && asistenciaExistente) {
+      await asistenciaExistente.update(
+        {
+          estado,
+          motivo_denegado: estado === "DENEGADO" ? motivo_denegado.trim() : null,
+          registrado_por_email: staffEmail ?? null,
+        },
+        { transaction },
+      );
+      asistencia = asistenciaExistente;
+    } else {
+      asistencia = await Asistencia.create(
+        {
+          reserva_id: reserva.id,
+          cliente_email: email,
+          clase_id: reserva.clase_id,
+          fecha: reserva.fecha_exacta,
+          estado,
+          motivo_denegado: estado === "DENEGADO" ? motivo_denegado.trim() : null,
+          registrado_por_email: staffEmail ?? null,
+        },
+        { transaction },
+      );
+    }
 
     if (estado === "PRESENTE") {
       await reserva.update({ asistio: true }, { transaction });
@@ -301,9 +358,9 @@ const registrarAsistencia = async (data, staffEmail) => {
     }
 
     const mensajes = {
-      PRESENTE: "Reserva confirmada con éxito",
+      PRESENTE: manual ? mensajeManualExito : "Reserva confirmada con éxito",
       DENEGADO: "Se canceló la operación. El acceso fue denegado.",
-      AUSENTE: "Asistencia registrada como ausente.",
+      AUSENTE: manual ? mensajeManualExito : "Asistencia registrada como ausente.",
     };
 
     return {
@@ -399,15 +456,18 @@ const listarClasesHoy = async () => {
 
     const asistencias = await Asistencia.findAll({
       where: { clase_id: clase.id, fecha: hoy },
+      order: [["createdAt", "ASC"]],
     });
-    const asistenciaPorReserva = Object.fromEntries(
-      asistencias.map((a) => [a.reserva_id, a]),
-    );
+    const asistenciaPorReserva = {};
+    for (const asistencia of asistencias) {
+      asistenciaPorReserva[asistencia.reserva_id] = asistencia;
+    }
 
     resultado.push({
       id: clase.id,
       nombre: clase.nombre,
       actividad: clase.actividad?.nombre,
+      dia_semana: clase.dia_semana,
       hora_inicio: normalizarHora(clase.hora_inicio),
       hora_fin: normalizarHora(clase.hora_fin),
       inscriptos: reservas.map((r) => ({
@@ -430,9 +490,25 @@ const listarClasesHoy = async () => {
   return { fecha: hoy, clases: resultado };
 };
 
+/** Valida el QR y registra el ingreso en un solo paso (recepción). */
+const confirmarIngresoPorQr = async (token, staffEmail) => {
+  const datos = await escanearQr(token);
+  await registrarAsistencia(
+    {
+      reserva_id: datos.reserva_id,
+      email: datos.cliente.email,
+      clase_id: datos.clase.id,
+      estado: "PRESENTE",
+    },
+    staffEmail,
+  );
+  return { ...datos, message: MSG_ASISTENCIA_OK };
+};
+
 module.exports = {
   generarQrCliente,
   escanearQr,
+  confirmarIngresoPorQr,
   registrarAsistencia,
   listarHistorial,
   listarClasesHoy,

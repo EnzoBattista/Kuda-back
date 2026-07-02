@@ -1,6 +1,7 @@
 const app = require("./app");
 const { conn } = require("./db.js");
 const { iniciarJobListaEspera } = require("./src/jobs/listaEspera.job");
+const { iniciarJobMensualidades } = require("./src/jobs/mensualidades.job");
 require("dotenv").config();
 
 const PORT = process.env.PORT || 3001;
@@ -14,6 +15,7 @@ conn.sync({ alter: true }).then(async () => {
   }
   app.listen(PORT, "0.0.0.0", async () => {
     iniciarJobListaEspera();
+    iniciarJobMensualidades();
     console.log(`Server running on port ${PORT}`); // eslint-disable-line no-console
   });
 });

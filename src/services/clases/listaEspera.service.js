@@ -10,7 +10,7 @@ const {
   conn,
 } = require("../../../db");
 const httpError = require("../../utils/httpError");
-const { sumarUnMes, getFechaHoyLocal } = require("../../utils/fechas");
+const { finDeMesCalendario, getFechaHoyLocal } = require("../../utils/fechas");
 const { notificarCupoDisponible } = require("../notificaciones/email.listaEspera.service");
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ const anotarseEnLista = async (clienteEmail, claseId, tipo, fechaExacta = null) 
     if (tipo === "MENSUAL") {
       const { fechasDeClaseEnPeriodo } = require("./reservas.service");
       const hoy = getFechaHoyLocal();
-      const fin = sumarUnMes(hoy);
+      const fin = finDeMesCalendario(hoy);
       const fechasPeriodo = fechasDeClaseEnPeriodo(clase.dia_semana, hoy, fin);
       
       const { obtenerCuposOcupados } = require("./reservas.service");
@@ -222,7 +222,7 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
       const claseCompleta = await Clase.findByPk(claseId, { attributes: ["cupo", "dia_semana"], transaction });
       if (!claseCompleta) return null;
       const hoy = getFechaHoyLocal();
-      const fin = sumarUnMes(hoy);
+      const fin = finDeMesCalendario(hoy);
       const fechas = fechasDeClaseEnPeriodo(claseCompleta.dia_semana, hoy, fin);
       
       // Para mensualidad, se requiere que TODAS las fechas del periodo tengan cupo disponible
@@ -257,7 +257,29 @@ const notificarPrimero = async (claseId, tipo, fechaExacta = null) => {
   });
 };
 
-
+const avanzarFila = async (claseId, fechaExacta = null) => {
+  try {
+    const notificadoMensual = await notificarPrimero(claseId, "MENSUAL");
+    if (!notificadoMensual) {
+      if (fechaExacta) {
+        await notificarPrimero(claseId, "INDIVIDUAL", fechaExacta);
+      } else {
+        const pendientes = await ListaEspera.findAll({
+          attributes: ['fecha_exacta'],
+          where: { clase_id: claseId, tipo: "INDIVIDUAL", estado: "ESPERANDO" }
+        });
+        const fechasUnicas = [...new Set(pendientes.map(p => p.fecha_exacta))];
+        for (const fecha of fechasUnicas) {
+          if (fecha) {
+            await notificarPrimero(claseId, "INDIVIDUAL", fecha);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[avanzarFila] Error al avanzar fila:", err.message);
+  }
+};
 
 /**
  * Cron job: busca entradas en ESPERANDO de tipo INDIVIDUAL cuya fecha_exacta esté
@@ -330,7 +352,7 @@ const removerDeListaManual = async (listaEsperaId) => {
     if (eraNotificado) {
       // Se ejecuta fuera de la transacción para que el commit ya esté hecho
       setImmediate(() => {
-        notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+        avanzarFila(entrada.clase_id, entrada.fecha_exacta);
       });
     }
 
@@ -359,7 +381,7 @@ const removerDeListaCliente = async (listaEsperaId, clienteEmail) => {
 
     if (eraNotificado) {
       setImmediate(() => {
-        notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+        avanzarFila(entrada.clase_id, entrada.fecha_exacta);
       });
     }
 
@@ -453,18 +475,18 @@ const confirmarCupo = async (listaEsperaId, clienteEmail, options = {}) => {
     if (modalidad === "SEÑA") {
       data.estado_seña = "PENDIENTE";
       data.vencimiento_seña = vencimiento_seña;
-      data.monto_pagado = Number(montoTotal) / 2;
-    } else {
-      data.monto_pagado = montoTotal;
     }
 
     const inscripcion = await crearInscripcionIndividual(data);
     reservaId = inscripcion.reservas?.[0]?.id ?? null;
-    montoPagado = Number(inscripcion.monto_pagado ?? 0);
+    montoPagado =
+      modalidad === "SEÑA"
+        ? Number((montoTotal / 2).toFixed(2))
+        : Number(montoTotal);
     inscripcionIndividualId = inscripcion.id;
   } else {
     const periodoInicio = getFechaHoyLocal();
-    const periodoFin = sumarUnMes(periodoInicio);
+    const periodoFin = finDeMesCalendario(periodoInicio);
     const inscripcion = await crearInscripcionMensual({
       cliente_email: clienteEmail,
       actividad_id: actividad.id,
@@ -504,7 +526,7 @@ const rechazarCupo = async (listaEsperaId, clienteEmail) => {
   await reordenarPosiciones(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
 
   setImmediate(() => {
-    notificarPrimero(entrada.clase_id, entrada.tipo, entrada.fecha_exacta);
+    avanzarFila(entrada.clase_id, entrada.fecha_exacta);
   });
 
   return {
@@ -567,4 +589,5 @@ module.exports = {
   listarListaEspera,
   getListaEspera,
   reordenarPosiciones,
+  avanzarFila,
 };

@@ -7,7 +7,6 @@ const DIAS_SEMANA = [
   "Jueves",
   "Viernes",
   "Sabado",
-  "Domingo",
 ];
 
 module.exports = (sequelize) => {

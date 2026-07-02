@@ -14,36 +14,6 @@ const getAllPagos = async (req, res, next) => {
   }
 };
 
-const registrarPago = async (req, res, next) => {
-  try {
-    const pago = await pagosService.registrarPagoManual(req.body, req.usuario.email);
-    return res.status(201).json({
-      message: "Pago registrado correctamente",
-      data: pago,
-    });
-  } catch (error) {
-    if (error.status) {
-      return res.status(error.status).json({ message: error.message });
-    }
-    return next(error);
-  }
-};
-
-const generarPagoQr = async (req, res, next) => {
-  try {
-    const resultado = await pagosService.generarPagoQr(req.body, req.usuario.email);
-    return res.status(201).json({
-      message: "Intención de pago QR generada",
-      ...resultado,
-    });
-  } catch (error) {
-    if (error.status) {
-      return res.status(error.status).json({ message: error.message });
-    }
-    return next(error);
-  }
-};
-
 const createPreference = async (req, res, next) => {
   try {
     const { tituloPlan, precio } = req.body;
@@ -139,8 +109,6 @@ const generarComprobante = async (req, res, next) => {
 
 module.exports = {
   getAllPagos,
-  registrarPago,
-  generarPagoQr,
   createPreference,
   getEstadoPago,
   abandonarPago,

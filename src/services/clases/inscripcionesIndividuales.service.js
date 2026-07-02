@@ -61,7 +61,7 @@ const crearInscripcionIndividual = async (data) => {
         clase_id: datosInscripcion.clase_id,
         estado: { [Op.in]: ["VIGENTE", "EN_GRACIA"] },
         periodo_inicio: { [Op.lte]: fecha },
-        periodo_fin: { [Op.gt]: fecha },
+        periodo_fin: { [Op.gte]: fecha },
       },
       transaction,
     });
@@ -84,7 +84,7 @@ const crearInscripcionIndividual = async (data) => {
 
     // Aplica cupón TIPO INDIVIDUAL si vino. Recomputa monto_pagado según
     // modalidad (COMPLETO = total, SEÑA = 50%).
-    const { monto_final: montoTotalFinal, descuento } = await aplicarVale({
+    const { monto_final: montoTotalFinal } = await aplicarVale({
       vale_id,
       cliente_email: datosInscripcion.cliente_email,
       clase_id: clase.id,
@@ -92,17 +92,14 @@ const crearInscripcionIndividual = async (data) => {
       tipo_inscripcion: "INDIVIDUAL",
       transaction,
     });
-    const datosFinales = { ...datosInscripcion, monto_total: montoTotalFinal };
-    if (descuento > 0) {
-      datosFinales.monto_pagado =
-        datosInscripcion.modalidad === "SEÑA"
-          ? Number((montoTotalFinal / 2).toFixed(2))
-          : montoTotalFinal;
-    }
+    const datosFinales = { ...datosInscripcion, monto_total: montoTotalFinal, monto_pagado: 0 };
 
     const inscripcion = await InscripcionIndividual.create(datosFinales, { transaction });
-    const requierePago =
-      datosFinales.modalidad === "COMPLETO" && Number(datosFinales.monto_total ?? 0) > 0;
+    const montoACobrar =
+      datosFinales.modalidad === "SEÑA"
+        ? Number((Number(datosFinales.monto_total) / 2).toFixed(2))
+        : Number(datosFinales.monto_total ?? 0);
+    const requierePago = montoACobrar > 0;
     await generarReservasIndividual(inscripcion, clase, {
       transaction,
       estadoReserva: requierePago ? "PENDIENTE_PAGO" : "ACTIVA",

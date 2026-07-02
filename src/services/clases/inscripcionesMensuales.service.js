@@ -1,10 +1,10 @@
 const { Op } = require("sequelize");
-const { InscripcionMensual, Clase, ReservaClase, CancelacionClase, InscripcionIndividual, conn } = require("../../../db");
+const { InscripcionMensual, Clase, ReservaClase, CancelacionClase, InscripcionIndividual, Actividad, conn } = require("../../../db");
 const httpError = require("../../utils/httpError");
 const { generarReservasMensual, fechasDeClaseEnPeriodo } = require("./reservas.service");
 const { notificarPrimero } = require("./listaEspera.service");
 const { aplicarVale } = require("../pagos/vales.service");
-const { getFechaHoyLocal } = require("../../utils/fechas");
+const { getFechaHoyLocal, sumarDias, finDeMesCalendario } = require("../../utils/fechas");
 
 const ESTADOS = ["VIGENTE", "EN_GRACIA", "SUSPENDIDA", "FINALIZADA", "CANCELADA", "PENDIENTE_PAGO"];
 
@@ -52,6 +52,76 @@ const validarInscripcionMensual = async (data, inscripcionIdActual = null) => {
       }
     }
   }
+};
+
+/**
+ * Crea la mensualidad del mes siguiente en PENDIENTE_PAGO para guardar cupo.
+ * Idempotente: no duplica si ya existe una impaga consecutiva.
+ */
+const crearProximaMensualidadPendiente = async (inscripcionVigente, transaction = null) => {
+  const run = async (tx) => {
+    const vigente = inscripcionVigente.toJSON
+      ? inscripcionVigente
+      : inscripcionVigente;
+
+    if (!["VIGENTE", "FINALIZADA"].includes(vigente.estado)) return null;
+
+    const periodoInicio = sumarDias(String(vigente.periodo_fin).slice(0, 10), 1);
+    const periodoFin = finDeMesCalendario(periodoInicio);
+
+    const existente = await InscripcionMensual.findOne({
+      where: {
+        cliente_email: vigente.cliente_email,
+        clase_id: vigente.clase_id,
+        inscripcion_anterior_id: vigente.id,
+        estado: { [Op.in]: ["PENDIENTE_PAGO", "EN_GRACIA"] },
+      },
+      transaction: tx,
+    });
+    if (existente) return existente;
+
+    const solapamiento = await InscripcionMensual.findOne({
+      where: {
+        cliente_email: vigente.cliente_email,
+        clase_id: vigente.clase_id,
+        estado: { [Op.in]: ["PENDIENTE_PAGO", "EN_GRACIA", "VIGENTE"] },
+        periodo_inicio: periodoInicio,
+      },
+      transaction: tx,
+    });
+    if (solapamiento) return null;
+
+    const clase = await Clase.findByPk(vigente.clase_id, { transaction: tx });
+    if (!clase || !clase.activa) return null;
+
+    const actividad = await Actividad.findByPk(vigente.actividad_id, { transaction: tx });
+    const monto = actividad ? Number(actividad.precio) : Number(vigente.monto);
+
+    const proxima = await InscripcionMensual.create(
+      {
+        cliente_email: vigente.cliente_email,
+        actividad_id: vigente.actividad_id,
+        clase_id: vigente.clase_id,
+        periodo_inicio: periodoInicio,
+        periodo_fin: periodoFin,
+        dia_vencimiento: periodoFin,
+        monto,
+        estado: "PENDIENTE_PAGO",
+        inscripcion_anterior_id: vigente.id,
+      },
+      { transaction: tx },
+    );
+
+    await generarReservasMensual(proxima, clase, {
+      transaction: tx,
+      estadoReserva: "PENDIENTE_PAGO",
+    });
+
+    return proxima;
+  };
+
+  if (transaction) return run(transaction);
+  return conn.transaction(run);
 };
 
 /**
@@ -197,6 +267,11 @@ const crearInscripcionMensual = async (data) => {
     return InscripcionMensual.findByPk(inscripcion.id, {
       include: [{ model: ReservaClase, as: "reservas" }],
       transaction,
+    }).then(async (resultado) => {
+      if (estadoInscripcion === "VIGENTE") {
+        await crearProximaMensualidadPendiente(resultado, transaction);
+      }
+      return resultado;
     });
   });
 };
@@ -297,4 +372,5 @@ module.exports = {
   validarInscripcionMensual,
   crearInscripcionMensual,
   actualizarInscripcionMensual,
+  crearProximaMensualidadPendiente,
 };

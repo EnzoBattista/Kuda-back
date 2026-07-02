@@ -9,18 +9,34 @@ const calcularEdad = (fechaNacimiento) => {
   return edad;
 };
 
+/** Suma un mes calendario en UTC (evita desfases por zona horaria). */
 const sumarUnMes = (fechaIso) => {
-  const d = new Date(fechaIso);
-  d.setMonth(d.getMonth() + 1);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = String(fechaIso).slice(0, 10).split("-").map(Number);
+  const cursor = new Date(Date.UTC(y, m - 1, d));
+  cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  return cursor.toISOString().slice(0, 10);
+};
+
+/** Último día del mes calendario que contiene la fecha (YYYY-MM-DD). */
+const finDeMesCalendario = (fechaIso) => {
+  const [y, m] = String(fechaIso).slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+};
+
+/** Suma días en UTC (evita desfases por zona horaria). */
+const sumarDias = (fechaIso, dias) => {
+  const [y, m, d] = String(fechaIso).slice(0, 10).split("-").map(Number);
+  const cursor = new Date(Date.UTC(y, m - 1, d));
+  cursor.setUTCDate(cursor.getUTCDate() + dias);
+  return cursor.toISOString().slice(0, 10);
 };
 
 /**
- * Devuelve todas las fechas (YYYY-MM-DD) dentro del rango [inicio, fin)
+ * Devuelve todas las fechas (YYYY-MM-DD) dentro del rango [inicio, fin]
  * que correspondan al día de la semana indicado.
  * @param {string} diaSemana  - Nombre en español: "Lunes", "Martes", ..., "Domingo"
  * @param {string} inicioIso  - Fecha inicio ISO (incluida): "2026-06-01"
- * @param {string} finIso     - Fecha fin ISO (excluida):    "2026-07-01"
+ * @param {string} finIso     - Fecha fin ISO (incluida):    "2026-07-01"
  * @returns {string[]}        - Array de fechas "YYYY-MM-DD"
  */
 const DIAS_SEMANA_MAP = {
@@ -42,7 +58,7 @@ const fechasDelMesPorDia = (diaSemana, inicioIso, finIso) => {
   const cursor = new Date(inicioIso + "T00:00:00Z");
   const fin = new Date(finIso + "T00:00:00Z");
 
-  while (cursor < fin) {
+  while (cursor <= fin) {
     if (cursor.getUTCDay() === targetDay) {
       fechas.push(cursor.toISOString().slice(0, 10));
     }
@@ -75,4 +91,12 @@ const getHoraLocal = () => {
   return formatter.format(d);
 };
 
-module.exports = { calcularEdad, sumarUnMes, fechasDelMesPorDia, getFechaHoyLocal, getHoraLocal };
+module.exports = {
+  calcularEdad,
+  sumarUnMes,
+  sumarDias,
+  finDeMesCalendario,
+  fechasDelMesPorDia,
+  getFechaHoyLocal,
+  getHoraLocal,
+};

@@ -53,12 +53,8 @@ const getIngresosMensuales = async (req, res, next) => {
 
 const getHorariosSeleccionados = async (req, res, next) => {
   try {
-    const { anio, actividad_id } = req.query;
-    const actividadId =
-      actividad_id && actividad_id !== "all" && actividad_id !== "todas"
-        ? Number(actividad_id)
-        : null;
-    const data = await reportesService.getHorariosSeleccionados({ anio, actividadId });
+    const { anio } = req.query;
+    const data = await reportesService.getHorariosSeleccionados({ anio });
     return res.status(200).json(data);
   } catch (error) {
     return next(error);
